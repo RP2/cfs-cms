@@ -1,0 +1,27 @@
+{
+	"files.associations": {
+		"*.css": "tailwindcss"
+	},
+	"editor.defaultFormatter": "esbenp.prettier-vscode",
+	"editor.formatOnSave": true,
+	"editor.codeActionsOnSave": {
+		"source.fixAll.eslint": "explicit"
+	},
+	"search.exclude": {
+		"node_modules": true,
+		".git": true
+	},
+	"files.watcherExclude": {
+		"node_modules": true,
+		".git": true
+	},
+	"[typescript]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"[javascript]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	},
+	"[svelte]": {
+		"editor.defaultFormatter": "svelte.svelte-vscode"
+	}
+}

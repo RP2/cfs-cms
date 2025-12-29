@@ -1,0 +1,203 @@
+# CFS CMS - AI Context & Instructions
+
+This file is for AI assistants working on this project. It provides quick context for picking up work between sessions.
+
+## Quick Context
+
+**Project**: CFS CMS - Centralized Content Management System  
+**Tech Stack**: SvelteKit + TypeScript + Cloudflare (Workers, D1, R2)  
+**Current Phase**: Phase 0 - Foundation & Planning  
+**Last Active**: December 29, 2025
+
+## How to Use This Project
+
+1. **First Time?** Read these in order:
+   - [README.md](README.md) - Project overview
+   - [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) - Architecture & decisions
+   - [ROADMAP.md](ROADMAP.md) - Phase breakdown
+   - [TODO.md](TODO.md) - Current tasks
+
+2. **Returning?** Check:
+   - [TODO.md](TODO.md) - What's in progress/next
+   - [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) - Architecture reference
+   - Git log - Recent changes
+   - VS Code problems panel - Any current issues
+
+3. **Building Features?**
+   - Check `/src/lib/types` for data structures
+   - Reference `PROJECT_CONTEXT.md` for architecture
+   - Follow conventions in `docs/COMPONENT_GUIDE.md` (TBD)
+   - Look at existing components for patterns
+
+## Key Decision Points
+
+### Tech Stack
+
+- **Framework**: SvelteKit (not Next.js or plain React)
+- **Host**: Cloudflare Workers (not traditional Node server)
+- **Database**: D1 SQLite (not PostgreSQL)
+- **Storage**: R2 object storage (not GCS or S3)
+- **Why**: Edge computing + integrated ecosystem + learning goal
+
+### Architecture
+
+- **Components**: Live in `/src/routes` and `/src/lib/components`
+- **Business Logic**: Lives in `/src/lib/services`
+- **Types**: Centralized in `/src/lib/types`
+- **Stores**: Svelte stores in `/src/lib/stores` for state
+- **No**: Business logic in components; complex components in routes
+
+### UI Inspiration
+
+- **Google Drive**-like interface
+- Sidebar navigation + main content area
+- Grid/list view toggle
+- Drag & drop folder management
+- Tag-based search/filtering
+
+## File Structure Reference
+
+```
+/
+├── README.md                 ← Project overview
+├── PROJECT_CONTEXT.md        ← Architecture & decisions (READ FIRST)
+├── ROADMAP.md                ← Phase breakdown & timeline
+├── TODO.md                   ← Current tasks & progress
+├── .cursorrules              ← AI context (this file pattern)
+├── src/
+│   ├── routes/               ← Pages & layouts
+│   │   ├── +page.svelte
+│   │   ├── +layout.svelte
+│   │   └── (sections)/       ← Route groups
+│   ├── lib/
+│   │   ├── components/       ← Reusable UI components
+│   │   ├── services/         ← Business logic & API
+│   │   ├── stores/           ← Svelte stores
+│   │   ├── types/            ← TypeScript type definitions
+│   │   ├── utils/            ← Utilities & helpers
+│   │   └── index.ts          ← Barrel export
+│   ├── app.html              ← HTML shell
+│   └── app.d.ts              ← App type definitions
+├── docs/
+│   ├── DATABASE.md           ← Schema & models (TBD)
+│   ├── ARCHITECTURE.md       ← System design (TBD)
+│   ├── CLOUDFLARE_SETUP.md   ← Cloudflare config (TBD)
+│   └── DEVELOPMENT.md        ← Dev environment setup (TBD)
+└── static/
+    └── robots.txt
+```
+
+## Development Commands
+
+```bash
+# Install dependencies
+npm install
+
+# Start dev server
+npm run dev
+
+# Build production
+npm run build
+
+# Preview production build
+npm run preview
+
+# Type check
+npm run check
+
+# Lint
+npm run lint
+
+# Format (if configured)
+npm run format
+```
+
+## Current Priorities
+
+**Phase 0 (This Week)**:
+
+1. Create core directory structure
+2. Design database schema
+3. Setup Cloudflare integration
+4. Configure TypeScript
+
+**Phase 1 (Next)**: Authentication system
+
+## Common Tasks
+
+### Adding a Component
+
+1. Create file in `/src/lib/components/ComponentName.svelte`
+2. Export in `/src/lib/index.ts` (barrel export)
+3. Create types in `/src/lib/types/Component.ts` if needed
+4. Document props in component comments
+
+### Adding a Service
+
+1. Create file in `/src/lib/services/serviceName.ts`
+2. Export in `/src/lib/index.ts`
+3. Use in components via stores or page logic
+4. Keep business logic out of components
+
+### Adding a Page
+
+1. Create folder in `/src/routes/pageName/`
+2. Add `+page.svelte` for page content
+3. Add `+layout.svelte` if custom layout needed
+4. Add `+page.server.ts` if backend logic needed
+
+### Database Changes
+
+1. Update schema in `/docs/DATABASE.md`
+2. Create migration file (format TBD)
+3. Run migration on D1
+4. Update types in `/src/lib/types/`
+
+## Important Notes
+
+- **SvelteKit is NEW**: Use official docs for reference
+- **Cloudflare Workers**: Watch out for cold starts and memory limits
+- **D1 Limitations**: Concurrent writes limited, design carefully
+- **Learning Goal**: This is intentionally exploring SvelteKit
+- **Open Source Future**: Code should be clean and well-documented
+
+## Debugging
+
+- VS Code debug panel - Run debug config (TBD)
+- Wrangler dev - Local Cloudflare environment
+- Browser DevTools - Client-side debugging
+- Server console - Check terminal output
+
+## References
+
+- [SvelteKit Documentation](https://svelte.dev/docs/kit)
+- [Cloudflare Workers](https://developers.cloudflare.com/workers/)
+- [D1 Database](https://developers.cloudflare.com/d1/)
+- [R2 Object Storage](https://developers.cloudflare.com/r2/)
+- [Svelte Components](https://svelte.dev/docs/svelte/what-is-svelte)
+
+## Questions to Ask
+
+When picking up this project, ask:
+
+- What phase are we in?
+- What's the current highest priority task?
+- What blockers exist? (Check TODO.md)
+- What's the most recent architecture decision?
+- Are there any pending design decisions?
+
+## Handoff Checklist
+
+Before handing off to another AI model:
+
+1. Update TODO.md with current status
+2. Commit all work to git
+3. Write brief summary in PROJECT_CONTEXT.md under "Current Status"
+4. Note any blockers/decisions needed
+5. Provide last 5-10 git commits as reference
+
+---
+
+**Created**: December 29, 2025  
+**For**: AI Models (Claude, Copilot, Cursor, etc.)  
+**Questions?**: Check PROJECT_CONTEXT.md or ROADMAP.md
