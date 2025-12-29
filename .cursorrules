@@ -5,8 +5,8 @@ This file is for AI assistants working on this project. It provides quick contex
 ## Quick Context
 
 **Project**: CFS CMS - Centralized Content Management System  
-**Tech Stack**: SvelteKit + TypeScript + Cloudflare (Workers, D1, R2)  
-**Current Phase**: Phase 0 - Foundation & Planning  
+**Tech Stack**: SvelteKit + TypeScript + shadcn-svelte + Cloudflare  
+**Current Phase**: Phase 1 - UI/UX First (In Progress)  
 **Last Active**: December 29, 2025
 
 ## How to Use This Project
@@ -34,10 +34,13 @@ This file is for AI assistants working on this project. It provides quick contex
 ### Tech Stack
 
 - **Framework**: SvelteKit (not Next.js or plain React)
+- **UI Library**: shadcn-svelte (Svelte port of shadcn/ui - copy-paste components)
+- **Styling**: Tailwind CSS 4.1.17 (full customization via component files)
 - **Host**: Cloudflare Workers (not traditional Node server)
-- **Database**: D1 SQLite (not PostgreSQL)
-- **Storage**: R2 object storage (not GCS or S3)
-- **Why**: Edge computing + integrated ecosystem + learning goal
+- **Database**: D1 SQLite (not PostgreSQL) - Phase 2
+- **Storage**: R2 object storage (not GCS or S3) - Phase 2
+- **Auth**: Cloudflare Zero Trust (MVP) + optional SvelteKit auth (Phase 3)
+- **Why**: Edge computing + integrated ecosystem + learning goal + familiar component patterns
 
 ### Architecture
 
@@ -47,13 +50,33 @@ This file is for AI assistants working on this project. It provides quick contex
 - **Stores**: Svelte stores in `/src/lib/stores` for state
 - **No**: Business logic in components; complex components in routes
 
-### UI Inspiration
+### UI Inspiration & Implementation
 
-- **Google Drive**-like interface
+- **Google Drive**-like interface - familiar UX for users
+- shadcn-svelte components provide the building blocks
 - Sidebar navigation + main content area
 - Grid/list view toggle
 - Drag & drop folder management
 - Tag-based search/filtering
+- **Key Components**: Button, Card, Dialog, Input, Tabs, Breadcrumb, DropdownMenu, ContextMenu
+
+### Phase 1: UI-First Development Strategy
+
+**Goal**: Build fully interactive Google Drive-like interface with mocked data (no backend yet)
+
+- **Mock Data**: Lives in `src/lib/data/mock.ts`, seeded by `PUBLIC_USE_MOCK_DATA` env var
+- **State**: Svelte stores in `src/lib/stores/` (workspace, folders, files, tags, selection)
+- **Demo Page**: `/demo` showcases mocked CMS (public example)
+- **Production**: When `PUBLIC_USE_MOCK_DATA` unset, queries go to real D1 backend (Phase 2)
+- **UI Testing**: Local browser testing with no API calls needed
+- **Easy Migration**: Once Phase 2 starts, swap mock data queries with real D1 queries
+
+### Phase 2: Cloudflare Backend
+
+- Connect D1 database queries
+- R2 file upload integration
+- Search with D1 queries
+- Sessions with D1 storage
 
 ## File Structure Reference
 

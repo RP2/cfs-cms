@@ -1,99 +1,90 @@
 # CFS CMS - Active TODO List
 
-## Current Phase: Phase 0 - Foundation & Planning
+## Current Phase: Phase 1 - UI/UX First (MVP)
 
-### High Priority (This Week)
+**Strategy**: Build functional Google Drive-like UI with mocked data first. Backend integration with Cloudflare comes after UI is solid. Auth deferred until Phase 2 (using Cloudflare Zero Trust for MVP protection).
 
-- [ ] **Create core directory structure**
-  - [ ] Create `/src/lib/components` directory
-  - [ ] Create `/src/lib/services` directory
-  - [ ] Create `/src/lib/types` directory
-  - [ ] Create `/src/lib/stores` directory
-  - [ ] Create `/docs` directory for documentation
+### High Priority - Week 1 (UI Foundation)
 
-- [ ] **Design database schema**
-  - [ ] Sketch out all tables (users, files, folders, tags, etc.)
-  - [ ] Define relationships and constraints
-  - [ ] Document schema in `/docs/DATABASE.md`
+#### Install & Setup shadcn-svelte
 
-- [ ] **Setup Cloudflare integration**
-  - [ ] Research Cloudflare Workers adapter for SvelteKit
-  - [ ] Configure wrangler.toml
-  - [ ] Setup local D1 database
-  - [ ] Document Cloudflare setup in `/docs/CLOUDFLARE_SETUP.md`
+- [ ] Install shadcn-svelte CLI and components
+- [ ] Add Button, Card, Dialog, Input, Separator, Tabs components
+- [ ] Verify Tailwind integration working with shadcn components
+- [ ] Commit initial component setup
 
-- [ ] **Initialize TypeScript configuration**
-  - [ ] Review tsconfig.json
-  - [ ] Setup strict mode
-  - [ ] Configure path aliases (@/lib, etc.)
+#### Core Component Structure
 
-### Medium Priority (Next 1-2 Weeks)
+- [ ] Create `Sidebar.svelte` - Workspace switcher, folder navigation
+- [ ] Create `Header.svelte` - Search, breadcrumbs, user menu placeholder
+- [ ] Create `FileGrid.svelte` - Grid display of files/folders
+- [ ] Create `FileListItem.svelte` - Individual file/folder card
+- [ ] Create `FolderTree.svelte` - Collapsible folder hierarchy
+- [ ] Create `BreadcrumbNav.svelte` - Current path navigation
 
-- [ ] **Development environment setup**
-  - [ ] Create development guide in `/docs/DEVELOPMENT.md`
-  - [ ] Setup linting/formatting rules
-  - [ ] Configure pre-commit hooks
-  - [ ] Document env variables in `.env.example`
+#### Main Layout Pages
 
-- [ ] **Create initial type definitions**
-  - [ ] User types
-  - [ ] File types
-  - [ ] Folder types
-  - [ ] Tag types
-  - [ ] Permission types
+- [ ] Update `src/routes/+layout.svelte` - Main app shell with sidebar + header
+- [ ] Create `src/routes/+page.svelte` - Workspace selector / welcome
+- [ ] Create `src/routes/workspace/[id]/+page.svelte` - Main dashboard (folder view)
 
-- [ ] **Setup testing framework**
-  - [ ] Choose testing library (Vitest, Jest)
-  - [ ] Configure test setup
-  - [ ] Create test template
+### High Priority - Week 2 (Interaction & State)
 
-- [ ] **Documentation structure**
-  - [ ] Create `/docs/ARCHITECTURE.md`
-  - [ ] Create `/docs/DEVELOPMENT.md`
-  - [ ] Create `/docs/DATABASE.md`
-  - [ ] Create `/docs/CLOUDFLARE_SETUP.md`
-  - [ ] Create `/docs/COMPONENT_GUIDE.md`
+#### Svelte Stores (State Management)
 
-### Low Priority (Phase 1 Prep)
+- [ ] Create `src/lib/stores/workspace.ts` - Current workspace state
+- [ ] Create `src/lib/stores/folders.ts` - Folder navigation, current folder
+- [ ] Create `src/lib/stores/files.ts` - File list, sorting, filtering
+- [ ] Create `src/lib/stores/tags.ts` - Available tags state
+- [ ] Create `src/lib/stores/selection.ts` - Selected files/folders (for actions)
 
-- [ ] **Spike: SvelteKit learning**
-  - [ ] Review official SvelteKit docs
-  - [ ] Complete basic tutorial
-  - [ ] Document key learnings
+#### Mock Data Seeding
 
-- [ ] **Spike: Cloudflare infrastructure**
-  - [ ] Research D1 limitations
-  - [ ] Research R2 best practices
-  - [ ] Research KV use cases
+- [ ] Create `src/lib/data/mock.ts` - Sample workspaces, folders, files, tags
+- [ ] Add `PUBLIC_USE_MOCK_DATA` env var check for seeding
+- [ ] Create realistic sample data (5+ workspaces, 20+ folders, 50+ files)
+- [ ] Add `src/routes/demo` page showcasing mock data
+- [ ] Ensure mock data easily disableable in production
 
-- [ ] **Design decisions document**
-  - [ ] Create `/docs/DESIGN_DECISIONS.md`
-  - [ ] Document all tech choices with reasoning
+#### Modals & Dialogs
 
----
+- [ ] Create folder creation modal
+- [ ] Create file upload modal (no actual upload yet, just UI)
+- [ ] Create rename dialog
+- [ ] Create delete confirmation modal
+- [ ] Wire modals to stores (optimistic updates)
 
-## Phase 1 Preparation (Backlog)
+#### Additional Pages
 
-### Ready for Phase 1 Checklist
+- [ ] Create `src/routes/workspace/[id]/search` - Search results mockup
+- [ ] Create `src/routes/workspace/[id]/tags` - Tag browsing interface
+- [ ] Create `src/routes/workspace/[id]/settings` - Workspace settings mockup
 
-- [ ] Directory structure complete
-- [ ] Database schema finalized
-- [ ] Type definitions ready
-- [ ] Development environment documented
-- [ ] SvelteKit configured for Cloudflare
-- [ ] All tools configured (linting, formatting, testing)
+### Medium Priority - Week 3 (Refinement)
 
-### Phase 1 Tasks (Authentication & Users)
+#### Interactions & UX Polish
 
-- [ ] Setup authentication middleware
-- [ ] Create Users table/schema
-- [ ] Implement registration endpoint
-- [ ] Implement login endpoint
-- [ ] Implement logout endpoint
-- [ ] Create login UI
-- [ ] Create signup UI
-- [ ] Implement session management
-- [ ] Create protected route middleware
+- [ ] Drag-drop folder navigation (basic implementation)
+- [ ] File/folder context menu (right-click)
+- [ ] Keyboard shortcuts (Ctrl+A select, Delete, etc.)
+- [ ] Loading states and animations
+- [ ] Empty state UI (new workspace, no files)
+- [ ] Responsive mobile layout
+
+#### Search & Filtering
+
+- [ ] Local search implementation (filters mock data)
+- [ ] File type filtering
+- [ ] Sort options (name, date, size)
+- [ ] Tag filtering
+
+### Low Priority (Before Cloudflare Integration)
+
+- [ ] Dark mode toggle (Tailwind dark mode)
+- [ ] Accessibility audit (keyboard nav, ARIA labels)
+- [ ] Visual refinements based on Google Drive design patterns
+- [ ] Performance optimization (virtualization for large lists)
+- [ ] Unit tests for store logic
 
 ---
 
@@ -103,35 +94,46 @@
 - [x] Tech stack decisions made (PROJECT_CONTEXT.md)
 - [x] Architecture overview created (PROJECT_CONTEXT.md)
 - [x] Project roadmap created (ROADMAP.md)
-- [x] Context files created for AI handoff
-- [x] Create TODO list
+- [x] Context files created for AI handoff (.cursorrules, .github/copilot-instructions.md)
+- [x] Database schema designed (docs/DATABASE.md)
+- [x] Essential project files (LICENSE, CONTRIBUTING.md, .env.example)
+- [x] GitHub templates (issue/PR templates)
+- [x] dependabot.yml enhanced with production best practices
 
 ---
 
 ## Notes
 
-### Blockers/Questions
+### Architecture: UI-First Approach
 
-- [ ] Decision: Tailwind CSS vs custom Svelte styles?
-- [ ] Decision: Password hashing library? (bcrypt, argon2)
-- [ ] Decision: Session storage strategy? (Cookies, D1)
-- [ ] Decision: Email service for notifications? (Needed for Phase 1)
+- **Phase 1 Focus**: Visual interface with mocked data (local testing)
+- **Phase 2 Focus**: Cloudflare backend (D1, R2, API routes)
+- **Phase 3 Focus**: SvelteKit auth + Zero Trust dual protection
+
+### Mock Data Strategy
+
+- Mock data lives in `src/lib/data/mock.ts`
+- Seeded by environment variable `PUBLIC_USE_MOCK_DATA=true`
+- Demo page at `/demo` showcases mocked CMS
+- On production (Cloudflare), `PUBLIC_USE_MOCK_DATA` unset - queries go to D1
+- Easy to toggle for testing/development
+
+### shadcn-svelte Integration
+
+- Copy-paste component model (components copied to `src/lib/components/ui/`)
+- No hallucination - AI trained on shadcn patterns
+- Full Tailwind customization available
+- Matches Google Drive UX familiarity
 
 ### Learning Resources
 
 - [SvelteKit Docs](https://svelte.dev/docs/kit)
+- [shadcn-svelte](https://www.shadcn-svelte.com/)
+- [Tailwind CSS](https://tailwindcss.com/)
 - [Cloudflare Workers Docs](https://developers.cloudflare.com/workers/)
-- [D1 Documentation](https://developers.cloudflare.com/d1/)
-- [R2 Documentation](https://developers.cloudflare.com/r2/)
-
-### Links & References
-
-- GitHub Repo: [cfs-cms](https://github.com/yourusername/cfs-cms) (TBD)
-- Project Board: TBD
-- Figma Designs: TBD
 
 ---
 
 **Last Updated**: December 29, 2025  
-**Next Review**: January 5, 2026  
+**Current Phase**: Phase 1 (UI/UX First)  
 **Owner**: Riley

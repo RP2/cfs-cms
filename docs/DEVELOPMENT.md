@@ -28,11 +28,36 @@ npm install
 
 This installs all dependencies specified in `package.json`.
 
-### 3. Environment Variables
+### 3. Setup shadcn-svelte Components
+
+shadcn-svelte provides pre-built UI components matching Google Drive's interface:
+
+```bash
+npx shadcn-svelte@latest init
+# This will initialize shadcn-svelte in your project
+
+# Add specific components
+npx shadcn-svelte@latest add button
+npx shadcn-svelte@latest add card
+npx shadcn-svelte@latest add dialog
+npx shadcn-svelte@latest add input
+npx shadcn-svelte@latest add separator
+npx shadcn-svelte@latest add tabs
+npx shadcn-svelte@latest add breadcrumb
+npx shadcn-svelte@latest add dropdown-menu
+npx shadcn-svelte@latest add context-menu
+```
+
+Components are copied to `src/lib/components/ui/` - fully customizable via Tailwind.
+
+### 4. Environment Variables
 
 Create `.env.local` in the root directory:
 
 ```bash
+# Mock Data (Phase 1: UI development)
+PUBLIC_USE_MOCK_DATA=true
+
 # Database
 DATABASE_URL=file:./dev.db
 
@@ -47,6 +72,8 @@ CLOUDFLARE_D1_DATABASE_ID=your_d1_id
 APP_URL=http://localhost:5173
 NODE_ENV=development
 ```
+
+**Note**: During Phase 1, `PUBLIC_USE_MOCK_DATA=true` seeds the app with sample data for local testing. This env var is unset in production.
 
 ## Development Server
 

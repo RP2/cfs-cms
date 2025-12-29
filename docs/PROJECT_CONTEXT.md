@@ -30,12 +30,23 @@ This document is designed to provide AI models (Copilot, Cursor, Claude, etc.) w
   - Excellent TypeScript support
   - Better suited for Cloudflare Workers deployment
 
+### UI Library: shadcn-svelte
+
+- **Why**: Svelte port of shadcn/ui (familiar from React ecosystem)
+- **Key Advantages**:
+  - Copy-paste component model (no hallucinations, components live in your repo)
+  - Full Tailwind CSS customization
+  - Zero dependency bloat
+  - AI-friendly (extensively trained on shadcn patterns)
+- **Components Used**: Button, Card, Dialog, Input, Separator, Tabs, Breadcrumb, DropdownMenu, ContextMenu
+
 ### Infrastructure: Cloudflare
 
 - **Compute**: Cloudflare Workers (serverless functions)
 - **Database**: D1 (SQLite on edge)
 - **Storage**: R2 (S3-compatible object storage)
 - **Cache**: KV (key-value store for performance)
+- **Auth**: Zero Trust (handles MVP auth layer, SvelteKit auth comes later as optional secondary layer)
 - **Why**:
   - Edge computing reduces latency globally
   - Integrated ecosystem eliminates vendor switching
@@ -45,13 +56,10 @@ This document is designed to provide AI models (Copilot, Cursor, Claude, etc.) w
 ### Database Strategy
 
 - **Primary**: D1 (SQLite) for relational data
-- **Schema**: TBD - will include tables for:
-  - Users/Authentication
-  - Workspaces/Organizations
-  - Folders/Hierarchy
-  - Files/Content items
-  - Tags/Metadata
-  - Permissions
+- **Schema**: 11 tables designed (see docs/DATABASE.md):
+  - users, workspaces, workspace_members, folders, files, tags, file_tags, folder_tags, shares, sessions, activity_log
+- **Soft deletes**: All tables use `deleted_at` for safety
+- **Multi-tenancy**: All queries filtered by `workspace_id`
 
 ### File Storage
 
@@ -135,19 +143,45 @@ This document is designed to provide AI models (Copilot, Cursor, Claude, etc.) w
 
 ## Development Phases
 
-### Phase 0: Foundation (Current)
+### Phase 0: Foundation (Complete)
 
 - [x] Project structure planning
-- [ ] Core directory structure
-- [ ] TypeScript configuration
-- [ ] Database schema design
+- [x] Core directory structure designed
+- [x] TypeScript configuration complete
+- [x] Database schema designed (11 tables)
+- [x] Architecture documented
+- [x] IDE configuration (Cursor, VS Code/Copilot)
 
-### Phase 1: Authentication & Users
+### Phase 1: UI/UX First (In Progress)
 
-- [ ] Auth system setup
-- [ ] User model/database
-- [ ] Login/signup UI
-- [ ] Session management
+**Strategy**: Build functional Google Drive-like interface with mocked data. Backend integration comes after UI is solid.
+
+- [ ] shadcn-svelte installation and setup
+- [ ] Core components (Sidebar, Header, FileGrid, etc.)
+- [ ] SvelteKit stores for state management
+- [ ] Mock data seeding with `PUBLIC_USE_MOCK_DATA` env var
+- [ ] Main dashboard and navigation pages
+- [ ] Modals and dialogs (create, rename, delete)
+- [ ] Demo page showcasing mocked CMS
+- [ ] Local interaction testing (no backend yet)
+
+### Phase 2: Cloudflare Backend Integration
+
+- [ ] Wrangler.toml configuration
+- [ ] D1 database setup (local + remote)
+- [ ] R2 bucket configuration
+- [ ] API routes (files, folders, tags, workspaces)
+- [ ] Port mock data queries to real D1 queries
+- [ ] File upload to R2 integration
+- [ ] Search and filtering with D1 queries
+
+### Phase 3: Authentication Layer
+
+- [ ] SvelteKit auth setup (optional secondary layer)
+- [ ] User registration/login endpoints
+- [ ] Session management with D1
+- [ ] Cloudflare Zero Trust integration (primary auth)
+- [ ] User profile management
 
 ### Phase 2: Core UI & Navigation
 

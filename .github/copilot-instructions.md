@@ -14,10 +14,12 @@ You are assisting with the development of **CFS CMS**, a centralized content man
 ## Tech Stack
 
 - **Framework**: SvelteKit (v2+) with TypeScript (strict mode)
+- **UI Library**: shadcn-svelte + Tailwind CSS 4.1.17
 - **Compute**: Cloudflare Workers
 - **Database**: Cloudflare D1 (SQLite on edge)
 - **Storage**: Cloudflare R2 (S3-compatible)
 - **Cache**: Cloudflare KV
+- **Auth**: Cloudflare Zero Trust (MVP) + SvelteKit auth (Phase 3 optional)
 - **UI/UX Model**: Google Drive-like interface
 
 ## Project Philosophy
@@ -128,14 +130,18 @@ Ask for help with:
 
 ## Current Phase
 
-**Phase 0 - Foundation**: ✅ COMPLETE
+**Phase 1 - UI/UX First (In Progress)**
 
-- Vision documented
-- Architecture designed
-- Database schema complete (11 tables)
-- Development guides written
+Building the Google Drive-like interface with mocked data. Backend integration comes after UI is solid. Authentication deferred to Phase 3 (using Cloudflare Zero Trust for MVP protection).
 
-**Next**: Phase 1 (Authentication & Users)
+### Phase 1 Strategy
+
+- **Mock Data**: `src/lib/data/mock.ts` with `PUBLIC_USE_MOCK_DATA` env var
+- **State Management**: Svelte stores (`workspace`, `folders`, `files`, `tags`, `selection`)
+- **UI Components**: shadcn-svelte + custom components matching Google Drive
+- **Demo Page**: `/demo` showcases mocked CMS (public example)
+- **Local Testing**: Full interaction testing without backend
+- **Easy Migration**: Swap mock queries with D1 queries in Phase 2
 
 ## Important Notes
 

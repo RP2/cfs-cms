@@ -7,6 +7,7 @@ A modern, open-source CMS built with SvelteKit and Cloudflare infrastructure, de
 ```bash
 npm install
 npm run dev
+# Visit http://localhost:5173 to see demo with mock data
 ```
 
 ## 📚 Documentation
@@ -71,16 +72,20 @@ The `.cursorrules` file auto-loads in Cursor IDE.
 
 ## Tech Stack
 
-- **Framework**: SvelteKit + TypeScript
+- **Framework**: SvelteKit + TypeScript (strict mode)
+- **UI**: shadcn-svelte + Tailwind CSS
 - **Infrastructure**: Cloudflare (Workers, D1, R2, KV)
 - **Database**: D1 (SQLite on edge)
 - **Storage**: R2 (S3-compatible)
 
 ## Project Status
 
-**Phase 0 - Foundation**: ✅ COMPLETE
+**Phase 0 - Foundation**: ✅ COMPLETE  
+**Phase 1 - UI/UX First (IN PROGRESS)**
 
-Database schema designed. Architecture planned. Ready for Phase 1 (Authentication).
+Database schema designed, architecture planned. Currently building the user interface with shadcn-svelte components, mocked data, and Google Drive-like interaction patterns. Cloudflare backend integration happens after UI is solid.
+
+See [docs/ROADMAP.md](./docs/ROADMAP.md) for detailed phase breakdown.
 
 ## License
 
