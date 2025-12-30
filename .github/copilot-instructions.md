@@ -74,7 +74,7 @@ SvelteKit Components (UI) → State/Services → API Routes → Cloudflare Worke
 ```typescript
 // src/lib/services/serviceName.ts
 export async function getData() {
-  // API call or business logic
+	// API call or business logic
 }
 ```
 
@@ -83,9 +83,9 @@ export async function getData() {
 ```typescript
 // src/lib/types/Item.ts
 export interface Item {
-  id: string;
-  name: string;
-  // ...
+	id: string;
+	name: string;
+	// ...
 }
 ```
 
@@ -177,7 +177,19 @@ Available theme colors:
 Import from `@lucide/svelte`:
 
 ```typescript
-import { Plus, Trash2, Edit, Folder, File, Grid3x3, List, Search, Upload, ChevronDown, MoreVertical } from '@lucide/svelte';
+import {
+	Plus,
+	Trash2,
+	Edit,
+	Folder,
+	File,
+	Grid3x3,
+	List,
+	Search,
+	Upload,
+	ChevronDown,
+	MoreVertical
+} from '@lucide/svelte';
 ```
 
 Common icon usage:

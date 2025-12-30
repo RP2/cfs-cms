@@ -1,9 +1,22 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import { Separator } from '$lib/components/ui/separator';
+	import { Label } from '$lib/components/ui/label';
 	import { currentWorkspace, currentFolder, workspaceFolders } from '$lib/stores';
 	import { mockWorkspaces, getSubfolders } from '$lib/data/mock';
 	import type { Folder } from '$lib/types';
+	import {
+		Briefcase,
+		House,
+		Folder as FolderIcon,
+		ChevronDown,
+		ChevronRight,
+		Star,
+		Users,
+		Tag,
+		Plus,
+		Trash2
+	} from '@lucide/svelte';
 
 	let expandedFolders = new Set<string>();
 
@@ -40,19 +53,17 @@
 <aside class="flex h-full w-64 flex-col overflow-hidden border-r bg-sidebar">
 	<!-- Workspace Selector -->
 	<div class="border-b p-4">
-		<div class="mb-2 text-xs font-semibold text-sidebar-accent-foreground">WORKSPACES</div>
+		<Label class="mb-2 text-xs font-semibold text-sidebar-accent-foreground">WORKSPACES</Label>
 		<div class="space-y-1">
 			{#each mockWorkspaces as workspace}
-				<button
-					class="w-full truncate rounded px-3 py-2 text-left text-sm {$currentWorkspace?.id ===
-					workspace.id
-						? 'bg-sidebar-primary text-sidebar-primary-foreground'
-						: 'hover:bg-sidebar-accent'}"
-					on:click={() => selectWorkspace(workspace)}
+				<Button
+					variant={$currentWorkspace?.id === workspace.id ? 'default' : 'ghost'}
+					class="w-full justify-start"
+					onclick={() => selectWorkspace(workspace)}
 				>
-					<span class="mr-2 text-lg">💼</span>
+					<Briefcase class="mr-2 h-4 w-4" />
 					{workspace.name}
-				</button>
+				</Button>
 			{/each}
 		</div>
 	</div>
@@ -60,61 +71,61 @@
 	<!-- Navigation & Folders -->
 	<div class="flex-1 space-y-1 overflow-y-auto p-4">
 		<!-- Home -->
-		<button
-			class="w-full rounded px-3 py-2 text-left {$currentFolder === null
-				? 'bg-primary font-semibold text-primary-foreground'
-				: 'hover:bg-sidebar-accent'}"
-			on:click={() => selectFolder(null)}
+		<Button
+			variant={$currentFolder === null ? 'default' : 'ghost'}
+			class="w-full justify-start"
+			onclick={() => selectFolder(null)}
 		>
-			<span class="mr-2 text-lg">⌂</span>
+			<House class="mr-2 h-4 w-4" />
 			Home
-		</button>
+		</Button>
 
 		<Separator class="my-2" />
 
 		<!-- Folder Tree -->
-		<div class="mb-2 text-xs font-semibold text-sidebar-accent-foreground">FOLDERS</div>
-		<button
-			class="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-sidebar-accent"
-		>
-			<span>➕</span>
-			<span>New Folder</span>
-		</button>
+		<Label class="mb-2 text-xs font-semibold text-sidebar-accent-foreground">FOLDERS</Label>
+		<Button variant="ghost" class="w-full justify-start">
+			<Plus class="mr-2 h-4 w-4" />
+			New Folder
+		</Button>
 		<div class="space-y-1">
 			{#each getRootFolders() as folder (folder.id)}
 				<div>
 					<div class="flex items-center">
-						<button
-							class="flex h-6 w-6 items-center justify-center p-0 text-sm"
-							on:click={() => toggleFolder(folder.id)}
+						<Button
+							variant="ghost"
+							size="icon"
+							class="h-6 w-6"
+							onclick={() => toggleFolder(folder.id)}
 						>
-							{expandedFolders.has(folder.id) ? '▼' : '▶'}
-						</button>
-						<button
-							class="flex-1 rounded px-2 py-2 text-left text-sm {$currentFolder?.id === folder.id
-								? 'bg-primary font-semibold text-primary-foreground'
-								: 'hover:bg-sidebar-accent'}"
-							on:click={() => selectFolder(folder)}
+							{#if expandedFolders.has(folder.id)}
+								<ChevronDown class="h-4 w-4" />
+							{:else}
+								<ChevronRight class="h-4 w-4" />
+							{/if}
+						</Button>
+						<Button
+							variant={$currentFolder?.id === folder.id ? 'default' : 'ghost'}
+							class="flex-1 justify-start"
+							onclick={() => selectFolder(folder)}
 						>
-							<span class="mr-2 text-lg">📁</span>
+							<FolderIcon class="mr-2 h-4 w-4" />
 							{folder.name}
-						</button>
+						</Button>
 					</div>
 
 					<!-- Subfolders -->
 					{#if expandedFolders.has(folder.id)}
-						<div class="ml-4 space-y-1">
+						<div class="ml-6 space-y-1 border-l border-border pl-2">
 							{#each getChildren(folder.id) as subfolder (subfolder.id)}
-								<button
-									class="w-full rounded px-3 py-2 text-left text-sm {$currentFolder?.id ===
-									subfolder.id
-										? 'bg-sidebar-primary text-sidebar-primary-foreground'
-										: 'hover:bg-sidebar-accent'}"
-									on:click={() => selectFolder(subfolder)}
+								<Button
+									variant={$currentFolder?.id === subfolder.id ? 'default' : 'ghost'}
+									class="w-full justify-start"
+									onclick={() => selectFolder(subfolder)}
 								>
-									<span class="mr-2 text-lg">📂</span>
+									<FolderIcon class="mr-2 h-4 w-4" />
 									{subfolder.name}
-								</button>
+								</Button>
 							{/each}
 						</div>
 					{/if}
@@ -125,18 +136,18 @@
 		<Separator class="my-2" />
 
 		<!-- Quick Links -->
-		<div class="mb-2 text-xs font-semibold text-sidebar-accent-foreground">QUICK LINKS</div>
-		<button class="w-full rounded px-3 py-2 text-left hover:bg-sidebar-accent">
-			<span class="mr-2 text-lg">⭐</span>
+		<Label class="mb-2 text-xs font-semibold text-sidebar-accent-foreground">QUICK LINKS</Label>
+		<Button variant="ghost" class="w-full justify-start">
+			<Star class="mr-2 h-4 w-4" />
 			Starred
-		</button>
-		<button class="w-full rounded px-3 py-2 text-left hover:bg-sidebar-accent">
-			<span class="mr-2 text-lg">👥</span>
-			Shared with Me
-		</button>
-		<button class="w-full rounded px-3 py-2 text-left hover:bg-sidebar-accent">
-			<span class="mr-2 text-lg">🔖</span>
+		</Button>
+		<Button variant="ghost" class="w-full justify-start">
+			<Tag class="mr-2 h-4 w-4" />
 			Tags
-		</button>
+		</Button>
+		<Button variant="ghost" class="w-full justify-start">
+			<Trash2 class="mr-2 h-4 w-4" />
+			Trash
+		</Button>
 	</div>
 </aside>

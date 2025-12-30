@@ -15,6 +15,7 @@ This document tracks which shadcn-svelte components have been installed for easy
 ### Forms & Input
 
 - ✅ **input** - Search bar, text inputs, form fields
+- ✅ **select** - Dropdown selectors (⚠️ overwrites separator component)
 - ✅ **dialog** - Modals for create, rename, delete, upload actions
 
 ### Navigation & Menus
@@ -27,20 +28,21 @@ This document tracks which shadcn-svelte components have been installed for easy
 ### Layout & Organization
 
 - ✅ **tabs** - Grid/list view toggle
+- ✅ **toggle-group** - Toggle button groups (grid/list view)
+- ✅ **select** - Visual dividers between sections
 - ✅ **separator** - Visual dividers between sections
 
-## 📋 Planned Components (To Install)
+### Feedback & Indicators
 
-For Phase 1 completion, consider adding:
-
-- `checkbox` - Multi-select files/folders
-- `badge` - Tag display on files
-- `avatar` - User profile pictures in header
-- `label` - Form labels in modals
-- `scroll-area` - Scrollable folder trees
-- `tooltip` - Hover hints on buttons
-- `alert` - Error/success messages
-- `skeleton` - Loading state placeholders
+- ✅ **checkbox** - Multi-select files/folders
+- ✅ **badge** - Tag display on files
+- ✅ **avatar** - User profile pictures in header
+- ✅ **label** - Form labels in modals
+- ✅ **scroll-area** - Scrollable folder trees
+- ✅ **tooltip** - Hover hints on buttons
+- ✅ **alert** - Error/success messages
+- ✅ **skeleton** - Loading state placeholders
+- ✅ **separator** - Visual dividers between sections
 
 ## Component Import Pattern
 
@@ -58,6 +60,14 @@ import { Input } from '$lib/components/ui/input';
 - **Copy-Paste Pattern**: Components are copied to your repo, not imported from npm
 - **TypeScript**: All components are fully typed
 - **No Hallucinations**: AI models are trained on shadcn patterns and won't generate invalid code
+
+### ⚠️ Known Issues
+
+- **Select Component**: Installing `select` overwrites the `separator` component. If you need both, reinstall `separator` after installing `select`:
+
+  ```bash
+  npx shadcn-svelte@latest add separator
+  ```
 
 ## Related Utilities
 

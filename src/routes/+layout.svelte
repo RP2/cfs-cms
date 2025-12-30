@@ -10,7 +10,7 @@
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 
-<div class="flex h-screen flex-col bg-white">
+<div class="flex h-screen flex-col bg-background">
 	<!-- Header -->
 	<Header />
 
