@@ -248,6 +248,36 @@ export const mockFiles: File[] = [
 		tagIds: ['tag_1', 'tag_3']
 	},
 
+	// Mixed content: files at "2025 Projects" level alongside subfolders
+	{
+		id: 'file_9',
+		workspaceId: 'ws_1',
+		folderId: 'folder_1',
+		name: '2025_Overview.pdf',
+		mimeType: 'application/pdf',
+		size: 2097152, // 2 MB
+		storagePath: 'workspace_1/folder_1/2025_Overview.pdf',
+		uploadedBy: 'user_1',
+		createdAt: new Date('2025-01-01'),
+		updatedAt: new Date('2025-01-01'),
+		deletedAt: null,
+		tagIds: ['tag_2']
+	},
+	{
+		id: 'file_10',
+		workspaceId: 'ws_1',
+		folderId: 'folder_1',
+		name: 'Year_Plan.docx',
+		mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+		size: 512000,
+		storagePath: 'workspace_1/folder_1/Year_Plan.docx',
+		uploadedBy: 'user_1',
+		createdAt: new Date('2025-01-02'),
+		updatedAt: new Date('2025-01-02'),
+		deletedAt: null,
+		tagIds: []
+	},
+
 	// Logos files
 	{
 		id: 'file_7',

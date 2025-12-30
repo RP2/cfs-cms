@@ -1,10 +1,13 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import * as ContextMenu from '$lib/components/ui/context-menu/index.js';
 	import { Avatar, AvatarFallback } from '$lib/components/ui/avatar';
 	import { currentWorkspace, currentFolder, viewType } from '$lib/stores';
 	import { mockWorkspaces, getSubfolders } from '$lib/data/mock';
-	import type { Folder } from '$lib/types';
+	import type { Folder, Workspace } from '$lib/types';
 	import FolderItem from './FolderItem.svelte';
+	import RenameModal from './modals/RenameModal.svelte';
+	import DeleteConfirmModal from './modals/DeleteConfirmModal.svelte';
 	import { Briefcase, Star, Tag, Plus, Trash2, Grid3x3, List, User } from '@lucide/svelte';
 	import type { ComponentProps } from 'svelte';
 
@@ -14,14 +17,75 @@
 		...restProps
 	}: ComponentProps<typeof Sidebar.Root> = $props();
 
+	let workspaces = $state(mockWorkspaces.filter((workspace) => !workspace.deletedAt));
+	type WorkspaceIcon = 'briefcase' | 'star' | 'grid' | 'tag';
+	const workspaceIconOrder: WorkspaceIcon[] = ['briefcase', 'star', 'grid', 'tag'];
+	const workspaceIconMap: Record<WorkspaceIcon, typeof Briefcase> = {
+		briefcase: Briefcase,
+		star: Star,
+		grid: Grid3x3,
+		tag: Tag
+	};
+	let workspaceIcons = $state<Record<string, WorkspaceIcon>>(
+		mockWorkspaces.reduce(
+			(icons, workspace) => {
+				icons[workspace.id] = 'briefcase';
+				return icons;
+			},
+			{} as Record<string, WorkspaceIcon>
+		)
+	);
+
+	let renameModalOpen = $state(false);
+	let deleteModalOpen = $state(false);
+	let renameTarget = $state<Folder | null>(null);
+	let deleteTarget = $state<Folder | null>(null);
+
 	function selectWorkspace(workspace: any) {
 		currentWorkspace.set(workspace);
 		currentFolder.set(null);
 	}
 
+	function getWorkspaceIconComponent(workspaceId: string) {
+		const iconName = workspaceIcons[workspaceId] ?? 'briefcase';
+		return workspaceIconMap[iconName];
+	}
+
+	function cycleWorkspaceIcon(workspaceId: string) {
+		const currentIcon = workspaceIcons[workspaceId] ?? 'briefcase';
+		const nextIndex = (workspaceIconOrder.indexOf(currentIcon) + 1) % workspaceIconOrder.length;
+		const nextIcon = workspaceIconOrder[nextIndex];
+		workspaceIcons = { ...workspaceIcons, [workspaceId]: nextIcon };
+	}
+
+	function resetWorkspaceIcon(workspaceId: string) {
+		workspaceIcons = { ...workspaceIcons, [workspaceId]: 'briefcase' };
+	}
+
+	function handleDeleteWorkspace(workspace: Workspace) {
+		workspace.deletedAt = new Date();
+		workspaces = [...mockWorkspaces.filter((item) => !item.deletedAt)];
+
+		if ($currentWorkspace?.id === workspace.id) {
+			const nextWorkspace = workspaces[0] ?? null;
+			currentWorkspace.set(nextWorkspace);
+			currentFolder.set(null);
+		}
+	}
+
 	function getRootFolders() {
 		if (!$currentWorkspace) return [];
 		return getSubfolders(null, $currentWorkspace.id);
+	}
+
+	function handleRenameFolder(folder: Folder) {
+		renameTarget = folder;
+		renameModalOpen = true;
+	}
+
+	function handleDeleteFolder(folder: Folder) {
+		deleteTarget = folder;
+		deleteModalOpen = true;
 	}
 </script>
 
@@ -56,15 +120,34 @@
 					<span>New Workspace</span>
 				</Sidebar.MenuButton>
 			</Sidebar.MenuItem>
-			{#each mockWorkspaces as workspace}
+			{#each workspaces as workspace}
+				{@const WorkspaceIcon = getWorkspaceIconComponent(workspace.id)}
 				<Sidebar.MenuItem>
-					<Sidebar.MenuButton
-						isActive={$currentWorkspace?.id === workspace.id}
-						onclick={() => selectWorkspace(workspace)}
-					>
-						<Briefcase class="size-4" />
-						<span>{workspace.name}</span>
-					</Sidebar.MenuButton>
+					<ContextMenu.Root>
+						<ContextMenu.Trigger>
+							<Sidebar.MenuButton
+								isActive={$currentWorkspace?.id === workspace.id}
+								onclick={() => selectWorkspace(workspace)}
+							>
+								<WorkspaceIcon class="size-4" />
+								<span>{workspace.name}</span>
+							</Sidebar.MenuButton>
+						</ContextMenu.Trigger>
+						<ContextMenu.Content>
+							<ContextMenu.Item onselect={() => cycleWorkspaceIcon(workspace.id)}>
+								Change icon
+							</ContextMenu.Item>
+							<ContextMenu.Item onselect={() => resetWorkspaceIcon(workspace.id)}>
+								Reset icon
+							</ContextMenu.Item>
+							<ContextMenu.Item
+								variant="destructive"
+								onselect={() => handleDeleteWorkspace(workspace)}
+							>
+								Delete workspace
+							</ContextMenu.Item>
+						</ContextMenu.Content>
+					</ContextMenu.Root>
 				</Sidebar.MenuItem>
 			{/each}
 		</Sidebar.Menu>
@@ -87,7 +170,11 @@
 				</Sidebar.MenuItem>
 
 				{#each getRootFolders() as folder (folder.id)}
-					<FolderItem {folder} />
+					<FolderItem
+						{folder}
+						on:rename-folder={(event) => handleRenameFolder(event.detail)}
+						on:delete-folder={(event) => handleDeleteFolder(event.detail)}
+					/>
 				{/each}
 			</Sidebar.Menu>
 		</Sidebar.Group>
@@ -160,6 +247,9 @@
 			</Sidebar.MenuItem>
 		</Sidebar.Menu>
 	</Sidebar.Footer>
+
+	<RenameModal bind:open={renameModalOpen} bind:item={renameTarget} itemType="folder" />
+	<DeleteConfirmModal bind:open={deleteModalOpen} bind:item={deleteTarget} itemType="folder" />
 
 	<Sidebar.Rail />
 </Sidebar.Root>

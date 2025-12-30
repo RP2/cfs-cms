@@ -30,6 +30,13 @@ This document is designed to provide AI models (Copilot, Cursor, Claude, etc.) w
   - Excellent TypeScript support
   - Better suited for Cloudflare Workers deployment
 
+#### Svelte Runes Guidance (AI Reminder)
+
+- Use runes: `$state`, `$derived`, `$effect`, `$props`; avoid legacy `$:` reactive statements.
+- Dynamic components are default; avoid `<svelte:component>`.
+- Use `{@const}` only inside blocks/components; no top-level inline const tags.
+- Prefer shadcn components; keep layout utilities minimal outside UI components.
+
 ### UI Library: shadcn-svelte
 
 - **Why**: Svelte port of shadcn/ui (familiar from React ecosystem)
