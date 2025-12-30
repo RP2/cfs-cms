@@ -1,5 +1,5 @@
 <script lang="ts">
-	import FileGrid from '$lib/components/FileGrid.svelte';
+	import ViewWrapper from '$lib/components/ViewWrapper.svelte';
 </script>
 
-<FileGrid />
+<ViewWrapper />

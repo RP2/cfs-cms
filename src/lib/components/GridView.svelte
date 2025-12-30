@@ -1,0 +1,535 @@
+<script lang="ts">
+	import { Card, CardContent } from '$lib/components/ui/card';
+	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Spinner } from '$lib/components/ui/spinner';
+	import * as ContextMenu from '$lib/components/ui/context-menu/index.js';
+	import {
+		File as FileIcon,
+		FileImage,
+		FileVideo,
+		FileText,
+		Trash,
+		Star,
+		RotateCcw,
+		Package,
+		Calendar,
+		FolderOpen,
+		Folder as FolderIcon
+	} from '@lucide/svelte';
+	import type { SvelteComponent } from 'svelte';
+	import type { File, Folder, Tag, Workspace, ViewMode } from '$lib/types';
+
+	type IconComponent = typeof SvelteComponent;
+
+	interface Props {
+		isTrashView: boolean;
+		isLoading: boolean;
+		currentFolder: Folder | null;
+		currentView: ViewMode;
+		folders: Folder[];
+		files: File[];
+		tagHeading: string;
+		tagMap: Map<string, Tag>;
+		selectedFileIds: Set<string>;
+		deletedWorkspaces: Workspace[];
+		trashRetentionDays: number;
+		formatFileSize: (size: number) => string;
+		formatDate: (date: Date) => string;
+		formatTrashExpiry: (item: File | Folder) => string | null;
+		getFileIconComponent: (mimeType: string) => IconComponent;
+		getTagClass: (tagId: string) => string;
+		onNavigateToFolder: (folder: Folder) => void;
+		onToggleFileSelect: (id: string) => void;
+		onOpenNewFolder: (parentId?: string | null) => void;
+		onOpenRename: (item: File | Folder, type: 'file' | 'folder') => void;
+		onOpenDelete: (item: File | Folder, type: 'file' | 'folder') => void;
+		onOpenUpload: () => void;
+		onHandleStarFile: (id: string) => void;
+		onHandleStarFolder: (id: string) => void;
+		onHandleRestoreFile: (id: string) => void;
+		onHandleRestoreFolder: (id: string) => void;
+		onHandlePermanentDeleteFile: (id: string) => void;
+		onHandlePermanentDeleteFolder: (id: string) => void;
+		onHandleRestoreWorkspace: (id: string) => void;
+		onHandlePermanentDeleteWorkspace: (id: string) => void;
+	}
+
+	let {
+		isTrashView,
+		isLoading,
+		currentFolder,
+		currentView,
+		folders,
+		files,
+		tagHeading,
+		tagMap,
+		selectedFileIds,
+		deletedWorkspaces,
+		trashRetentionDays,
+		formatFileSize,
+		formatDate,
+		formatTrashExpiry,
+		getFileIconComponent,
+		getTagClass,
+		onNavigateToFolder,
+		onToggleFileSelect,
+		onOpenNewFolder,
+		onOpenRename,
+		onOpenDelete,
+		onOpenUpload,
+		onHandleStarFile,
+		onHandleStarFolder,
+		onHandleRestoreFile,
+		onHandleRestoreFolder,
+		onHandlePermanentDeleteFile,
+		onHandlePermanentDeleteFolder,
+		onHandleRestoreWorkspace,
+		onHandlePermanentDeleteWorkspace
+	}: Props = $props();
+</script>
+
+<ContextMenu.Root>
+	<ContextMenu.Trigger>
+		<div class="min-h-screen space-y-4 p-6">
+			{#if isTrashView}
+				<div
+					class="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-muted-foreground"
+				>
+					<Trash class="mt-0.5 h-4 w-4 text-destructive" />
+					<div class="space-y-1">
+						<p class="font-medium text-foreground">Trash</p>
+						<p>Items here are permanently deleted after {trashRetentionDays} days.</p>
+					</div>
+				</div>
+			{/if}
+			{#if isLoading}
+				<div class="flex min-h-96 items-center justify-center">
+					<Spinner />
+				</div>
+			{:else if !currentFolder && (folders.length > 0 || files.length > 0 || (isTrashView && deletedWorkspaces.length > 0))}
+				{#if isTrashView && deletedWorkspaces.length > 0}
+					<div>
+						<h3 class="mb-3 text-sm font-medium text-muted-foreground">WORKSPACES</h3>
+						<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+							{#each deletedWorkspaces as workspace (workspace.id)}
+								<Card class="flex h-full flex-col justify-between p-4">
+									<div class="space-y-1">
+										<p class="text-sm font-semibold text-foreground">{workspace.name}</p>
+										{#if workspace.description}
+											<p class="text-sm text-muted-foreground">{workspace.description}</p>
+										{/if}
+										{#if workspace.deletedAt}
+											<p class="text-xs text-muted-foreground">
+												Deleted {formatDate(workspace.deletedAt)}
+											</p>
+										{/if}
+									</div>
+									<div class="mt-4 flex flex-wrap gap-2">
+										<Button
+											size="sm"
+											variant="secondary"
+											onclick={() => onHandleRestoreWorkspace(workspace.id)}>Restore</Button
+										>
+										<Button
+											size="sm"
+											variant="destructive"
+											onclick={() => onHandlePermanentDeleteWorkspace(workspace.id)}
+										>
+											Delete permanently
+										</Button>
+									</div>
+								</Card>
+							{/each}
+						</div>
+					</div>
+				{/if}
+				{#if currentView !== 'tags' && folders.length > 0}
+					<div>
+						<h3 class="mb-3 text-sm font-medium text-muted-foreground">FOLDERS</h3>
+						<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+							{#each folders as folder (folder.id)}
+								<ContextMenu.Root>
+									<ContextMenu.Trigger>
+										<div class="group h-full">
+											<Card
+												class="relative h-full cursor-pointer transition-shadow hover:shadow-lg"
+												onclick={() => onNavigateToFolder(folder)}
+											>
+												{#if folder.starred}
+													<Star
+														class="absolute top-2 right-2 h-4 w-4 text-accent"
+														fill="currentColor"
+													/>
+												{/if}
+												<CardContent class="h-full p-4">
+													<div class="mb-2 flex justify-center">
+														<FolderIcon class="h-12 w-12 text-accent" />
+													</div>
+
+													<h3 class="mb-2 line-clamp-2 text-center text-sm font-medium">
+														{folder.name}
+													</h3>
+
+													{#if folder.description}
+														<p class="line-clamp-2 text-center text-xs text-muted-foreground">
+															{folder.description}
+														</p>
+													{/if}
+													{#if isTrashView}
+														{@const expiry = formatTrashExpiry(folder)}
+														{#if expiry}
+															<p
+																class="mt-2 flex items-center justify-center gap-1 text-xs text-muted-foreground"
+															>
+																<RotateCcw class="h-3 w-3" />
+																Auto-deletes {expiry}
+															</p>
+														{/if}
+													{/if}
+												</CardContent>
+											</Card>
+										</div>
+									</ContextMenu.Trigger>
+									<ContextMenu.Content>
+										{#if currentView === 'trash'}
+											<ContextMenu.Item onclick={() => onHandleRestoreFolder(folder.id)}>
+												Restore
+											</ContextMenu.Item>
+											<ContextMenu.Item
+												variant="destructive"
+												onclick={() => onHandlePermanentDeleteFolder(folder.id)}
+											>
+												Delete permanently
+											</ContextMenu.Item>
+										{:else}
+											<ContextMenu.Item onclick={() => onOpenNewFolder(folder.id)}
+												>New Folder</ContextMenu.Item
+											>
+											<ContextMenu.Item onclick={() => onOpenRename(folder, 'folder')}>
+												Edit
+											</ContextMenu.Item>
+											<ContextMenu.Item onclick={() => onHandleStarFolder(folder.id)}>
+												{folder.starred ? 'Unstar' : 'Star'}
+											</ContextMenu.Item>
+											<ContextMenu.Item
+												variant="destructive"
+												onclick={() => onOpenDelete(folder, 'folder')}
+											>
+												Move to Trash
+											</ContextMenu.Item>
+										{/if}
+									</ContextMenu.Content>
+								</ContextMenu.Root>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
+				{#if files.length > 0}
+					<h3
+						class="mb-3 text-sm font-medium text-muted-foreground"
+						class:mt-6={folders.length > 0}
+					>
+						{currentView === 'tags' ? tagHeading : 'FILES'}
+					</h3>
+					<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+						{#each files as file (file.id)}
+							{@const Icon = getFileIconComponent(file.mimeType)}
+							<ContextMenu.Root>
+								<ContextMenu.Trigger>
+									<div class="group h-full">
+										<Card class="relative h-full transition-shadow hover:shadow-lg">
+											{#if file.starred}
+												<Star
+													class="absolute top-2 right-2 h-4 w-4 text-accent"
+													fill="currentColor"
+												/>
+											{/if}
+											<div
+												class="absolute top-2 left-2 z-10 transition-opacity"
+												class:opacity-100={selectedFileIds.has(file.id)}
+												class:opacity-0={!selectedFileIds.has(file.id)}
+												class:group-hover:opacity-100={!selectedFileIds.has(file.id)}
+											>
+												<Checkbox
+													checked={selectedFileIds.has(file.id)}
+													onCheckedChange={() => onToggleFileSelect(file.id)}
+												/>
+											</div>
+
+											<CardContent class="h-full p-4">
+												<div class="mb-2 flex justify-center">
+													<Icon class="h-12 w-12 text-muted-foreground" />
+												</div>
+
+												<h3 class="mb-2 line-clamp-2 text-center text-sm font-medium">
+													{file.name}
+												</h3>
+
+												<div
+													class="flex items-center justify-center gap-2 text-xs text-muted-foreground"
+												>
+													<div class="flex items-center gap-1">
+														<Package class="h-3 w-3" />
+														{formatFileSize(file.size)}
+													</div>
+													<span>•</span>
+													<div class="flex items-center gap-1">
+														<Calendar class="h-3 w-3" />
+														{formatDate(file.createdAt)}
+													</div>
+												</div>
+
+												{#if file.tagIds && file.tagIds.length > 0}
+													<div class="mt-2 flex flex-wrap justify-center gap-1">
+														{#each file.tagIds as tagId}
+															{@const tag = tagMap.get(tagId)}
+															<Badge class={getTagClass(tagId)}>{tag?.name ?? 'Tag'}</Badge>
+														{/each}
+													</div>
+												{/if}
+												{#if isTrashView}
+													{@const expiry = formatTrashExpiry(file)}
+													{#if expiry}
+														<p
+															class="mt-2 flex items-center justify-center gap-1 text-xs text-muted-foreground"
+														>
+															<RotateCcw class="h-3 w-3" />
+															Auto-deletes {expiry}
+														</p>
+													{/if}
+												{/if}
+											</CardContent>
+										</Card>
+									</div>
+								</ContextMenu.Trigger>
+								<ContextMenu.Content>
+									{#if currentView === 'trash'}
+										<ContextMenu.Item onclick={() => onHandleRestoreFile(file.id)}>
+											Restore
+										</ContextMenu.Item>
+										<ContextMenu.Item
+											variant="destructive"
+											onclick={() => onHandlePermanentDeleteFile(file.id)}
+										>
+											Delete permanently
+										</ContextMenu.Item>
+									{:else}
+										<ContextMenu.Item onclick={() => onToggleFileSelect(file.id)}>
+											{selectedFileIds.has(file.id) ? 'Deselect' : 'Select'}
+										</ContextMenu.Item>
+										<ContextMenu.Item onclick={() => onOpenRename(file, 'file')}>
+											Edit
+										</ContextMenu.Item>
+										<ContextMenu.Item onclick={() => onHandleStarFile(file.id)}>
+											{file.starred ? 'Unstar' : 'Star'}
+										</ContextMenu.Item>
+										<ContextMenu.Item
+											variant="destructive"
+											onclick={() => onOpenDelete(file, 'file')}
+										>
+											Move to Trash
+										</ContextMenu.Item>
+									{/if}
+								</ContextMenu.Content>
+							</ContextMenu.Root>
+						{/each}
+					</div>
+				{/if}
+			{:else if currentFolder && (folders.length > 0 || files.length > 0)}
+				{#if folders.length > 0}
+					<div>
+						<h3 class="mb-3 text-sm font-medium text-muted-foreground">FOLDERS</h3>
+						<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+							{#each folders as folder (folder.id)}
+								<ContextMenu.Root>
+									<ContextMenu.Trigger>
+										<div class="group h-full">
+											<Card
+												class="relative h-full cursor-pointer transition-shadow hover:shadow-lg"
+												onclick={() => onNavigateToFolder(folder)}
+											>
+												{#if folder.starred}
+													<Star
+														class="absolute top-2 right-2 h-4 w-4 text-accent"
+														fill="currentColor"
+													/>
+												{/if}
+												<CardContent class="h-full p-4">
+													<div class="mb-2 flex justify-center">
+														<FolderIcon class="h-12 w-12 text-accent" />
+													</div>
+													<h3 class="mb-2 line-clamp-2 text-center text-sm font-medium">
+														{folder.name}
+													</h3>
+													{#if folder.description}
+														<p class="line-clamp-2 text-center text-xs text-muted-foreground">
+															{folder.description}
+														</p>
+													{/if}
+													{#if isTrashView}
+														{@const expiry = formatTrashExpiry(folder)}
+														{#if expiry}
+															<p
+																class="mt-2 flex items-center justify-center gap-1 text-xs text-muted-foreground"
+															>
+																<RotateCcw class="h-3 w-3" />
+																Auto-deletes {expiry}
+															</p>
+														{/if}
+													{/if}
+												</CardContent>
+											</Card>
+										</div>
+									</ContextMenu.Trigger>
+									<ContextMenu.Content>
+										<ContextMenu.Item onclick={() => onOpenNewFolder(folder.id)}>
+											New Folder
+										</ContextMenu.Item>
+										<ContextMenu.Item onclick={() => onOpenRename(folder, 'folder')}>
+											Edit
+										</ContextMenu.Item>
+										<ContextMenu.Item
+											variant="destructive"
+											onclick={() => onOpenDelete(folder, 'folder')}
+										>
+											Move to Trash
+										</ContextMenu.Item>
+									</ContextMenu.Content>
+								</ContextMenu.Root>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
+				{#if files.length > 0}
+					<h3
+						class="mb-3 text-sm font-medium text-muted-foreground"
+						class:mt-6={folders.length > 0}
+					>
+						{currentView === 'tags' ? tagHeading : 'FILES'}
+					</h3>
+					<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+						{#each files as file (file.id)}
+							{@const Icon = getFileIconComponent(file.mimeType)}
+							<ContextMenu.Root>
+								<ContextMenu.Trigger>
+									<div class="group h-full">
+										<Card class="relative h-full transition-shadow hover:shadow-lg">
+											{#if file.starred}
+												<Star
+													class="absolute top-2 right-2 h-4 w-4 text-accent"
+													fill="currentColor"
+												/>
+											{/if}
+											<div
+												class="absolute top-2 left-2 z-10 transition-opacity"
+												class:opacity-100={selectedFileIds.has(file.id)}
+												class:opacity-0={!selectedFileIds.has(file.id)}
+												class:group-hover:opacity-100={!selectedFileIds.has(file.id)}
+											>
+												<Checkbox
+													checked={selectedFileIds.has(file.id)}
+													onCheckedChange={() => onToggleFileSelect(file.id)}
+												/>
+											</div>
+
+											<CardContent class="h-full p-4">
+												<div class="mb-2 flex justify-center">
+													<Icon class="h-12 w-12 text-muted-foreground" />
+												</div>
+
+												<h3 class="mb-2 line-clamp-2 text-center text-sm font-medium">
+													{file.name}
+												</h3>
+
+												<div
+													class="flex items-center justify-center gap-2 text-xs text-muted-foreground"
+												>
+													<div class="flex items-center gap-1">
+														<Package class="h-3 w-3" />
+														{formatFileSize(file.size)}
+													</div>
+													<span>•</span>
+													<div class="flex items-center gap-1">
+														<Calendar class="h-3 w-3" />
+														{formatDate(file.createdAt)}
+													</div>
+												</div>
+
+												{#if file.tagIds && file.tagIds.length > 0}
+													<div class="mt-2 flex flex-wrap justify-center gap-1">
+														{#each file.tagIds as tagId}
+															{@const tag = tagMap.get(tagId)}
+															<Badge class={getTagClass(tagId)}>{tag?.name ?? 'Tag'}</Badge>
+														{/each}
+													</div>
+												{/if}
+												{#if isTrashView}
+													{@const expiry = formatTrashExpiry(file)}
+													{#if expiry}
+														<p
+															class="mt-2 flex items-center justify-center gap-1 text-xs text-muted-foreground"
+														>
+															<RotateCcw class="h-3 w-3" />
+															Auto-deletes {expiry}
+														</p>
+													{/if}
+												{/if}
+											</CardContent>
+										</Card>
+									</div>
+								</ContextMenu.Trigger>
+								<ContextMenu.Content>
+									{#if currentView === 'trash'}
+										<ContextMenu.Item onclick={() => onHandleRestoreFile(file.id)}>
+											Restore
+										</ContextMenu.Item>
+										<ContextMenu.Item
+											variant="destructive"
+											onclick={() => onHandlePermanentDeleteFile(file.id)}
+										>
+											Delete permanently
+										</ContextMenu.Item>
+									{:else}
+										<ContextMenu.Item onclick={() => onToggleFileSelect(file.id)}>
+											{selectedFileIds.has(file.id) ? 'Deselect' : 'Select'}
+										</ContextMenu.Item>
+										<ContextMenu.Item onclick={() => onOpenRename(file, 'file')}>
+											Edit
+										</ContextMenu.Item>
+										<ContextMenu.Item onclick={() => onHandleStarFile(file.id)}>
+											{file.starred ? 'Unstar' : 'Star'}
+										</ContextMenu.Item>
+										<ContextMenu.Item
+											variant="destructive"
+											onclick={() => onOpenDelete(file, 'file')}
+										>
+											Move to Trash
+										</ContextMenu.Item>
+									{/if}
+								</ContextMenu.Content>
+							</ContextMenu.Root>
+						{/each}
+					</div>
+				{/if}
+			{:else}
+				<div class="py-12 text-center">
+					<div class="mb-4 flex justify-center">
+						<FolderOpen class="h-16 w-16 text-muted-foreground" />
+					</div>
+					<p class="text-muted-foreground">
+						{currentFolder ? 'This folder is empty' : 'No files yet'}
+					</p>
+					<p class="text-sm text-muted-foreground">Upload files or create folders to get started</p>
+				</div>
+			{/if}
+		</div>
+	</ContextMenu.Trigger>
+	<ContextMenu.Content>
+		<ContextMenu.Item onclick={() => onOpenNewFolder()}>New Folder</ContextMenu.Item>
+		<ContextMenu.Item onclick={onOpenUpload}>Upload Files</ContextMenu.Item>
+	</ContextMenu.Content>
+</ContextMenu.Root>

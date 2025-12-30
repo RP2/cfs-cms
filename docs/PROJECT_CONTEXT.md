@@ -171,7 +171,7 @@ This document is designed to provide AI models (Copilot, Cursor, Claude, etc.) w
 **Strategy**: Build functional Google Drive-like interface with mocked data. Backend integration comes after UI is solid.
 
 - [ ] shadcn-svelte installation and setup
-- [ ] Core components (Sidebar, Header, FileGrid, etc.)
+- [ ] Core components (Sidebar, Header, ViewWrapper, etc.)
 - [ ] SvelteKit stores for state management
 - [ ] Mock data seeding with `PUBLIC_USE_MOCK_DATA` env var
 - [ ] Main dashboard and navigation pages

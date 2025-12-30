@@ -48,6 +48,64 @@ A Google Drive-like CMS for:
 
 ## 🚀 Quick Paths
 
+### For Developers
+
+```bash
+# Install dependencies
+npm install
+
+# Start dev server (mock data enabled)
+npm run dev
+
+# TypeScript type checking
+npm run check
+
+# Lint code
+npm run lint
+```
+
+### For AI Assistants
+
+Read in order:
+
+1. [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) - **START HERE** for technical context
+2. [docs/TODO.md](./docs/TODO.md) - Current tasks
+3. [docs/PHASE1_PROGRESS.md](./docs/PHASE1_PROGRESS.md) - What's been built
+
+## 📍 Current Status (December 30, 2025)
+
+**Phase**: 1 - UI/UX First (In Progress)  
+**Architecture**: Three-layer data flow (Components → dataService → Stores → Mock Data)  
+**Recent**: ViewWrapper pattern, workspace-scoped quick links, empty workspace deletion
+
+### Key Components Built
+
+- ✅ **app-sidebar.svelte** - Collapsible sidebar with workspace/folder navigation
+- ✅ **ViewWrapper.svelte** - File/folder display orchestrator (state management)
+- ✅ **GridView.svelte** - Card grid presentation layer
+- ✅ **ListView.svelte** - Table/list presentation layer
+- ✅ **FolderItem.svelte** - Recursive folder tree (unlimited depth)
+- ✅ **8 Modal Components** - NewFolder, NewWorkspace, Rename, Delete, Upload, etc.
+- ✅ **dataService.ts** - Complete CRUD API for all entities
+- ✅ **Stores** - Reactive state management with Svelte 5 runes
+
+### Architecture Highlights
+
+- **Mock Data**: Phase 1 uses `src/lib/data/mock.ts` (ONLY imported by stores)
+- **Data Service**: All CRUD operations through `src/lib/services/dataService.ts`
+- **Reactive UI**: Svelte 5 `$derived` for hot reloading (sidebar, grid, breadcrumbs)
+- **ViewWrapper Pattern**: Zero code duplication between grid/list views
+- **Workspace Scoped**: Quick links (Starred, Tags, Trash) filter per workspace
+- **Deletion Rules**: Files/folders soft delete (30-day trash), workspaces permanent delete (must be empty)
+
+## 🎯 What's Next
+
+See [docs/TODO.md](./docs/TODO.md) for current priorities. Phase 1 focus is completing UI/UX with full interactivity before backend integration.
+
+---
+
+## 📚 Full Documentation
+
 **New to the project?**  
 → Start with [docs/START_HERE.md](./docs/START_HERE.md)
 

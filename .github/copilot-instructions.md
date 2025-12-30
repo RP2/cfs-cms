@@ -52,9 +52,17 @@ UI Components → Data Service → Svelte Stores → Mock Data (Phase 1) / API (
 
 - `/src/routes/` - Pages and layouts (SvelteKit routing)
 - `/src/lib/components/` - Reusable UI components
+  - `app-sidebar.svelte` - Main sidebar with workspace/folder navigation
+  - `ViewWrapper.svelte` - File/folder display orchestrator (state & logic)
+  - `GridView.svelte` - Card grid presentation (pure UI)
+  - `ListView.svelte` - Table/list presentation (pure UI)
+  - `FolderItem.svelte` - Recursive folder tree component
+  - `modals/` - All modal dialogs (NewFolder, Rename, Delete, etc.)
 - `/src/lib/services/` - Business logic and API client
+  - `dataService.ts` - All CRUD operations, abstracts data access
 - `/src/lib/stores/` - Svelte stores for state management
 - `/src/lib/types/` - TypeScript type definitions
+- `/src/lib/data/` - Mock data (Phase 1 only)
 - `/docs/` - All project documentation
 
 ## Code Patterns
@@ -272,11 +280,14 @@ Common icon usage:
 ## Important Notes
 
 1. **No business logic in components** - Keep components focused on UI
-2. **Soft deletes** - Use `deleted_at` column, never hard delete
-3. **Type safety** - Strict TypeScript mode, all types defined
-4. **Multi-tenancy** - All queries must filter by workspace_id
-5. **Error handling** - Wrap async operations with try/catch
-6. **Performance** - Cache in KV when appropriate, paginate large queries
+2. **Deletion rules**:
+   - Files/folders: Soft delete with `deletedAt` (30-day trash retention)
+   - Workspaces: Permanent delete (must be empty, no trash for workspaces)
+3. **Workspace scoping**: Quick links (Starred, Tags, Trash) are workspace-specific
+4. **Type safety** - Strict TypeScript mode, all types defined
+5. **Multi-tenancy** - All queries must filter by workspace_id
+6. **Error handling** - Wrap async operations with try/catch
+7. **Performance** - Cache in KV when appropriate, paginate large queries
 
 ## Code Quality Standards
 
@@ -305,8 +316,9 @@ When passing to another AI:
 
 ---
 
-**Last Updated**: December 29, 2025  
+**Last Updated**: December 30, 2025  
 **Project Phase**: 1 - UI/UX First (In Progress)  
 **Theme**: Monochromatic + Orange Accent  
 **Icons**: Lucide SVG Icons  
+**Component Architecture**: ViewWrapper → GridView/ListView pattern  
 **Ready For**: CRUD Operations & Interactive Features

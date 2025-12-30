@@ -1,5 +1,43 @@
 # Phase 1 Implementation Progress
 
+## Recent Updates (December 30, 2025)
+
+### Component Architecture Refactor
+
+- **Renamed Components**:
+  - `FileGrid.svelte` → `ViewWrapper.svelte` (orchestrator)
+  - `FileGridGridView.svelte` → `GridView.svelte` (presentation)
+  - `FileGridListView.svelte` → `ListView.svelte` (presentation)
+
+- **ViewWrapper Pattern Benefits**:
+  - Zero code duplication between grid and list views
+  - All business logic centralized in ViewWrapper
+  - GridView and ListView are pure presentation components
+  - Consistent behavior across both view types
+
+### Quick Links Scoping
+
+- **Changed from Global to Workspace-Scoped**:
+  - Starred: Shows starred items in current workspace only
+  - Tags: Shows tagged files in current workspace only
+  - Trash: Shows deleted items in current workspace only
+- **Why**: Simpler mental model, no need for global trash/starred views, consistent with workspace isolation
+
+### Workspace Deletion
+
+- **Permanent Deletion**: Workspaces are permanently deleted (no trash)
+- **Empty Requirement**: Cannot delete workspace with content
+- **Validation**: dataService throws error if workspace contains files/folders
+- **User Flow**: Must delete or move all content before workspace deletion
+
+### Tags View Fix
+
+- **Issue**: Tags view showed nothing when no filter was applied
+- **Fix**: Now shows all tagged files in current workspace
+- **Behavior**: If tag filter is applied, shows only those tagged files; otherwise shows all tagged files
+
+---
+
 ## Completed ✅
 
 ### Architecture & Data Flow (December 30, 2025)
@@ -77,15 +115,28 @@
   - Active state highlighting
   - Proper indentation for nested folders
 
-- [x] Implemented FileGrid.svelte
-  - Grid view with file/folder cards
-  - List view alternative
-  - File icons based on MIME type
-  - File metadata display (size, date)
-  - Tag display with badges
-  - Workspace root shows only folders
-  - Inside folders shows both subfolders and files
-  - Empty state messaging
+- [x] Implemented ViewWrapper Pattern (December 30, 2025)
+  - **ViewWrapper.svelte**: Orchestrator component
+    - State management ($state, $derived)
+    - Event handlers for all CRUD operations
+    - Utility functions (formatters, icon selection)
+    - Modal state management
+    - Delegates to GridView or ListView based on viewType
+  - **GridView.svelte**: Card grid presentation
+    - Pure presentation layer (no business logic)
+    - Grid layout with file/folder cards
+    - File icons, metadata, tags
+    - Context menus and interactions
+  - **ListView.svelte**: Table/list presentation
+    - Pure presentation layer (no business logic)
+    - Table layout with file/folder rows
+    - File icons, metadata, tags
+    - Context menus and interactions
+  - **Benefits**:
+    - Zero code duplication between views
+    - Consistent behavior across grid/list
+    - Easy maintenance (change once, affects both)
+    - Clear separation of concerns
 
 - [x] Implemented layout with breadcrumbs (`src/routes/+layout.svelte`)
   - Sidebar + main content area
@@ -163,15 +214,18 @@
 
 **Then**: Begin Cloudflare integration (D1, R2, API routes)
 
-## File Locations
+### Current Project State
 
-- Mock data: `src/lib/data/mock.ts`
-- Types: `src/lib/types/index.ts`
-- Stores: `src/lib/stores/index.ts`
-- Components: `src/lib/components/` (Header, Sidebar, FileGrid, etc.)
-- Layouts: `src/routes/+layout.svelte`
+**Project Structure**:
 
-## Local Testing Strategy
+- Components: `src/lib/components/` (app-sidebar, ViewWrapper, GridView, ListView, FolderItem, modals/)
+- Services: `src/lib/services/dataService.ts` (all CRUD operations)
+- Stores: `src/lib/stores/index.ts` (application state)
+- Types: `src/lib/types/index.ts` (TypeScript definitions)
+- Data: `src/lib/data/mock.ts` (Phase 1 mock data - ONLY imported by stores)
+- Routes: `src/routes/+layout.svelte` (app shell), `+page.svelte` (main content)
+
+**Key Architecture Patterns**:
 
 During Phase 1 (UI-first):
 

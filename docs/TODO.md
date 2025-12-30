@@ -29,7 +29,7 @@
 
 - [x] Create `app-sidebar.svelte` - Workspace switcher, folder navigation (shadcn sidebar-07)
 - [x] Create `FolderItem.svelte` - Recursive folder tree component (unlimited depth)
-- [x] Create `FileGrid.svelte` - Grid/list display of files/folders
+- [x] Create `ViewWrapper.svelte` - Grid/list display orchestrator for files/folders
 - [x] Implement breadcrumb navigation in layout
 - [ ] Create `FileListItem.svelte` - Individual file/folder card component (optional extraction)
 
@@ -40,6 +40,14 @@
 - [ ] Create `src/routes/workspace/[id]/+page.svelte` - Main dashboard (folder view)
 
 ### High Priority - Week 2 (Interaction & State)
+
+#### Recent Architecture Changes (December 30, 2025)
+
+- ✅ Quick Links (Starred, Tags, Trash) are workspace-scoped
+- ✅ Tags view shows all tagged files in current workspace
+- ✅ Workspace deletion requires empty workspace (no files/folders)
+- ✅ Workspace deletion is permanent (no trash for workspaces)
+- ✅ ViewWrapper pattern implemented (orchestrator + presentation views)
 
 #### Svelte Stores (State Management)
 
@@ -64,7 +72,7 @@
 - [x] Create rename dialog (RenameModal.svelte)
 - [x] Create delete confirmation modal (DeleteConfirmModal.svelte)
 - [ ] Wire modals to stores (optimistic updates)
-- [ ] Connect modal triggers to buttons in sidebar/FileGrid
+- [ ] Connect modal triggers to buttons in sidebar/ViewWrapper
 
 #### Additional Pages
 

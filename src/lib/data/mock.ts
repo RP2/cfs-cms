@@ -20,6 +20,7 @@ export const mockWorkspaces: Workspace[] = [
 		id: 'ws_1',
 		name: 'Photography Portfolio',
 		description: 'All professional photography projects',
+		icon: 'briefcase',
 		ownerId: 'user_1',
 		createdAt: new Date('2025-01-01'),
 		updatedAt: new Date('2025-01-01'),
@@ -29,6 +30,7 @@ export const mockWorkspaces: Workspace[] = [
 		id: 'ws_2',
 		name: 'Design Assets',
 		description: 'Logos, icons, and design resources',
+		icon: 'palette',
 		ownerId: 'user_1',
 		createdAt: new Date('2025-01-05'),
 		updatedAt: new Date('2025-01-05'),
@@ -38,6 +40,7 @@ export const mockWorkspaces: Workspace[] = [
 		id: 'ws_3',
 		name: 'Personal Archive',
 		description: 'Personal memories and documents',
+		icon: 'archive',
 		ownerId: 'user_1',
 		createdAt: new Date('2025-01-10'),
 		updatedAt: new Date('2025-01-10'),
@@ -53,9 +56,11 @@ export const mockFolders: Folder[] = [
 		parentId: null,
 		name: '2025 Projects',
 		description: 'Current year photography projects',
+		starred: true,
 		createdAt: new Date('2025-01-01'),
 		updatedAt: new Date('2025-01-01'),
-		deletedAt: null
+		deletedAt: null,
+		trashedUntil: null
 	},
 	{
 		id: 'folder_2',
@@ -63,9 +68,11 @@ export const mockFolders: Folder[] = [
 		parentId: 'folder_1',
 		name: 'Beach Shoot',
 		description: 'Summer beach photography session',
+		starred: false,
 		createdAt: new Date('2025-01-15'),
 		updatedAt: new Date('2025-01-15'),
-		deletedAt: null
+		deletedAt: null,
+		trashedUntil: null
 	},
 	{
 		id: 'folder_3',
@@ -73,9 +80,11 @@ export const mockFolders: Folder[] = [
 		parentId: 'folder_1',
 		name: 'Portrait Sessions',
 		description: 'Client portrait photography',
+		starred: true,
 		createdAt: new Date('2025-01-20'),
 		updatedAt: new Date('2025-01-20'),
-		deletedAt: null
+		deletedAt: null,
+		trashedUntil: null
 	},
 	{
 		id: 'folder_4',
@@ -83,9 +92,11 @@ export const mockFolders: Folder[] = [
 		parentId: null,
 		name: '2024 Archive',
 		description: 'Previous year projects',
+		starred: false,
 		createdAt: new Date('2024-01-01'),
 		updatedAt: new Date('2024-01-01'),
-		deletedAt: null
+		deletedAt: null,
+		trashedUntil: null
 	},
 
 	// Design Assets folders
@@ -95,9 +106,11 @@ export const mockFolders: Folder[] = [
 		parentId: null,
 		name: 'Logos',
 		description: 'Brand logos and variations',
+		starred: false,
 		createdAt: new Date('2025-01-08'),
 		updatedAt: new Date('2025-01-08'),
-		deletedAt: null
+		deletedAt: null,
+		trashedUntil: null
 	},
 	{
 		id: 'folder_6',
@@ -105,9 +118,25 @@ export const mockFolders: Folder[] = [
 		parentId: null,
 		name: 'Icons',
 		description: 'Icon sets and individual icons',
+		starred: false,
 		createdAt: new Date('2025-01-08'),
 		updatedAt: new Date('2025-01-08'),
-		deletedAt: null
+		deletedAt: null,
+		trashedUntil: null
+	},
+
+	// Deleted folder for trash testing
+	{
+		id: 'folder_deleted_1',
+		workspaceId: 'ws_1',
+		parentId: null,
+		name: 'Old Campaign',
+		description: 'Deleted marketing campaign',
+		starred: false,
+		createdAt: new Date('2024-12-01'),
+		updatedAt: new Date('2024-12-15'),
+		deletedAt: new Date('2024-12-15'),
+		trashedUntil: new Date('2025-01-14')
 	}
 ];
 
@@ -115,8 +144,8 @@ export const mockTags: Tag[] = [
 	{
 		id: 'tag_1',
 		workspaceId: 'ws_1',
-		name: 'Client',
-		color: 'bg-blue-500',
+		name: 'Client Approvals',
+		color: 'accent',
 		createdAt: new Date('2025-01-01'),
 		updatedAt: new Date('2025-01-01'),
 		deletedAt: null
@@ -124,8 +153,8 @@ export const mockTags: Tag[] = [
 	{
 		id: 'tag_2',
 		workspaceId: 'ws_1',
-		name: 'Final',
-		color: 'bg-green-500',
+		name: 'Invoices Q1',
+		color: 'secondary',
 		createdAt: new Date('2025-01-01'),
 		updatedAt: new Date('2025-01-01'),
 		deletedAt: null
@@ -133,8 +162,8 @@ export const mockTags: Tag[] = [
 	{
 		id: 'tag_3',
 		workspaceId: 'ws_1',
-		name: 'Draft',
-		color: 'bg-yellow-500',
+		name: 'To Publish',
+		color: 'muted',
 		createdAt: new Date('2025-01-01'),
 		updatedAt: new Date('2025-01-01'),
 		deletedAt: null
@@ -142,8 +171,8 @@ export const mockTags: Tag[] = [
 	{
 		id: 'tag_4',
 		workspaceId: 'ws_1',
-		name: 'Summer 2025',
-		color: 'bg-orange-500',
+		name: 'Marketing 2025',
+		color: 'accent',
 		createdAt: new Date('2025-01-15'),
 		updatedAt: new Date('2025-01-15'),
 		deletedAt: null
@@ -151,8 +180,8 @@ export const mockTags: Tag[] = [
 	{
 		id: 'tag_5',
 		workspaceId: 'ws_2',
-		name: 'Brand',
-		color: 'bg-purple-500',
+		name: 'Brand Guidelines',
+		color: 'primary',
 		createdAt: new Date('2025-01-08'),
 		updatedAt: new Date('2025-01-08'),
 		deletedAt: null
@@ -170,9 +199,11 @@ export const mockFiles: File[] = [
 		size: 5242880, // 5 MB
 		storagePath: 'workspace_1/folder_2/DSC_0001.jpg',
 		uploadedBy: 'user_1',
+		starred: false,
 		createdAt: new Date('2025-01-15'),
 		updatedAt: new Date('2025-01-15'),
 		deletedAt: null,
+		trashedUntil: null,
 		tagIds: ['tag_4']
 	},
 	{
@@ -184,9 +215,11 @@ export const mockFiles: File[] = [
 		size: 4871900,
 		storagePath: 'workspace_1/folder_2/DSC_0002.jpg',
 		uploadedBy: 'user_1',
+		starred: true,
 		createdAt: new Date('2025-01-15'),
 		updatedAt: new Date('2025-01-15'),
 		deletedAt: null,
+		trashedUntil: null,
 		tagIds: ['tag_4', 'tag_2']
 	},
 	{
@@ -198,9 +231,11 @@ export const mockFiles: File[] = [
 		size: 134217728, // 128 MB
 		storagePath: 'workspace_1/folder_2/Sunset_Final.psd',
 		uploadedBy: 'user_1',
+		starred: true,
 		createdAt: new Date('2025-01-16'),
 		updatedAt: new Date('2025-01-16'),
 		deletedAt: null,
+		trashedUntil: null,
 		tagIds: ['tag_2', 'tag_4']
 	},
 	{
@@ -212,9 +247,11 @@ export const mockFiles: File[] = [
 		size: 1024,
 		storagePath: 'workspace_1/folder_2/Beach_Edit_Notes.txt',
 		uploadedBy: 'user_1',
+		starred: false,
 		createdAt: new Date('2025-01-17'),
 		updatedAt: new Date('2025-01-17'),
 		deletedAt: null,
+		trashedUntil: null,
 		tagIds: []
 	},
 
@@ -228,9 +265,11 @@ export const mockFiles: File[] = [
 		size: 6291456,
 		storagePath: 'workspace_1/folder_3/Client_Portrait_001.jpg',
 		uploadedBy: 'user_1',
+		starred: false,
 		createdAt: new Date('2025-01-20'),
 		updatedAt: new Date('2025-01-20'),
 		deletedAt: null,
+		trashedUntil: null,
 		tagIds: ['tag_1', 'tag_2']
 	},
 	{
@@ -242,9 +281,11 @@ export const mockFiles: File[] = [
 		size: 6291456,
 		storagePath: 'workspace_1/folder_3/Client_Portrait_002.jpg',
 		uploadedBy: 'user_1',
+		starred: false,
 		createdAt: new Date('2025-01-20'),
 		updatedAt: new Date('2025-01-20'),
 		deletedAt: null,
+		trashedUntil: null,
 		tagIds: ['tag_1', 'tag_3']
 	},
 
@@ -258,9 +299,11 @@ export const mockFiles: File[] = [
 		size: 2097152, // 2 MB
 		storagePath: 'workspace_1/folder_1/2025_Overview.pdf',
 		uploadedBy: 'user_1',
+		starred: true,
 		createdAt: new Date('2025-01-01'),
 		updatedAt: new Date('2025-01-01'),
 		deletedAt: null,
+		trashedUntil: null,
 		tagIds: ['tag_2']
 	},
 	{
@@ -272,9 +315,11 @@ export const mockFiles: File[] = [
 		size: 512000,
 		storagePath: 'workspace_1/folder_1/Year_Plan.docx',
 		uploadedBy: 'user_1',
+		starred: false,
 		createdAt: new Date('2025-01-02'),
 		updatedAt: new Date('2025-01-02'),
 		deletedAt: null,
+		trashedUntil: null,
 		tagIds: []
 	},
 
@@ -288,9 +333,11 @@ export const mockFiles: File[] = [
 		size: 102400,
 		storagePath: 'workspace_2/folder_5/Logo_Main.svg',
 		uploadedBy: 'user_1',
+		starred: false,
 		createdAt: new Date('2025-01-08'),
 		updatedAt: new Date('2025-01-08'),
 		deletedAt: null,
+		trashedUntil: null,
 		tagIds: ['tag_5']
 	},
 	{
@@ -302,10 +349,30 @@ export const mockFiles: File[] = [
 		size: 204800,
 		storagePath: 'workspace_2/folder_5/Logo_Variation.png',
 		uploadedBy: 'user_1',
+		starred: false,
 		createdAt: new Date('2025-01-08'),
 		updatedAt: new Date('2025-01-08'),
 		deletedAt: null,
+		trashedUntil: null,
 		tagIds: ['tag_5']
+	},
+
+	// Deleted file for trash testing
+	{
+		id: 'file_deleted_1',
+		workspaceId: 'ws_1',
+		folderId: 'folder_2',
+		name: 'Draft_Photo.jpg',
+		mimeType: 'image/jpeg',
+		size: 3145728,
+		storagePath: 'workspace_1/folder_2/Draft_Photo.jpg',
+		uploadedBy: 'user_1',
+		starred: false,
+		createdAt: new Date('2024-12-10'),
+		updatedAt: new Date('2024-12-20'),
+		deletedAt: new Date('2024-12-20'),
+		trashedUntil: new Date('2025-01-19'),
+		tagIds: []
 	}
 ];
 

@@ -43,7 +43,7 @@ This roadmap outlines the development phases for the CFS CMS project. Each phase
 
 ### Week 2: Core UI & Mock Data
 
-- Create FileGrid and FileListItem components
+- Create ViewWrapper (grid/list) and FileListItem components
 - Seed mock data in `src/lib/data/mock.ts`
 - Create demo page at `/demo`
 - Build main dashboard page

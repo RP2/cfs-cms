@@ -15,6 +15,7 @@ export interface Workspace {
 	id: string;
 	name: string;
 	description?: string;
+	icon?: string;
 	ownerId: string;
 	createdAt: Date;
 	updatedAt: Date;
@@ -27,9 +28,11 @@ export interface Folder {
 	parentId: string | null;
 	name: string;
 	description?: string;
+	starred: boolean;
 	createdAt: Date;
 	updatedAt: Date;
 	deletedAt: Date | null;
+	trashedUntil: Date | null;
 }
 
 export interface File {
@@ -41,9 +44,11 @@ export interface File {
 	size: number; // in bytes
 	storagePath: string;
 	uploadedBy: string;
+	starred: boolean;
 	createdAt: Date;
 	updatedAt: Date;
 	deletedAt: Date | null;
+	trashedUntil: Date | null;
 	tagIds?: string[];
 }
 
@@ -58,3 +63,7 @@ export interface Tag {
 }
 
 export type ViewType = 'grid' | 'list';
+
+export type ViewMode = 'normal' | 'starred' | 'tags' | 'trash';
+
+export type ViewScope = 'workspace' | 'global';

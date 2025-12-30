@@ -1,5 +1,5 @@
 import { writable } from 'svelte/store';
-import type { Workspace, Folder, File, Tag } from '$lib/types';
+import type { Workspace, Folder, File, Tag, ViewMode, ViewScope } from '$lib/types';
 import { mockWorkspaces, mockFolders, mockFiles, mockTags } from '$lib/data/mock';
 
 // All workspaces
@@ -8,8 +8,14 @@ export const workspaces = writable<Workspace[]>(mockWorkspaces.filter((w) => !w.
 // Current workspace
 export const currentWorkspace = writable<Workspace | null>(mockWorkspaces[0]);
 
-// Current folder being viewed
+// Current folder being viewed (null = workspace root, null when in quick link views)
 export const currentFolder = writable<Folder | null>(null);
+
+// Current view mode (normal navigation vs quick links)
+export const currentView = writable<ViewMode>('normal');
+
+// Current scope (workspace-scoped vs global quick links)
+export const viewScope = writable<ViewScope>('workspace');
 
 // All folders for current workspace
 export const workspaceFolders = writable<Folder[]>(mockFolders);
@@ -17,7 +23,7 @@ export const workspaceFolders = writable<Folder[]>(mockFolders);
 // All files for current folder
 export const currentFiles = writable<File[]>(mockFiles);
 
-// All tags for current workspace
+// All tags (global)
 export const workspaceTags = writable<Tag[]>(mockTags);
 
 // Selected files (for bulk operations)

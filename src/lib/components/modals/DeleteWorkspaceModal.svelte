@@ -19,11 +19,17 @@
 		workspace = null;
 	}
 
+	let errorMessage = $state<string | null>(null);
+
 	function handleDelete() {
 		if (!workspace) return;
 
-		deleteWorkspace(workspace.id);
-		handleClose();
+		try {
+			deleteWorkspace(workspace.id);
+			handleClose();
+		} catch (error) {
+			errorMessage = error instanceof Error ? error.message : 'Failed to delete workspace';
+		}
 	}
 </script>
 
@@ -32,10 +38,14 @@
 		<DialogHeader>
 			<DialogTitle>Delete Workspace</DialogTitle>
 			<DialogDescription>
-				Are you sure you want to delete "{workspace?.name}"?
+				Are you sure you want to permanently delete "{workspace?.name}"?
 				<br /><br />
-				This will move the workspace and all its contents (folders and files) to trash. You can recover
-				them later from the Trash section.
+				<strong>This action cannot be undone.</strong> The workspace must be empty (no files or
+				folders) before deletion. Please delete or move all contents to another workspace first.
+				{#if errorMessage}
+					<br /><br />
+					<span class="font-semibold text-destructive">{errorMessage}</span>
+				{/if}
 			</DialogDescription>
 		</DialogHeader>
 		<DialogFooter>

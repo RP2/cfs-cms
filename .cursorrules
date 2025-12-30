@@ -11,6 +11,10 @@ This file is for AI assistants working on this project. It provides quick contex
 
 **Recent Improvements (December 30, 2025)**:
 
+- ✅ ViewWrapper pattern: Separated presentation (GridView/ListView) from orchestration
+- ✅ Quick links made workspace-specific (Starred, Tags, Trash per workspace)
+- ✅ Workspace deletion requires empty workspace (permanent delete, no trash)
+- ✅ Tags view fixed to show all tagged files in workspace
 - ✅ Fixed cross-workspace data corruption bug
 - ✅ Established proper data flow architecture (Components → dataService → Stores)
 - ✅ Removed all direct mock data usage from components
@@ -72,10 +76,18 @@ UI Components → Data Service → Svelte Stores → Mock Data (Phase 1) / API (
 
 **Key Files**:
 
-- **Components**: Live in `/src/routes` and `/src/lib/components`
-- **Business Logic**: Lives in `/src/lib/services/dataService.ts`
-- **Types**: Centralized in `/src/lib/types`
-- **Stores**: Svelte stores in `/src/lib/stores` for state
+- **Components**:
+  - `src/lib/components/app-sidebar.svelte` - Sidebar with workspace/folder navigation
+  - `src/lib/components/ViewWrapper.svelte` - File display orchestrator (all state/logic)
+  - `src/lib/components/GridView.svelte` - Card grid UI (pure presentation)
+  - `src/lib/components/ListView.svelte` - Table/list UI (pure presentation)
+  - `src/lib/components/FolderItem.svelte` - Recursive folder tree
+  - `src/lib/components/modals/` - 8 modal components (NewFolder, Rename, Delete, etc.)
+- **Business Logic**: `src/lib/services/dataService.ts` (all CRUD operations)
+- **Types**: `src/lib/types/index.ts` (centralized TypeScript definitions)
+- **Stores**: `src/lib/stores/index.ts` (application state)
+- **Mock Data**: `src/lib/data/mock.ts` (Phase 1 - ONLY imported by stores)
+- **Routes**: `src/routes/+layout.svelte` (app shell), `+page.svelte` (main content)
 - **No**: Direct mock data imports in components; business logic in components
 
 ### UI Inspiration & Implementation

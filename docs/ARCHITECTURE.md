@@ -459,6 +459,150 @@ export async function createFolder(parentId: string | null, name: string): Promi
 
 ---
 
+## Component Architecture Patterns
+
+### ViewWrapper Pattern (December 30, 2025)
+
+**Problem**: FileGrid component was becoming too large with duplicated logic between grid and list views.
+
+**Solution**: Three-component pattern where presentation is separated from business logic:
+
+```
+ViewWrapper.svelte (Orchestrator)
+├── Contains: State, handlers, formatters, derived data
+├── Exports: Props to child views
+└── Delegates to:
+    ├── GridView.svelte (Card grid presentation)
+    └── ListView.svelte (Table/list presentation)
+```
+
+#### ViewWrapper Responsibilities
+
+**State Management**:
+
+- All local UI state (`$state` runes)
+- Modal open/close states
+- Loading states
+- Selected file tracking
+
+**Derived Data**:
+
+- Filtered folders/files based on current view
+- Tag mappings
+- Workspace-specific filtering
+- Trash/starred/tags view logic
+
+**Event Handlers**:
+
+- All CRUD operations (via dataService)
+- Navigation logic
+- Selection management
+- Modal triggers
+
+**Utility Functions**:
+
+- Date/size formatters
+- Icon selection logic
+- Tag class generation
+- Trash expiry calculations
+
+**Example**:
+
+```svelte
+<!-- ViewWrapper.svelte -->
+<script lang="ts">
+	// State
+	let showNewFolderModal = $state(false);
+
+	// Derived data
+	let folders = $derived.by(() => {
+		// Complex filtering logic
+	});
+
+	// Handlers
+	function handleStarFile(fileId: string) {
+		toggleFileStar(fileId);
+	}
+
+	// Formatters
+	function formatFileSize(bytes: number): string {
+		// Formatting logic
+	}
+</script>
+
+<!-- Delegate to presentation components -->
+{#if $viewType === 'grid'}
+	<GridView {folders} {files} {formatFileSize} onHandleStarFile={handleStarFile} ... />
+{:else}
+	<ListView {folders} {files} {formatFileSize} onHandleStarFile={handleStarFile} ... />
+{/if}
+```
+
+#### GridView/ListView Responsibilities
+
+**ONLY Presentation**:
+
+- Render UI elements (cards, tables, lists)
+- Layout and styling
+- User interaction triggers (call parent handlers)
+- NO state management
+- NO data manipulation
+- NO business logic
+
+**Props Interface**:
+
+- Data arrays (folders, files)
+- Display functions (formatters, icon getters)
+- Event handlers (callbacks to ViewWrapper)
+- Configuration flags (isLoading, isTrashView)
+
+**Example**:
+
+```svelte
+<!-- GridView.svelte -->
+<script lang="ts">
+	interface Props {
+		folders: Folder[];
+		files: File[];
+		formatFileSize: (bytes: number) => string;
+		onHandleStarFile: (id: string) => void;
+		// ... all other props
+	}
+
+	let { folders, files, formatFileSize, onHandleStarFile }: Props = $props();
+</script>
+
+<!-- Pure presentation -->
+{#each files as file}
+	<Card>
+		<p>{formatFileSize(file.size)}</p>
+		<Button onclick={() => onHandleStarFile(file.id)}>⭐</Button>
+	</Card>
+{/each}
+```
+
+#### Benefits
+
+✅ **Zero Code Duplication**: All logic in ViewWrapper, shared by both views  
+✅ **Consistent Behavior**: Both views use identical handlers/formatters  
+✅ **Easy Maintenance**: Change logic once, affects both views  
+✅ **Clear Separation**: Presentation vs business logic  
+✅ **Testability**: Logic can be tested independently
+
+#### Migration Checklist
+
+When creating new view components:
+
+- [ ] Move all `$state` declarations to ViewWrapper
+- [ ] Move all derived data logic to ViewWrapper
+- [ ] Move all event handlers to ViewWrapper
+- [ ] Move all formatter functions to ViewWrapper
+- [ ] GridView/ListView should ONLY receive props and render UI
+- [ ] Both views should have identical Props interfaces
+- [ ] No logic duplication between GridView and ListView
+
+---
+
 ## Best Practices
 
 ### DO ✅
@@ -469,8 +613,10 @@ export async function createFolder(parentId: string | null, name: string): Promi
 - **Use `$derived`** for computed values that need reactivity
 - **Import from stores** in components, derive filtered data
 - **Call dataService functions** for all CRUD operations
-- **Soft delete** with `deletedAt` timestamp, never hard delete
+- **Soft delete** with `deletedAt` timestamp for files/folders
 - **Filter by workspace** in UI layer, stores hold all data
+- **Workspace-scope quick links** (Starred, Tags, Trash per workspace)
+- **Require empty workspace** before deletion (enforce in dataService)
 
 ### DON'T ❌
 
@@ -480,7 +626,74 @@ export async function createFolder(parentId: string | null, name: string): Promi
 - **Don't use functions** for reactive lists (use `$derived`)
 - **Don't manipulate mock data directly** (use dataService)
 - **Don't filter stores** when setting them (preserve all workspace data)
-- **Don't hard delete** records (use soft delete pattern)
+- **Don't hard delete** files/folders (use soft delete with `deletedAt`)
+- **Don't allow workspace deletion** with content (check isEmpty first)
+- **Don't make quick links global** (scope to current workspace)
+
+---
+
+## Deletion Behavior
+
+### Files and Folders - Soft Delete
+
+**Pattern**: Move to trash with 30-day retention
+
+- Set `deletedAt` timestamp
+- Set `trashedUntil` date (30 days from deletion)
+- User can restore from Trash view (workspace-scoped)
+- User can permanently delete from Trash view
+- Auto-purge after 30 days (Phase 2+ with backend job)
+
+**Code Example**:
+
+```typescript
+export function deleteFile(fileId: string): void {
+	const file = currentFilesList.find((f) => f.id === fileId);
+	if (!file) return;
+
+	file.deletedAt = new Date();
+	file.trashedUntil = computeTrashedUntil(file.deletedAt);
+	file.updatedAt = file.deletedAt;
+
+	currentFiles.set([...currentFilesList]);
+}
+```
+
+### Workspaces - Permanent Delete
+
+**Pattern**: Require empty workspace, permanent deletion
+
+- Check workspace is empty (no non-deleted files/folders)
+- Throw error if content exists
+- Permanently remove from array (no trash)
+- Force user to clean up content first
+- No recovery possible after deletion
+
+**Code Example**:
+
+```typescript
+export function deleteWorkspace(workspaceId: string): void {
+	// Check if empty
+	const hasFolders = currentFoldersList.some((f) => f.workspaceId === workspaceId && !f.deletedAt);
+	const hasFiles = currentFilesList.some((f) => f.workspaceId === workspaceId && !f.deletedAt);
+
+	if (hasFolders || hasFiles) {
+		throw new Error(
+			'Cannot delete workspace with content. Please delete or move all files and folders first.'
+		);
+	}
+
+	// Permanently delete
+	workspaces.set(currentWorkspacesList.filter((w) => w.id !== workspaceId));
+}
+```
+
+**Why Different?**
+
+- Files/folders: Individual items, frequent operations, undo is valuable
+- Workspaces: Top-level containers, rare deletions, should be intentional
+- Prevents accidental loss of entire workspace hierarchies
+- Simpler mental model: "Clean workspace before deletion"
 
 ---
 
@@ -491,7 +704,9 @@ src/
 ├── lib/
 │   ├── components/
 │   │   ├── app-sidebar.svelte       # Main sidebar with reactive folder list
-│   │   ├── FileGrid.svelte          # Grid/list view with derived files/folders
+│   │   ├── ViewWrapper.svelte       # Orchestrates grid/list views and actions
+│   │   ├── GridView.svelte          # Card grid presentation
+│   │   ├── ListView.svelte          # Table/list presentation
 │   │   ├── FolderItem.svelte        # Recursive folder tree with derived children
 │   │   └── modals/
 │   │       ├── NewFolderModal.svelte

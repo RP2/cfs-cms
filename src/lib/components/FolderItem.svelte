@@ -1,7 +1,7 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import * as ContextMenu from '$lib/components/ui/context-menu/index.js';
-	import { currentFolder, workspaceFolders } from '$lib/stores';
+	import { currentFolder, workspaceFolders, currentView, viewScope } from '$lib/stores';
 	import type { Folder } from '$lib/types';
 	import { Folder as FolderIcon, ChevronRight } from '@lucide/svelte';
 	import FolderItem from './FolderItem.svelte';
@@ -25,6 +25,8 @@
 	let hasChildren = $derived(children.length > 0);
 
 	function selectThisFolder() {
+		currentView.set('normal');
+		viewScope.set('workspace');
 		currentFolder.set(folder);
 		// Auto-expand when navigating to a folder with children
 		if (hasChildren) {

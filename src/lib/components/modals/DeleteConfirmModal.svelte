@@ -38,19 +38,19 @@
 <Dialog bind:open>
 	<DialogContent>
 		<DialogHeader>
-			<DialogTitle>Delete {itemType === 'folder' ? 'Folder' : 'File'}</DialogTitle>
+			<DialogTitle>Move to Trash</DialogTitle>
 			<DialogDescription>
-				Are you sure you want to delete "{item?.name}"?
+				Are you sure you want to move "{item?.name}" to the trash?
 				{#if itemType === 'folder'}
-					This will also delete all files inside this folder. This action cannot be undone.
+					This also moves all files inside. Items can be restored from Trash for 30 days.
 				{:else}
-					This action cannot be undone.
+					Items can be restored from Trash for 30 days.
 				{/if}
 			</DialogDescription>
 		</DialogHeader>
 		<DialogFooter>
 			<Button variant="outline" onclick={handleClose}>Cancel</Button>
-			<Button variant="destructive" onclick={handleDelete}>Delete</Button>
+			<Button variant="destructive" onclick={handleDelete}>Move to Trash</Button>
 		</DialogFooter>
 	</DialogContent>
 </Dialog>

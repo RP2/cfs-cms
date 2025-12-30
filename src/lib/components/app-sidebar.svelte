@@ -7,7 +7,9 @@
 		currentFolder,
 		viewType,
 		workspaceFolders,
-		workspaces
+		workspaces,
+		currentView,
+		viewScope
 	} from '$lib/stores';
 	import type { Folder, Workspace } from '$lib/types';
 	import FolderItem from './FolderItem.svelte';
@@ -74,17 +76,6 @@
 		tag: Tag
 	};
 
-	// Initialize workspace icons from the store instead of mockWorkspaces
-	let workspaceIcons = $state<Record<string, WorkspaceIcon>>(
-		$workspaces.reduce(
-			(icons, workspace) => {
-				icons[workspace.id] = 'briefcase';
-				return icons;
-			},
-			{} as Record<string, WorkspaceIcon>
-		)
-	);
-
 	let newFolderModalOpen = $state(false);
 	let newWorkspaceModalOpen = $state(false);
 	let renameModalOpen = $state(false);
@@ -99,10 +90,12 @@
 	function selectWorkspace(workspace: any) {
 		currentWorkspace.set(workspace);
 		currentFolder.set(null);
+		currentView.set('normal');
+		viewScope.set('workspace');
 	}
 
-	function getWorkspaceIconComponent(workspaceId: string) {
-		const iconName = workspaceIcons[workspaceId] ?? 'briefcase';
+	function getWorkspaceIconComponent(workspace: Workspace) {
+		const iconName = (workspace.icon as WorkspaceIcon) ?? 'briefcase';
 		return workspaceIconMap[iconName];
 	}
 
@@ -113,13 +106,25 @@
 
 	function handleIconSelect(iconId: string) {
 		if (iconPickerWorkspaceId) {
-			workspaceIcons = { ...workspaceIcons, [iconPickerWorkspaceId]: iconId as WorkspaceIcon };
+			const updated = $workspaces.map((ws) =>
+				ws.id === iconPickerWorkspaceId ? { ...ws, icon: iconId } : ws
+			);
+			workspaces.set(updated);
+			if ($currentWorkspace?.id === iconPickerWorkspaceId) {
+				currentWorkspace.set(updated.find((ws) => ws.id === iconPickerWorkspaceId) ?? null);
+			}
 		}
 	}
 
 	function handleDeleteWorkspace(workspace: Workspace) {
 		deleteWorkspaceTarget = workspace;
 		deleteWorkspaceModalOpen = true;
+	}
+
+	function openQuickLink(view: 'starred' | 'tags' | 'trash') {
+		currentView.set(view);
+		currentFolder.set(null);
+		viewScope.set('workspace');
 	}
 
 	// Use $derived for reactive root folders list - updates immediately when folders change
@@ -149,6 +154,17 @@
 	function openNewWorkspace() {
 		newWorkspaceModalOpen = true;
 	}
+
+	// Active workspace icon for header reflects picker selection
+	let currentWorkspaceIcon = $derived(
+		$currentWorkspace ? getWorkspaceIconComponent($currentWorkspace) : Briefcase
+	);
+
+	function navigateToWorkspaceRoot() {
+		currentFolder.set(null);
+		currentView.set('normal');
+		viewScope.set('workspace');
+	}
 </script>
 
 <Sidebar.Root {collapsible} {...restProps} bind:ref>
@@ -156,11 +172,16 @@
 	<Sidebar.Header>
 		<Sidebar.Menu>
 			<Sidebar.MenuItem>
-				<Sidebar.MenuButton size="lg" class="data-[state=open]:bg-sidebar-accent">
+				{@const CurrentIcon = currentWorkspaceIcon}
+				<Sidebar.MenuButton
+					size="lg"
+					class="data-[state=open]:bg-sidebar-accent "
+					onclick={navigateToWorkspaceRoot}
+				>
 					<div
 						class="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground"
 					>
-						<Briefcase class="size-4" />
+						<CurrentIcon class="size-4"></CurrentIcon>
 					</div>
 					<div class="grid flex-1 text-start text-sm leading-tight">
 						<span class="truncate font-semibold">
@@ -183,15 +204,18 @@
 				</Sidebar.MenuButton>
 			</Sidebar.MenuItem>
 			{#each $workspaces as workspace (workspace.id)}
-				{@const WorkspaceIcon = getWorkspaceIconComponent(workspace.id)}
+				{@const WorkspaceIcon = getWorkspaceIconComponent(workspace)}
 				<Sidebar.MenuItem>
 					<ContextMenu.Root>
 						<ContextMenu.Trigger>
 							<Sidebar.MenuButton
 								isActive={$currentWorkspace?.id === workspace.id}
 								onclick={() => selectWorkspace(workspace)}
+								class={$currentWorkspace?.id === workspace.id
+									? 'border-accent bg-accent/15 text-foreground ring-1 ring-accent'
+									: ''}
 							>
-								<WorkspaceIcon class="size-4" />
+								<WorkspaceIcon class="size-4 text-current" />
 								<span>{workspace.name}</span>
 							</Sidebar.MenuButton>
 						</ContextMenu.Trigger>
@@ -245,19 +269,19 @@
 			<Sidebar.GroupLabel>QUICK LINKS</Sidebar.GroupLabel>
 			<Sidebar.Menu>
 				<Sidebar.MenuItem>
-					<Sidebar.MenuButton>
+					<Sidebar.MenuButton onclick={() => openQuickLink('starred')}>
 						<Star class="size-4" />
 						<span>Starred</span>
 					</Sidebar.MenuButton>
 				</Sidebar.MenuItem>
 				<Sidebar.MenuItem>
-					<Sidebar.MenuButton>
+					<Sidebar.MenuButton onclick={() => openQuickLink('tags')}>
 						<Tag class="size-4" />
 						<span>Tags</span>
 					</Sidebar.MenuButton>
 				</Sidebar.MenuItem>
 				<Sidebar.MenuItem>
-					<Sidebar.MenuButton>
+					<Sidebar.MenuButton onclick={() => openQuickLink('trash')}>
 						<Trash2 class="size-4" />
 						<span>Trash</span>
 					</Sidebar.MenuButton>
@@ -268,7 +292,6 @@
 
 	<!-- Footer with View Toggle & User -->
 	<Sidebar.Footer>
-		<Sidebar.Separator />
 		<!-- View Toggle -->
 		<Sidebar.Menu>
 			<Sidebar.MenuItem>

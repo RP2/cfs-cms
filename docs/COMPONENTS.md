@@ -1,9 +1,85 @@
-# shadcn-svelte Components Inventory
+# CFS CMS Components Documentation
 
-This document tracks which shadcn-svelte components have been installed for easy reference across AI models and development sessions.
+This document tracks shadcn-svelte components and custom application components for easy reference across AI models and development sessions.
 
-**Last Updated**: December 29, 2025  
+**Last Updated**: December 30, 2025  
 **Installation Command**: `npx shadcn-svelte@latest add [component-name]`
+
+---
+
+## Custom Application Components
+
+### ViewWrapper Pattern (Core Architecture)
+
+**Purpose**: Orchestrate file/folder display with separated presentation logic
+
+#### ViewWrapper.svelte
+
+- **Location**: `src/lib/components/ViewWrapper.svelte`
+- **Role**: State manager, event handler, data orchestrator
+- **Contains**:
+  - All UI state (`$state` runes)
+  - Derived data filtering (folders, files, tags)
+  - Event handlers for all CRUD operations
+  - Utility functions (formatters, icon selection)
+  - Modal state management
+- **Delegates to**: GridView.svelte or ListView.svelte based on `$viewType`
+- **Imports**: Stores, dataService, modals
+- **NO**: Direct presentation rendering (delegates to child views)
+
+#### GridView.svelte
+
+- **Location**: `src/lib/components/GridView.svelte`
+- **Role**: Card grid presentation layer
+- **Contains**:
+  - Grid layout with Card components
+  - File/folder card rendering
+  - Context menus
+  - Loading skeletons
+- **Receives**: All data and handlers via props from ViewWrapper
+- **NO**: State management, business logic, data manipulation
+
+#### ListView.svelte
+
+- **Location**: `src/lib/components/ListView.svelte`
+- **Role**: Table/list presentation layer
+- **Contains**:
+  - Table layout with rows
+  - File/folder list rendering
+  - Context menus
+  - Loading skeletons
+- **Receives**: All data and handlers via props from ViewWrapper
+- **NO**: State management, business logic, data manipulation
+
+**Key Principle**: ViewWrapper holds ALL logic. GridView and ListView are **pure presentation** components that render UI based on props.
+
+### Other Custom Components
+
+#### app-sidebar.svelte
+
+- Collapsible sidebar with workspace/folder navigation
+- Uses shadcn sidebar-07 variant
+- Reactive folder tree using FolderItem
+
+#### FolderItem.svelte
+
+- Recursive folder tree component
+- Self-referencing for unlimited depth
+- Uses `$derived` for reactive child folders
+
+#### Modals (src/lib/components/modals/)
+
+- NewFolderModal.svelte
+- NewWorkspaceModal.svelte
+- RenameModal.svelte
+- EditFileModal.svelte
+- DeleteConfirmModal.svelte
+- DeleteWorkspaceModal.svelte
+- UploadModal.svelte
+
+---
+
+## shadcn-svelte Components Inventory
 
 ## ✅ Installed Components
 
