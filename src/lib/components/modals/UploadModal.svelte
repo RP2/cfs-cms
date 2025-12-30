@@ -8,13 +8,13 @@
 		DialogFooter
 	} from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
-	import { currentFolder, currentWorkspace, currentFiles } from '$lib/stores';
-	import { mockFiles } from '$lib/data/mock';
+	import { currentFolder } from '$lib/stores';
+	import { uploadFiles } from '$lib/services/dataService';
 	import { Upload } from '@lucide/svelte';
 
-	export let open = false;
-	let files: FileList | null = null;
-	let uploading = false;
+	let { open = $bindable(false) } = $props();
+	let files = $state<FileList | null>(null);
+	let uploading = $state(false);
 
 	function handleClose() {
 		open = false;
@@ -23,36 +23,14 @@
 	}
 
 	async function handleUpload() {
-		if (!files || !$currentWorkspace || !$currentFolder) return;
+		if (!files || !$currentFolder) return;
 
 		uploading = true;
 
 		// Simulate upload delay
 		await new Promise((resolve) => setTimeout(resolve, 800));
 
-		// Add mock files to store
-		for (let i = 0; i < files.length; i++) {
-			const file = files[i];
-			const newFile = {
-				id: `file_${Date.now()}_${i}`,
-				workspaceId: $currentWorkspace.id,
-				folderId: $currentFolder.id,
-				name: file.name,
-				size: file.size,
-				mimeType: file.type || 'application/octet-stream',
-				storagePath: URL.createObjectURL(file), // Mock storage path
-				uploadedBy: 'user_1', // Mock user
-				tagIds: [],
-				createdAt: new Date(),
-				updatedAt: new Date(),
-				deletedAt: null
-			};
-			mockFiles.push(newFile);
-		}
-
-		currentFiles.set([
-			...mockFiles.filter((f) => !f.deletedAt && f.folderId === $currentFolder!.id)
-		]);
+		uploadFiles(files);
 		uploading = false;
 		handleClose();
 	}
@@ -71,14 +49,7 @@
 				<label for="file-input" class="flex flex-col items-center gap-2">
 					<Upload class="h-8 w-8 text-muted-foreground" />
 					<span class="text-sm text-muted-foreground">Click to select files or drag and drop</span>
-					<input
-						id="file-input"
-						type="file"
-						multiple
-						bind:files
-						on:change={() => {}}
-						class="hidden"
-					/>
+					<input id="file-input" type="file" multiple bind:files class="hidden" />
 				</label>
 			</div>
 			{#if files && files.length > 0}

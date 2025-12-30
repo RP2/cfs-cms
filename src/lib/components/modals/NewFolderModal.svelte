@@ -12,9 +12,9 @@
 	import { currentFolder, currentWorkspace, workspaceFolders } from '$lib/stores';
 	import { mockFolders } from '$lib/data/mock';
 
-	export let open = false;
-	let folderName = '';
-	let error = '';
+	let { open = $bindable(false) } = $props();
+	let folderName = $state('');
+	let error = $state('');
 
 	function handleClose() {
 		open = false;
@@ -69,6 +69,7 @@
 
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Enter') {
+			e.preventDefault();
 			handleCreate();
 		}
 	}

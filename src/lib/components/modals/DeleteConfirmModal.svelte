@@ -8,13 +8,14 @@
 		DialogFooter
 	} from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
-	import { mockFolders, mockFiles, getFilesForFolder } from '$lib/data/mock';
-	import { workspaceFolders, currentFiles } from '$lib/stores';
+	import { deleteFolder, deleteFile } from '$lib/services/dataService';
 	import type { Folder, File } from '$lib/types';
 
-	export let open = false;
-	export let item: (Folder | File) | null = null;
-	export let itemType: 'folder' | 'file' = 'folder';
+	let {
+		open = $bindable(false),
+		item = $bindable<Folder | File | null>(null),
+		itemType = $bindable<'folder' | 'file'>('folder')
+	} = $props();
 
 	function handleClose() {
 		open = false;
@@ -25,23 +26,9 @@
 		if (!item) return;
 
 		if (itemType === 'folder') {
-			const folder = item as Folder;
-			// Soft delete folder
-			folder.deletedAt = new Date();
-
-			// Also soft delete all files in this folder
-			const filesInFolder = getFilesForFolder(folder.id);
-			filesInFolder.forEach((file) => {
-				file.deletedAt = new Date();
-			});
-
-			workspaceFolders.set([...mockFolders.filter((f) => !f.deletedAt)]);
-			currentFiles.set([...mockFiles.filter((f) => !f.deletedAt)]);
+			deleteFolder(item.id);
 		} else {
-			const file = item as File;
-			// Soft delete file
-			file.deletedAt = new Date();
-			currentFiles.set([...mockFiles.filter((f) => !f.deletedAt)]);
+			deleteFile(item.id);
 		}
 
 		handleClose();

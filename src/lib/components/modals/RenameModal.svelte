@@ -9,21 +9,24 @@
 	} from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { mockFolders, mockFiles } from '$lib/data/mock';
-	import { workspaceFolders, currentFiles } from '$lib/stores';
+	import { renameFolder, renameFile } from '$lib/services/dataService';
 	import type { Folder, File } from '$lib/types';
 
-	export let open = false;
-	export let item: (Folder | File) | null = null;
-	export let itemType: 'folder' | 'file' = 'folder';
+	let {
+		open = $bindable(false),
+		item = $bindable<Folder | File | null>(null),
+		itemType = $bindable<'folder' | 'file'>('folder')
+	} = $props();
 
-	let newName = '';
-	let error = '';
+	let newName = $state('');
+	let error = $state('');
 
-	$: if (open && item) {
-		newName = item.name;
-		error = '';
-	}
+	$effect(() => {
+		if (open && item) {
+			newName = item.name;
+			error = '';
+		}
+	});
 
 	function handleClose() {
 		open = false;
@@ -40,31 +43,16 @@
 
 		if (!item) return;
 
-		if (itemType === 'folder') {
-			const folder = item as Folder;
-			if (newName === folder.name) {
-				handleClose();
-				return;
+		try {
+			if (itemType === 'folder') {
+				renameFolder(item.id, newName);
+			} else {
+				renameFile(item.id, newName);
 			}
-
-			// Update folder
-			folder.name = newName.trim();
-			folder.updatedAt = new Date();
-			workspaceFolders.set([...mockFolders.filter((f) => !f.deletedAt)]);
-		} else {
-			const file = item as File;
-			if (newName === file.name) {
-				handleClose();
-				return;
-			}
-
-			// Update file
-			file.name = newName.trim();
-			file.updatedAt = new Date();
-			currentFiles.set([...mockFiles.filter((f) => !f.deletedAt)]);
+			handleClose();
+		} catch (e) {
+			error = (e as Error).message;
 		}
-
-		handleClose();
 	}
 
 	function handleKeydown(e: KeyboardEvent) {

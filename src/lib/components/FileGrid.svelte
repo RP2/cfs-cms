@@ -9,6 +9,8 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Badge } from '$lib/components/ui/badge';
+	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { Spinner } from '$lib/components/ui/spinner';
 	import * as ContextMenu from '$lib/components/ui/context-menu/index.js';
 	import NewFolderModal from './modals/NewFolderModal.svelte';
 	import RenameModal from './modals/RenameModal.svelte';
@@ -37,11 +39,13 @@
 		Package,
 		Calendar,
 		FolderOpen,
-		Folder as FolderIcon
+		Folder as FolderIcon,
+		X
 	} from '@lucide/svelte';
 
 	let files = $state<File[]>([]);
 	let folders = $state<Folder[]>([]);
+	let isLoading = $state(true);
 
 	let showNewFolderModal = $state(false);
 	let showRenameModal = $state(false);
@@ -75,6 +79,15 @@
 	$effect(() => {
 		files = derivedFiles;
 		folders = derivedFolders;
+	});
+
+	// Set loading state: show skeletons for 300ms minimum so user sees them (simulates network delay)
+	$effect(() => {
+		isLoading = true;
+		const timer = setTimeout(() => {
+			isLoading = false;
+		}, 300);
+		return () => clearTimeout(timer);
 	});
 
 	function toggleFileSelect(fileId: string) {
@@ -142,15 +155,71 @@
 	function openUpload() {
 		showUploadModal = true;
 	}
+
+	function selectAll() {
+		const allIds = new Set(files.map((f) => f.id));
+		selectedFileIds.set(allIds);
+	}
+
+	function clearSelection() {
+		selectedFileIds.set(new Set());
+	}
+
+	// Keyboard shortcuts
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'a' && (e.ctrlKey || e.metaKey)) {
+			e.preventDefault();
+			selectAll();
+		}
+		if (e.key === 'Escape') {
+			clearSelection();
+		}
+	}
 </script>
+
+<svelte:window on:keydown={handleKeydown} />
+
+{#if $selectedFileIds.size > 0}
+	<!-- Floating Selection Counter at Bottom Right -->
+	<div
+		class="fixed right-6 bottom-6 z-50 flex items-center gap-3 rounded-lg border border-accent bg-accent/95 p-4 shadow-lg backdrop-blur-sm"
+	>
+		<span class="text-sm font-medium text-accent-foreground"
+			>{$selectedFileIds.size} file{$selectedFileIds.size !== 1 ? 's' : ''} selected</span
+		>
+		<div class="flex items-center gap-2">
+			<Button
+				variant="ghost"
+				size="sm"
+				class="h-8 px-2 text-accent-foreground hover:bg-accent/80"
+				onclick={selectAll}
+			>
+				Select All
+			</Button>
+			<Button
+				variant="ghost"
+				size="sm"
+				class="h-8 px-2 text-accent-foreground hover:bg-accent/80"
+				onclick={clearSelection}
+			>
+				<X class="h-4 w-4" />
+				Clear
+			</Button>
+		</div>
+	</div>
+{/if}
 
 {#if $viewType === 'grid'}
 	<!-- Grid View -->
 	<ContextMenu.Root>
 		<ContextMenu.Trigger>
 			<div class="min-h-screen space-y-4 p-6">
-				<!-- Show folders at workspace root, files inside folders -->
-				{#if !$currentFolder && folders.length > 0}
+				{#if isLoading}
+					<!-- Loading Spinner -->
+					<div class="flex min-h-96 items-center justify-center">
+						<Spinner />
+					</div>
+				{:else if !$currentFolder && folders.length > 0}
 					<!-- Workspace Root: Display Folders -->
 					<div>
 						<h3 class="mb-3 text-sm font-medium text-muted-foreground">FOLDERS</h3>
@@ -185,13 +254,13 @@
 										</div>
 									</ContextMenu.Trigger>
 									<ContextMenu.Content>
-										<ContextMenu.Item onselect={openNewFolder}>New Folder</ContextMenu.Item>
-										<ContextMenu.Item onselect={() => openRename(folder, 'folder')}
+										<ContextMenu.Item onclick={openNewFolder}>New Folder</ContextMenu.Item>
+										<ContextMenu.Item onclick={() => openRename(folder, 'folder')}
 											>Rename</ContextMenu.Item
 										>
 										<ContextMenu.Item
 											variant="destructive"
-											onselect={() => openDelete(folder, 'folder')}
+											onclick={() => openDelete(folder, 'folder')}
 										>
 											Delete
 										</ContextMenu.Item>
@@ -232,13 +301,13 @@
 											</div>
 										</ContextMenu.Trigger>
 										<ContextMenu.Content>
-											<ContextMenu.Item onselect={openNewFolder}>New Folder</ContextMenu.Item>
-											<ContextMenu.Item onselect={() => openRename(folder, 'folder')}
+											<ContextMenu.Item onclick={openNewFolder}>New Folder</ContextMenu.Item>
+											<ContextMenu.Item onclick={() => openRename(folder, 'folder')}
 												>Rename</ContextMenu.Item
 											>
 											<ContextMenu.Item
 												variant="destructive"
-												onselect={() => openDelete(folder, 'folder')}
+												onclick={() => openDelete(folder, 'folder')}
 											>
 												Delete
 											</ContextMenu.Item>
@@ -265,9 +334,12 @@
 											<Card
 												class="relative h-full cursor-pointer transition-shadow hover:shadow-lg"
 											>
-												<!-- Checkbox on hover -->
+												<!-- Checkbox always visible when selected, visible on hover otherwise -->
 												<div
-													class="absolute top-2 left-2 z-10 opacity-0 transition-opacity group-hover:opacity-100"
+													class="absolute top-2 left-2 z-10 transition-opacity"
+													class:opacity-100={$selectedFileIds.has(file.id)}
+													class:opacity-0={!$selectedFileIds.has(file.id)}
+													class:group-hover:opacity-100={!$selectedFileIds.has(file.id)}
 												>
 													<Checkbox
 														checked={$selectedFileIds.has(file.id)}
@@ -317,15 +389,15 @@
 										</div>
 									</ContextMenu.Trigger>
 									<ContextMenu.Content>
-										<ContextMenu.Item onselect={() => ensureFileSelection(file.id)}
-											>Select</ContextMenu.Item
-										>
-										<ContextMenu.Item onselect={() => openRename(file, 'file')}
+										<ContextMenu.Item onclick={() => toggleFileSelect(file.id)}>
+											{$selectedFileIds.has(file.id) ? 'Deselect' : 'Select'}
+										</ContextMenu.Item>
+										<ContextMenu.Item onclick={() => openRename(file, 'file')}
 											>Rename</ContextMenu.Item
 										>
 										<ContextMenu.Item
 											variant="destructive"
-											onselect={() => openDelete(file, 'file')}
+											onclick={() => openDelete(file, 'file')}
 										>
 											Delete
 										</ContextMenu.Item>
@@ -350,8 +422,8 @@
 			</div>
 		</ContextMenu.Trigger>
 		<ContextMenu.Content>
-			<ContextMenu.Item onselect={openNewFolder}>New Folder</ContextMenu.Item>
-			<ContextMenu.Item onselect={openUpload}>Upload Files</ContextMenu.Item>
+			<ContextMenu.Item onclick={openNewFolder}>New Folder</ContextMenu.Item>
+			<ContextMenu.Item onclick={openUpload}>Upload Files</ContextMenu.Item>
 		</ContextMenu.Content>
 	</ContextMenu.Root>
 {:else}
@@ -359,7 +431,25 @@
 	<ContextMenu.Root>
 		<ContextMenu.Trigger>
 			<div class="min-h-screen p-6">
-				{#if !$currentFolder && folders.length > 0}
+				{#if isLoading}
+					<!-- Loading Skeletons -->
+					<div>
+						<h3 class="mb-3 text-sm font-medium text-muted-foreground">LOADING</h3>
+						<div class="space-y-2">
+							{#each Array(6) as _}
+								<div class="flex items-center gap-3 rounded border p-3">
+									<Skeleton class="h-5 w-5 rounded" />
+									<Skeleton class="h-5 w-5 rounded" />
+									<div class="flex-1">
+										<Skeleton class="mb-1 h-4 w-40 rounded" />
+										<Skeleton class="h-3 w-60 rounded" />
+									</div>
+									<Skeleton class="h-8 w-8 rounded" />
+								</div>
+							{/each}
+						</div>
+					</div>
+				{:else if !$currentFolder && folders.length > 0}
 					<!-- Workspace Root: Display Folders -->
 					<div>
 						<h3 class="mb-3 text-sm font-medium text-muted-foreground">FOLDERS</h3>
@@ -385,13 +475,13 @@
 										</button>
 									</ContextMenu.Trigger>
 									<ContextMenu.Content>
-										<ContextMenu.Item onselect={openNewFolder}>New Folder</ContextMenu.Item>
-										<ContextMenu.Item onselect={() => openRename(folder, 'folder')}
+										<ContextMenu.Item onclick={openNewFolder}>New Folder</ContextMenu.Item>
+										<ContextMenu.Item onclick={() => openRename(folder, 'folder')}
 											>Rename</ContextMenu.Item
 										>
 										<ContextMenu.Item
 											variant="destructive"
-											onselect={() => openDelete(folder, 'folder')}
+											onclick={() => openDelete(folder, 'folder')}
 										>
 											Delete
 										</ContextMenu.Item>
@@ -427,13 +517,13 @@
 											</button>
 										</ContextMenu.Trigger>
 										<ContextMenu.Content>
-											<ContextMenu.Item onselect={openNewFolder}>New Folder</ContextMenu.Item>
-											<ContextMenu.Item onselect={() => openRename(folder, 'folder')}
+											<ContextMenu.Item onclick={openNewFolder}>New Folder</ContextMenu.Item>
+											<ContextMenu.Item onclick={() => openRename(folder, 'folder')}
 												>Rename</ContextMenu.Item
 											>
 											<ContextMenu.Item
 												variant="destructive"
-												onselect={() => openDelete(folder, 'folder')}
+												onclick={() => openDelete(folder, 'folder')}
 											>
 												Delete
 											</ContextMenu.Item>
@@ -445,12 +535,6 @@
 					{/if}
 
 					{#if files.length > 0}
-						<h3
-							class="mb-3 text-sm font-medium text-muted-foreground"
-							class:mt-6={folders.length > 0}
-						>
-							FILES
-						</h3>
 						<div class="space-y-2">
 							{#each files as file (file.id)}
 								<ContextMenu.Root>
@@ -476,15 +560,15 @@
 										</div>
 									</ContextMenu.Trigger>
 									<ContextMenu.Content>
-										<ContextMenu.Item onselect={() => ensureFileSelection(file.id)}
-											>Select</ContextMenu.Item
-										>
-										<ContextMenu.Item onselect={() => openRename(file, 'file')}
+										<ContextMenu.Item onclick={() => toggleFileSelect(file.id)}>
+											{$selectedFileIds.has(file.id) ? 'Deselect' : 'Select'}
+										</ContextMenu.Item>
+										<ContextMenu.Item onclick={() => openRename(file, 'file')}
 											>Rename</ContextMenu.Item
 										>
 										<ContextMenu.Item
 											variant="destructive"
-											onselect={() => openDelete(file, 'file')}
+											onclick={() => openDelete(file, 'file')}
 										>
 											Delete
 										</ContextMenu.Item>
@@ -494,22 +578,35 @@
 						</div>
 					{/if}
 				{:else}
+					<!-- Empty State -->
 					<div class="py-12 text-center">
-						<p class="text-muted-foreground">No files found</p>
+						<div class="mb-4 flex justify-center">
+							<FolderOpen class="h-16 w-16 text-muted-foreground" />
+						</div>
+						<p class="text-muted-foreground">
+							{$currentFolder ? 'This folder is empty' : 'No files yet'}
+						</p>
+						<p class="text-sm text-muted-foreground">
+							Upload files or create folders to get started
+						</p>
 					</div>
 				{/if}
 			</div>
 		</ContextMenu.Trigger>
 		<ContextMenu.Content>
-			<ContextMenu.Item onselect={openNewFolder}>New Folder</ContextMenu.Item>
-			<ContextMenu.Item onselect={openUpload}>Upload Files</ContextMenu.Item>
+			<ContextMenu.Item onclick={openNewFolder}>New Folder</ContextMenu.Item>
+			<ContextMenu.Item onclick={openUpload}>Upload Files</ContextMenu.Item>
 		</ContextMenu.Content>
 	</ContextMenu.Root>
 {/if}
 
 <NewFolderModal bind:open={showNewFolderModal} />
-<RenameModal bind:open={showRenameModal} item={renameTarget} itemType={renameType} />
-<DeleteConfirmModal bind:open={showDeleteModal} item={deleteTarget} itemType={deleteType} />
+<RenameModal bind:open={showRenameModal} bind:item={renameTarget} bind:itemType={renameType} />
+<DeleteConfirmModal
+	bind:open={showDeleteModal}
+	bind:item={deleteTarget}
+	bind:itemType={deleteType}
+/>
 <UploadModal bind:open={showUploadModal} />
 
 <style>

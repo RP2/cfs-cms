@@ -1,8 +1,7 @@
 <script lang="ts">
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import * as ContextMenu from '$lib/components/ui/context-menu/index.js';
-	import { currentFolder } from '$lib/stores';
-	import { getSubfolders } from '$lib/data/mock';
+	import { currentFolder, workspaceFolders } from '$lib/stores';
 	import type { Folder } from '$lib/types';
 	import { Folder as FolderIcon, ChevronRight } from '@lucide/svelte';
 	import FolderItem from './FolderItem.svelte';
@@ -17,7 +16,12 @@
 
 	let open = $state(false);
 
-	let children = $derived(getSubfolders(folder.id, folder.workspaceId));
+	// Derive children from store instead of query function
+	let children = $derived(
+		$workspaceFolders.filter(
+			(f) => f.parentId === folder.id && f.workspaceId === folder.workspaceId && !f.deletedAt
+		)
+	);
 	let hasChildren = $derived(children.length > 0);
 
 	function selectThisFolder() {
@@ -60,10 +64,10 @@
 		</ContextMenu.Trigger>
 		<ContextMenu.Content>
 			{#if hasChildren}
-				<ContextMenu.Item onselect={toggleOpen}>{open ? 'Collapse' : 'Expand'}</ContextMenu.Item>
+				<ContextMenu.Item onclick={toggleOpen}>{open ? 'Collapse' : 'Expand'}</ContextMenu.Item>
 			{/if}
-			<ContextMenu.Item onselect={() => dispatch('rename-folder', folder)}>Rename</ContextMenu.Item>
-			<ContextMenu.Item variant="destructive" onselect={() => dispatch('delete-folder', folder)}>
+			<ContextMenu.Item onclick={() => dispatch('rename-folder', folder)}>Rename</ContextMenu.Item>
+			<ContextMenu.Item variant="destructive" onclick={() => dispatch('delete-folder', folder)}>
 				Delete
 			</ContextMenu.Item>
 		</ContextMenu.Content>
@@ -73,7 +77,11 @@
 		<Sidebar.MenuSub>
 			{#each children as subfolder (subfolder.id)}
 				<Sidebar.MenuSubItem>
-					<FolderItem folder={subfolder} />
+					<FolderItem
+						folder={subfolder}
+						on:rename-folder={(event) => dispatch('rename-folder', event.detail)}
+						on:delete-folder={(event) => dispatch('delete-folder', event.detail)}
+					/>
 				</Sidebar.MenuSubItem>
 			{/each}
 		</Sidebar.MenuSub>
