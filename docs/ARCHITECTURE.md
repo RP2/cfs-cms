@@ -18,7 +18,7 @@
 
 CFS CMS uses a **three-layer architecture** designed for easy transition from mock data (Phase 1) to Cloudflare backend (Phase 2+):
 
-```
+```text
 ┌─────────────────────────────────────────────────┐
 │           UI Components / Modals                │
 │  (Svelte 5 with runes, theme colors, lucide)   │
@@ -174,34 +174,32 @@ export async function createFolder(parentId: string | null, name: string): Promi
 
 ```svelte
 <script lang="ts">
-  import { currentWorkspace, workspaceFolders } from '$lib/stores';
-  import { createFolder } from '$lib/services/dataService';
+	import { currentWorkspace, workspaceFolders } from '$lib/stores';
+	import { createFolder } from '$lib/services/dataService';
 
-  // ✅ CORRECT: Derive filtered data reactively
-  let rootFolders = $derived(
-    $currentWorkspace
-      ? $workspaceFolders.filter(
-          (f) => f.parentId === null && 
-                 f.workspaceId === $currentWorkspace.id && 
-                 !f.deletedAt
-        )
-      : []
-  );
+	// ✅ CORRECT: Derive filtered data reactively
+	let rootFolders = $derived(
+		$currentWorkspace
+			? $workspaceFolders.filter(
+					(f) => f.parentId === null && f.workspaceId === $currentWorkspace.id && !f.deletedAt
+				)
+			: []
+	);
 
-  // ❌ WRONG: Function won't update reactively
-  function getRootFolders() {
-    if (!$currentWorkspace) return [];
-    return $workspaceFolders.filter(...);
-  }
+	// ❌ WRONG: Function won't update reactively
+	function getRootFolders() {
+		if (!$currentWorkspace) return [];
+		return $workspaceFolders.filter((f) => f.parentId === null);
+	}
 
-  // ✅ CORRECT: Call dataService for mutations
-  function handleCreate() {
-    createFolder(parentId, folderName);
-  }
+	// ✅ CORRECT: Call dataService for mutations
+	function handleCreate() {
+		createFolder(parentId, folderName);
+	}
 
-  // ❌ WRONG: Direct mock data manipulation
-  mockFolders.push(newFolder);
-  workspaceFolders.set([...mockFolders.filter(...)]);
+	// ❌ WRONG: Direct mock data manipulation
+	mockFolders.push(newFolder);
+	workspaceFolders.set([...mockFolders.filter((f) => !f.deletedAt)]);
 </script>
 
 {#each rootFolders as folder (folder.id)}

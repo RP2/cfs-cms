@@ -32,7 +32,7 @@ You are assisting with the development of **CFS CMS**, a centralized content man
 
 ## Architecture Overview
 
-**For complete architecture details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
+**For complete architecture details, see [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)**
 
 ### Three-Layer Data Flow (Established December 30, 2025)
 
@@ -67,7 +67,7 @@ UI Components → Data Service → Svelte Stores → Mock Data (Phase 1) / API (
 
 ## Code Patterns
 
-**For comprehensive Svelte 5 patterns, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#svelte-5-patterns)**
+**For comprehensive Svelte 5 patterns, see [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md#svelte-5-patterns)**
 
 ### Component Structure (Svelte 5 Runes)
 
