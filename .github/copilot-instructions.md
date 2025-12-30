@@ -138,10 +138,57 @@ Building the Google Drive-like interface with mocked data. Backend integration c
 
 - **Mock Data**: `src/lib/data/mock.ts` with `PUBLIC_USE_MOCK_DATA` env var
 - **State Management**: Svelte stores (`workspace`, `folders`, `files`, `tags`, `selection`)
-- **UI Components**: shadcn-svelte + custom components matching Google Drive
+- **UI Components**: shadcn-svelte with theme colors (NO raw Tailwind classes)
+- **Icons**: lucide-svelte icons (NO emojis)
+- **Modals**: NewFolderModal, UploadModal, RenameModal, DeleteConfirmModal
 - **Demo Page**: `/demo` showcases mocked CMS (public example)
 - **Local Testing**: Full interaction testing without backend
 - **Easy Migration**: Swap mock queries with D1 queries in Phase 2
+
+## Styling Guidelines
+
+### Theme Colors
+
+**ALWAYS use theme colors from `src/routes/layout.css`, NEVER use raw Tailwind color classes**
+
+Available theme colors:
+
+- `primary` - Primary action color (light gray for light mode)
+- `primary-foreground` - Text on primary backgrounds
+- `secondary` - Secondary actions
+- `muted` - Disabled/inactive states (light gray)
+- `muted-foreground` - Secondary text color
+- `accent` - Orange accent color (for highlights, CTAs)
+- `accent-foreground` - White text on accent backgrounds
+- `background` - Page background (white light mode)
+- `foreground` - Primary text (dark gray light mode)
+- `card` - Card backgrounds
+- `border` - Border color
+- `destructive` - Error/delete actions (red)
+- `sidebar-*` - Sidebar-specific theme colors
+
+**❌ BAD**: `bg-blue-500`, `text-gray-600`, `border-red-200`  
+**✅ GOOD**: `bg-accent`, `text-muted-foreground`, `border-destructive`
+
+### Icons
+
+**ALWAYS use lucide-svelte icons, NEVER use emojis**
+
+Import from `@lucide/svelte`:
+
+```typescript
+import { Plus, Trash2, Edit, Folder, File, Grid3x3, List, Search, Upload, ChevronDown, MoreVertical } from '@lucide/svelte';
+```
+
+Common icon usage:
+
+- **Navigation**: `Folder`, `File`, `Grid3x3`, `List`, `ChevronDown`
+- **Actions**: `Plus`, `Edit`, `Trash2`, `Upload`, `Download`
+- **UI**: `Search`, `MoreVertical`, `X`, `Check`, `AlertCircle`
+- **Status**: `AlertCircle`, `CheckCircle`, `Clock`, `Home`
+
+**❌ BAD**: `<div>📁 My Folder</div>`, `<span>➕ New</span>`  
+**✅ GOOD**: `<Folder class="h-4 w-4" />` with `<span>New</span>`
 
 ## Important Notes
 
@@ -180,5 +227,7 @@ When passing to another AI:
 ---
 
 **Last Updated**: December 29, 2025  
-**Project Phase**: 0 - Foundation (Complete)  
-**Ready For**: Development and Phase 1 Implementation
+**Project Phase**: 1 - UI/UX First (In Progress)  
+**Theme**: Monochromatic + Orange Accent  
+**Icons**: Lucide SVG Icons  
+**Ready For**: CRUD Operations & Interactive Features

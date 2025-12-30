@@ -78,6 +78,84 @@ This file is for AI assistants working on this project. It provides quick contex
 - Search with D1 queries
 - Sessions with D1 storage
 
+## Styling Guidelines
+
+### ✅ DO: Use Theme Colors
+
+**Always use shadcn theme colors from `src/routes/layout.css`**
+
+Available theme CSS variables:
+
+- `primary` / `primary-foreground` - Primary actions
+- `secondary` / `secondary-foreground` - Secondary actions
+- `accent` / `accent-foreground` - Orange highlights (buttons, CTAs)
+- `muted` / `muted-foreground` - Disabled/inactive states
+- `background` / `foreground` - Page background and text
+- `card` - Card backgrounds
+- `border` - Border color
+- `destructive` - Error/delete actions
+- `sidebar-*` - Sidebar variants
+
+**Examples:**
+
+```svelte
+<!-- ✅ CORRECT -->
+<button class="bg-accent text-accent-foreground">Action</button>
+<div class="border-b border-border">Content</div>
+<p class="text-muted-foreground">Disabled</p>
+```
+
+### ❌ DON'T: Use Raw Tailwind Colors
+
+Never hardcode color classes. They break theming:
+
+```svelte
+<!-- ❌ WRONG - Never do this -->
+<button class="bg-blue-500 text-white">Bad</button>
+<div class="border-red-200">Wrong</div>
+<p class="text-gray-600">Bad</p>
+```
+
+### ✅ DO: Use Lucide Icons
+
+**Import ONLY from `@lucide/svelte`**:
+
+```typescript
+import { Plus, Trash2, Edit, Folder, File, Grid3x3, List, Search, Upload, ChevronDown, MoreVertical } from '@lucide/svelte';
+```
+
+Common icon categories:
+
+- **Navigation**: Folder, File, Grid3x3, List, ChevronDown, ChevronUp, ChevronRight
+- **Actions**: Plus, Edit, Trash2, Upload, Download, Copy, Share2
+- **UI**: Search, MoreVertical, MoreHorizontal, X, Check, AlertCircle, Clock
+- **Status**: CheckCircle, AlertCircle, InfoCircle, XCircle
+
+**Usage:**
+
+```svelte
+<script>
+	import { Plus } from '@lucide/svelte';
+</script>
+
+<!-- ✅ CORRECT -->
+<Plus class="h-4 w-4" />
+
+<!-- ❌ NEVER -->
+<span>➕</span>
+```
+
+### ❌ DON'T: Use Emojis
+
+Never use emojis in code:
+
+```svelte
+<!-- ❌ WRONG - Never do this -->
+<div>📁 My Folder</div>
+<button>⬆️ Upload</button>
+<span>❌ Delete</span>
+```
+
 ## File Structure Reference
 
 ```
