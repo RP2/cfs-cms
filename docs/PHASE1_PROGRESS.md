@@ -2,6 +2,33 @@
 
 ## Completed ✅
 
+### Architecture & Data Flow (December 30, 2025)
+
+- [x] **Established three-layer architecture**
+  - UI Components → Data Service → Stores → Mock Data
+  - NO direct mock data imports in components/modals
+  - Backend-ready: only dataService needs changes for Phase 2
+
+- [x] **Created Data Service abstraction** (`src/lib/services/dataService.ts`)
+  - All CRUD operations: createWorkspace, deleteWorkspace, createFolder, renameFolder, deleteFolder, renameFile, deleteFile, uploadFiles
+  - Operates on stores (Phase 1) or will use API calls (Phase 2)
+  - Single source for business logic
+
+- [x] **Fixed cross-workspace data corruption**
+  - Removed direct mock data manipulation from components
+  - Stores now hold ALL workspace data (not filtered)
+  - UI filters data per workspace using `$derived`
+  - Proper soft delete implementation
+
+- [x] **Implemented hot reloading with Svelte 5 runes**
+  - Converted functions to `$derived` reactive values
+  - Sidebar folders update immediately on rename/create/delete
+  - Breadcrumbs, grid, and all views update reactively
+
+- [x] **Documentation created**
+  - `ARCHITECTURE.md` - Complete architecture guide for future AI models
+  - Documents Svelte 5 patterns, data flow, backend integration strategy
+
 ### Data & State Management
 
 - [x] Created mock data structure (`src/lib/data/mock.ts`)

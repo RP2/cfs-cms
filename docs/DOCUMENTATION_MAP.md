@@ -28,8 +28,7 @@ cfs-cms/
 ├── 🎉 SETUP_COMPLETE.md
 │   └─ What was created, next steps
 │
-├── 📖 docs/
-│   ├── DEVELOPMENT.md     (↓ How to develop locally)
+├── 📖 docs/│   ├── ARCHITECTURE.md    (↓ NEW: Data flow, Svelte 5 patterns)│   ├── DEVELOPMENT.md     (↓ How to develop locally)
 │   ├── DATABASE.md        (↓ Full schema design)
 │   └── CLOUDFLARE_SETUP.md (↓ Infrastructure setup)
 │

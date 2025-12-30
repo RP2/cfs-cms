@@ -10,9 +10,9 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { currentFolder, currentWorkspace, workspaceFolders } from '$lib/stores';
-	import { mockFolders } from '$lib/data/mock';
+	import { createFolder } from '$lib/services/dataService';
 
-	let { open = $bindable(false) } = $props();
+	let { open = $bindable(false), parentFolderId = $bindable<string | null>(null) } = $props();
 	let folderName = $state('');
 	let error = $state('');
 
@@ -20,6 +20,7 @@
 		open = false;
 		folderName = '';
 		error = '';
+		parentFolderId = null;
 	}
 
 	function handleCreate() {
@@ -33,38 +34,16 @@
 			return;
 		}
 
-		// Check if folder name already exists at this level
-		const parentId = $currentFolder?.id || null;
-		const exists = mockFolders.some(
-			(f) =>
-				f.workspaceId === $currentWorkspace!.id &&
-				f.parentId === parentId &&
-				f.name === folderName.trim()
-		);
+		try {
+			// Use parentFolderId if provided (from context menu), otherwise use currentFolder's id
+			const effectiveParentId = parentFolderId || $currentFolder?.id || null;
 
-		if (exists) {
-			error = 'A folder with this name already exists';
-			return;
+			// Use dataService which properly manages all workspace data
+			createFolder(effectiveParentId, folderName.trim());
+			handleClose();
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Failed to create folder';
 		}
-
-		// Create new folder
-		const newFolder = {
-			id: `folder_${Date.now()}`,
-			workspaceId: $currentWorkspace.id,
-			parentId: parentId,
-			name: folderName.trim(),
-			description: '',
-			createdAt: new Date(),
-			updatedAt: new Date(),
-			deletedAt: null
-		};
-
-		mockFolders.push(newFolder);
-		workspaceFolders.set([
-			...mockFolders.filter((f) => f.workspaceId === $currentWorkspace!.id && !f.deletedAt)
-		]);
-
-		handleClose();
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -79,7 +58,13 @@
 	<DialogContent>
 		<DialogHeader>
 			<DialogTitle>New Folder</DialogTitle>
-			<DialogDescription>Create a new folder in {$currentFolder?.name || 'root'}</DialogDescription>
+			<DialogDescription>
+				Create a new folder in {#if parentFolderId}
+					the selected folder
+				{:else}
+					{$currentFolder?.name || 'root'}
+				{/if}
+			</DialogDescription>
 		</DialogHeader>
 		<div class="space-y-4 py-4">
 			<div>

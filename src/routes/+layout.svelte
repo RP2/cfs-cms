@@ -14,8 +14,7 @@
 	} from '$lib/components/ui/breadcrumb';
 	import { Input } from '$lib/components/ui/input';
 	import { Search } from '@lucide/svelte';
-	import { currentFolder, currentWorkspace } from '$lib/stores';
-	import { mockFolders } from '$lib/data/mock';
+	import { currentFolder, currentWorkspace, workspaceFolders } from '$lib/stores';
 	import type { Folder } from '$lib/types';
 
 	let { children } = $props();
@@ -30,7 +29,8 @@
 
 		while (current) {
 			path.unshift(current);
-			current = mockFolders.find((f) => f.id === current?.parentId);
+			// Use the store instead of mockFolders directly
+			current = $workspaceFolders.find((f) => f.id === current?.parentId);
 		}
 
 		return path;

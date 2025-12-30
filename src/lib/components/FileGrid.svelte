@@ -24,7 +24,6 @@
 		selectedFileIds,
 		viewType
 	} from '$lib/stores';
-	import { mockFiles, getFilesForFolder, getSubfolders } from '$lib/data/mock';
 	import type { File, Folder } from '$lib/types';
 	import {
 		File as FileIcon,
@@ -48,6 +47,7 @@
 	let isLoading = $state(true);
 
 	let showNewFolderModal = $state(false);
+	let parentFolderId = $state<string | null>(null); // For creating subfolders
 	let showRenameModal = $state(false);
 	let showDeleteModal = $state(false);
 	let showUploadModal = $state(false);
@@ -148,7 +148,8 @@
 		showDeleteModal = true;
 	}
 
-	function openNewFolder() {
+	function openNewFolder(folderId: string | null = null) {
+		parentFolderId = folderId;
 		showNewFolderModal = true;
 	}
 
@@ -254,7 +255,9 @@
 										</div>
 									</ContextMenu.Trigger>
 									<ContextMenu.Content>
-										<ContextMenu.Item onclick={openNewFolder}>New Folder</ContextMenu.Item>
+										<ContextMenu.Item onclick={() => openNewFolder(folder.id)}
+											>New Folder</ContextMenu.Item
+										>
 										<ContextMenu.Item onclick={() => openRename(folder, 'folder')}
 											>Rename</ContextMenu.Item
 										>
@@ -301,7 +304,9 @@
 											</div>
 										</ContextMenu.Trigger>
 										<ContextMenu.Content>
-											<ContextMenu.Item onclick={openNewFolder}>New Folder</ContextMenu.Item>
+											<ContextMenu.Item onclick={() => openNewFolder(folder.id)}
+												>New Folder</ContextMenu.Item
+											>
 											<ContextMenu.Item onclick={() => openRename(folder, 'folder')}
 												>Rename</ContextMenu.Item
 											>
@@ -422,7 +427,7 @@
 			</div>
 		</ContextMenu.Trigger>
 		<ContextMenu.Content>
-			<ContextMenu.Item onclick={openNewFolder}>New Folder</ContextMenu.Item>
+			<ContextMenu.Item onclick={() => openNewFolder()}>New Folder</ContextMenu.Item>
 			<ContextMenu.Item onclick={openUpload}>Upload Files</ContextMenu.Item>
 		</ContextMenu.Content>
 	</ContextMenu.Root>
@@ -475,7 +480,9 @@
 										</button>
 									</ContextMenu.Trigger>
 									<ContextMenu.Content>
-										<ContextMenu.Item onclick={openNewFolder}>New Folder</ContextMenu.Item>
+										<ContextMenu.Item onclick={() => openNewFolder(folder.id)}
+											>New Folder</ContextMenu.Item
+										>
 										<ContextMenu.Item onclick={() => openRename(folder, 'folder')}
 											>Rename</ContextMenu.Item
 										>
@@ -517,7 +524,9 @@
 											</button>
 										</ContextMenu.Trigger>
 										<ContextMenu.Content>
-											<ContextMenu.Item onclick={openNewFolder}>New Folder</ContextMenu.Item>
+											<ContextMenu.Item onclick={() => openNewFolder(folder.id)}
+												>New Folder</ContextMenu.Item
+											>
 											<ContextMenu.Item onclick={() => openRename(folder, 'folder')}
 												>Rename</ContextMenu.Item
 											>
@@ -594,13 +603,13 @@
 			</div>
 		</ContextMenu.Trigger>
 		<ContextMenu.Content>
-			<ContextMenu.Item onclick={openNewFolder}>New Folder</ContextMenu.Item>
+			<ContextMenu.Item onclick={() => openNewFolder()}>New Folder</ContextMenu.Item>
 			<ContextMenu.Item onclick={openUpload}>Upload Files</ContextMenu.Item>
 		</ContextMenu.Content>
 	</ContextMenu.Root>
 {/if}
 
-<NewFolderModal bind:open={showNewFolderModal} />
+<NewFolderModal bind:open={showNewFolderModal} bind:parentFolderId />
 <RenameModal bind:open={showRenameModal} bind:item={renameTarget} bind:itemType={renameType} />
 <DeleteConfirmModal
 	bind:open={showDeleteModal}

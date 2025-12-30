@@ -8,7 +8,6 @@
 		DialogFooter
 	} from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
-	import { mockWorkspaces, mockFolders, mockFiles } from '$lib/data/mock';
 	import { workspaces, currentWorkspace, currentFolder } from '$lib/stores';
 	import { deleteWorkspace } from '$lib/services/dataService';
 	import type { Workspace } from '$lib/types';

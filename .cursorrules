@@ -7,15 +7,25 @@ This file is for AI assistants working on this project. It provides quick contex
 **Project**: CFS CMS - Centralized Content Management System  
 **Tech Stack**: SvelteKit + TypeScript + shadcn-svelte + Cloudflare  
 **Current Phase**: Phase 1 - UI/UX First (In Progress)  
-**Last Active**: December 29, 2025
+**Last Active**: December 30, 2025
+
+**Recent Improvements (December 30, 2025)**:
+
+- ✅ Fixed cross-workspace data corruption bug
+- ✅ Established proper data flow architecture (Components → dataService → Stores)
+- ✅ Removed all direct mock data usage from components
+- ✅ Converted functions to `$derived` for hot reloading
+- ✅ Created comprehensive ARCHITECTURE.md documentation
+- ✅ Sidebar, grid, and breadcrumbs now hot reload properly
 
 ## How to Use This Project
 
 1. **First Time?** Read these in order:
    - [README.md](README.md) - Project overview
-   - [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) - Architecture & decisions
-   - [ROADMAP.md](ROADMAP.md) - Phase breakdown
-   - [TODO.md](TODO.md) - Current tasks
+   - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - **NEW**: Data flow, Svelte 5 patterns, hot reload guide
+   - [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md) - Architecture & decisions
+   - [docs/ROADMAP.md](docs/ROADMAP.md) - Phase breakdown
+   - [docs/TODO.md](docs/TODO.md) - Current tasks
 
 2. **Returning?** Check:
    - [TODO.md](TODO.md) - What's in progress/next
@@ -44,11 +54,29 @@ This file is for AI assistants working on this project. It provides quick contex
 
 ### Architecture
 
+**For complete architecture details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
+
+**Three-Layer Data Flow (Established December 30, 2025)**:
+
+```
+UI Components → Data Service → Svelte Stores → Mock Data (Phase 1) / API (Phase 2+)
+```
+
+**Critical Rules**:
+
+- ✅ Mock data ONLY imported by `src/lib/stores/index.ts`
+- ✅ All CRUD operations use `src/lib/services/dataService.ts`
+- ✅ Components use `$derived` for reactive computed values
+- ✅ Hot reloading works everywhere (sidebar, grid, breadcrumbs)
+- ✅ Backend-ready: only dataService needs changes for Phase 2
+
+**Key Files**:
+
 - **Components**: Live in `/src/routes` and `/src/lib/components`
-- **Business Logic**: Lives in `/src/lib/services`
+- **Business Logic**: Lives in `/src/lib/services/dataService.ts`
 - **Types**: Centralized in `/src/lib/types`
 - **Stores**: Svelte stores in `/src/lib/stores` for state
-- **No**: Business logic in components; complex components in routes
+- **No**: Direct mock data imports in components; business logic in components
 
 ### UI Inspiration & Implementation
 
@@ -64,12 +92,17 @@ This file is for AI assistants working on this project. It provides quick contex
 
 **Goal**: Build fully interactive Google Drive-like interface with mocked data (no backend yet)
 
-- **Mock Data**: Lives in `src/lib/data/mock.ts`, seeded by `PUBLIC_USE_MOCK_DATA` env var
-- **State**: Svelte stores in `src/lib/stores/` (workspace, folders, files, tags, selection)
-- **Demo Page**: `/demo` showcases mocked CMS (public example)
-- **Production**: When `PUBLIC_USE_MOCK_DATA` unset, queries go to real D1 backend (Phase 2)
+**Architecture** (Implemented December 30, 2025):
+
+- **Mock Data**: Lives in `src/lib/data/mock.ts`, ONLY imported by `src/lib/stores/index.ts`
+- **Data Service**: `src/lib/services/dataService.ts` - All CRUD operations, abstracts store manipulation
+- **State**: Svelte stores in `src/lib/stores/` hold ALL workspace data (UI filters per workspace)
+- **Components**: Use `$derived` for reactive filtered data (no functions for lists)
+- **Hot Reload**: Sidebar, grid, breadcrumbs update immediately on data changes
+- **Demo Page**: `/demo` showcases mocked CMS (public example) - TODO
+- **Production**: When Phase 2 starts, only modify dataService to use API calls
 - **UI Testing**: Local browser testing with no API calls needed
-- **Easy Migration**: Once Phase 2 starts, swap mock data queries with real D1 queries
+- **Easy Migration**: Components need ZERO changes for backend integration
 
 ### Phase 2: Cloudflare Backend
 
@@ -154,6 +187,76 @@ Never use emojis in code:
 <div>📁 My Folder</div>
 <button>⬆️ Upload</button>
 <span>❌ Delete</span>
+```
+
+## Svelte 5 Patterns (IMPORTANT)
+
+**For complete patterns, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#svelte-5-patterns)**
+
+### ✅ DO: Use $derived for Reactive Lists
+
+```svelte
+<script lang="ts">
+	import { workspaceFolders, currentWorkspace } from '$lib/stores';
+
+	// ✅ CORRECT: Updates immediately when data changes
+	let rootFolders = $derived(
+		$workspaceFolders.filter(
+			(f) => f.parentId === null && f.workspaceId === $currentWorkspace?.id && !f.deletedAt
+		)
+	);
+</script>
+
+{#each rootFolders as folder (folder.id)}
+	<Folder {folder} />
+{/each}
+```
+
+### ❌ DON'T: Use Functions for Reactive Lists
+
+```svelte
+<script lang="ts">
+	// ❌ WRONG: Won't update when data changes
+	function getRootFolders() {
+		return $workspaceFolders.filter((f) => f.parentId === null);
+	}
+</script>
+
+{#each getRootFolders() as folder}
+	<Folder {folder} />
+{/each}
+```
+
+### Component Props with Svelte 5 Runes
+
+```svelte
+<script lang="ts">
+	interface Props {
+		folder: Folder;
+		depth?: number;
+	}
+
+	let { folder, depth = 0 }: Props = $props();
+
+	// ✅ Use $derived for computed values
+	let children = $derived($workspaceFolders.filter((f) => f.parentId === folder.id));
+</script>
+```
+
+### Data Service Usage (CRUD Operations)
+
+```svelte
+<script lang="ts">
+	import { createFolder, renameFolder, deleteFolder } from '$lib/services/dataService';
+
+	function handleCreate() {
+		createFolder(parentId, folderName); // Component updates automatically
+	}
+
+	function handleRename() {
+		renameFolder(folderId, newName); // Sidebar/grid update immediately
+	}
+</script>
 ```
 
 ## File Structure Reference

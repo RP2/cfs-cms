@@ -149,7 +149,7 @@ export function deleteFolder(folderId: string): void {
 	});
 
 	workspaceFolders.set([...currentFoldersList]);
-	currentFiles.set([...currentFilesList.filter((f) => !f.deletedAt)]);
+	currentFiles.set([...currentFilesList]);
 }
 
 // ==================== FILE OPERATIONS ====================
@@ -178,7 +178,7 @@ export function deleteFile(fileId: string): void {
 	// Soft delete file
 	file.deletedAt = new Date();
 
-	currentFiles.set([...currentFilesList.filter((f) => !f.deletedAt)]);
+	currentFiles.set([...currentFilesList]);
 }
 
 export function uploadFiles(files: FileList): void {
@@ -209,5 +209,5 @@ export function uploadFiles(files: FileList): void {
 		currentFilesList.push(newFile);
 	}
 
-	currentFiles.set([...currentFilesList.filter((f) => !f.deletedAt)]);
+	currentFiles.set([...currentFilesList]);
 }

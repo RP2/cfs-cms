@@ -4,6 +4,15 @@
 
 **Strategy**: Build functional Google Drive-like UI with mocked data first. Backend integration with Cloudflare comes after UI is solid. Auth deferred until Phase 2 (using Cloudflare Zero Trust for MVP protection).
 
+**Recent Improvements (December 30, 2025)**:
+
+- ✅ Fixed cross-workspace data corruption bug
+- ✅ Established proper data flow architecture (Components → dataService → Stores)
+- ✅ Removed all direct mock data usage from components
+- ✅ Converted functions to `$derived` for hot reloading
+- ✅ Created ARCHITECTURE.md documentation
+- ✅ Sidebar, grid, and breadcrumbs now hot reload properly
+
 ### High Priority - Week 1 (UI Foundation)
 
 #### Install & Setup shadcn-svelte

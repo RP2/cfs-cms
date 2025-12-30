@@ -9,7 +9,6 @@
 		workspaceFolders,
 		workspaces
 	} from '$lib/stores';
-	import { mockWorkspaces, getSubfolders } from '$lib/data/mock';
 	import type { Folder, Workspace } from '$lib/types';
 	import FolderItem from './FolderItem.svelte';
 	import NewFolderModal from './modals/NewFolderModal.svelte';
@@ -74,8 +73,10 @@
 		grid: Grid3x3,
 		tag: Tag
 	};
+
+	// Initialize workspace icons from the store instead of mockWorkspaces
 	let workspaceIcons = $state<Record<string, WorkspaceIcon>>(
-		mockWorkspaces.reduce(
+		$workspaces.reduce(
 			(icons, workspace) => {
 				icons[workspace.id] = 'briefcase';
 				return icons;
@@ -121,12 +122,15 @@
 		deleteWorkspaceModalOpen = true;
 	}
 
-	function getRootFolders() {
-		if (!$currentWorkspace) return [];
-		return $workspaceFolders.filter(
-			(f: Folder) => f.parentId === null && f.workspaceId === $currentWorkspace.id && !f.deletedAt
-		);
-	}
+	// Use $derived for reactive root folders list - updates immediately when folders change
+	let rootFolders = $derived(
+		$currentWorkspace
+			? $workspaceFolders.filter(
+					(f: Folder) =>
+						f.parentId === null && f.workspaceId === $currentWorkspace.id && !f.deletedAt
+				)
+			: []
+	);
 
 	function handleRenameFolder(folder: Folder) {
 		renameTarget = folder;
@@ -224,7 +228,7 @@
 					</Sidebar.MenuButton>
 				</Sidebar.MenuItem>
 
-				{#each getRootFolders() as folder (folder.id)}
+				{#each rootFolders as folder (folder.id)}
 					<FolderItem
 						{folder}
 						on:rename-folder={(event) => handleRenameFolder(event.detail)}

@@ -7,6 +7,7 @@ You are assisting with the development of **CFS CMS**, a centralized content man
 **Read these files first for complete context**:
 
 - `README.md` - Project overview
+- `docs/ARCHITECTURE.md` - **NEW**: Data flow, Svelte 5 patterns, hot reload guide
 - `docs/PROJECT_CONTEXT.md` - Architecture and all technology decisions
 - `docs/TODO.md` - Current tasks and priorities
 - `docs/ROADMAP.md` - 8-phase development plan
@@ -31,11 +32,21 @@ You are assisting with the development of **CFS CMS**, a centralized content man
 
 ## Architecture Overview
 
-### Layer Structure
+**For complete architecture details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
+
+### Three-Layer Data Flow (Established December 30, 2025)
 
 ```
-SvelteKit Components (UI) → State/Services → API Routes → Cloudflare Workers/D1/R2
+UI Components → Data Service → Svelte Stores → Mock Data (Phase 1) / API (Phase 2+)
 ```
+
+**Critical Rules**:
+
+- ✅ Mock data ONLY imported by `src/lib/stores/index.ts`
+- ✅ All CRUD operations use `src/lib/services/dataService.ts`
+- ✅ Components use `$derived` for reactive computed values
+- ✅ Hot reloading works everywhere (sidebar, grid, breadcrumbs)
+- ✅ Backend-ready: only dataService needs changes for Phase 2
 
 ### Key Folders
 
@@ -48,28 +59,71 @@ SvelteKit Components (UI) → State/Services → API Routes → Cloudflare Worke
 
 ## Code Patterns
 
-### Component Structure
+**For comprehensive Svelte 5 patterns, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#svelte-5-patterns)**
 
-```typescript
-// ComponentName.svelte
+### Component Structure (Svelte 5 Runes)
+
+```svelte
+<!-- ComponentName.svelte -->
 <script lang="ts">
-  interface Props {
-    // Props interface
-  }
+	import { workspaceFolders, currentWorkspace } from '$lib/stores';
 
-  let { prop1, prop2 }: Props = $props();
+	interface Props {
+		folder: Folder;
+		depth?: number;
+	}
+
+	let { folder, depth = 0 }: Props = $props();
+
+	// ✅ Use $derived for reactive computed values
+	let children = $derived(
+		$workspaceFolders.filter((f) => f.parentId === folder.id && !f.deletedAt)
+	);
 </script>
 
-<template>
-  <!-- Component JSX -->
-</template>
-
-<style>
-  /* Scoped styles */
-</style>
+<div style="margin-left: {depth * 20}px">
+	{folder.name} ({children.length} children)
+</div>
 ```
 
-### Service Pattern
+### Data Service Pattern
+
+```typescript
+// src/lib/services/dataService.ts
+import { workspaceFolders } from '$lib/stores';
+import { get } from 'svelte/store';
+
+export function createFolder(parentId: string | null, name: string): Folder {
+	const folders = get(workspaceFolders);
+	const newFolder = {
+		/* ... */
+	};
+	workspaceFolders.set([...folders, newFolder]);
+	return newFolder;
+}
+```
+
+### Reactive List Pattern (IMPORTANT)
+
+```svelte
+<script lang="ts">
+	import { workspaceFolders, currentWorkspace } from '$lib/stores';
+
+	// ❌ BAD: Won't update reactively
+	function getRootFolders() {
+		return $workspaceFolders.filter((f) => f.parentId === null);
+	}
+
+	// ✅ GOOD: Updates immediately when data changes
+	let rootFolders = $derived($workspaceFolders.filter((f) => f.parentId === null && !f.deletedAt));
+</script>
+
+{#each rootFolders as folder (folder.id)}
+	<Folder {folder} />
+{/each}
+```
+
+### Legacy Service Pattern (Pre-December 30)
 
 ```typescript
 // src/lib/services/serviceName.ts
@@ -134,16 +188,29 @@ Ask for help with:
 
 Building the Google Drive-like interface with mocked data. Backend integration comes after UI is solid. Authentication deferred to Phase 3 (using Cloudflare Zero Trust for MVP protection).
 
-### Phase 1 Strategy
+### Phase 1 Architecture (December 30, 2025)
 
-- **Mock Data**: `src/lib/data/mock.ts` with `PUBLIC_USE_MOCK_DATA` env var
-- **State Management**: Svelte stores (`workspace`, `folders`, `files`, `tags`, `selection`)
-- **UI Components**: shadcn-svelte with theme colors (NO raw Tailwind classes)
-- **Icons**: lucide-svelte icons (NO emojis)
-- **Modals**: NewFolderModal, UploadModal, RenameModal, DeleteConfirmModal
-- **Demo Page**: `/demo` showcases mocked CMS (public example)
+**Three-Layer Data Flow**:
+
+```
+UI Components → dataService → Stores → Mock Data (initialization only)
+```
+
+**Implementation**:
+
+- **Mock Data**: `src/lib/data/mock.ts` - ONLY imported by `src/lib/stores/index.ts`
+- **Data Service**: `src/lib/services/dataService.ts` - All CRUD operations
+- **State Management**: Svelte stores hold ALL workspace data (UI filters per workspace)
+- **UI Components**: Use `$derived` for reactive data, call dataService for mutations
+- **Hot Reload**: Sidebar, grid, breadcrumbs update immediately on data changes
+- **Backend Ready**: Only dataService needs changes for Phase 2 API integration
+
+### Phase 1 Benefits
+
 - **Local Testing**: Full interaction testing without backend
-- **Easy Migration**: Swap mock queries with D1 queries in Phase 2
+- **Hot Reloading**: All views update immediately on CRUD operations
+- **Production-Ready Architecture**: Clean separation of concerns
+- **Easy Migration**: Only modify dataService for backend integration (zero component changes)
 
 ## Styling Guidelines
 
