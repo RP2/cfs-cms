@@ -8,51 +8,54 @@
 
 #### Install & Setup shadcn-svelte
 
-- [ ] Install shadcn-svelte CLI and components
-- [ ] Add Button, Card, Dialog, Input, Separator, Tabs components
-- [ ] Verify Tailwind integration working with shadcn components
-- [ ] Commit initial component setup
+- [x] Install shadcn-svelte CLI and components
+- [x] Add Button, Card, Dialog, Input, Separator, Tabs components
+- [x] Add Sidebar (sidebar-07 variant), Breadcrumb, Toggle-group
+- [x] Add Checkbox, Badge, Avatar, Context-menu, Dropdown-menu
+- [x] Add Scroll-area, Tooltip, Alert, Skeleton
+- [x] Verify Tailwind integration working with shadcn components
+- [x] Commit initial component setup
 
 #### Core Component Structure
 
-- [ ] Create `Sidebar.svelte` - Workspace switcher, folder navigation
-- [ ] Create `Header.svelte` - Search, breadcrumbs, user menu placeholder
-- [ ] Create `FileGrid.svelte` - Grid display of files/folders
-- [ ] Create `FileListItem.svelte` - Individual file/folder card
-- [ ] Create `FolderTree.svelte` - Collapsible folder hierarchy
-- [ ] Create `BreadcrumbNav.svelte` - Current path navigation
+- [x] Create `app-sidebar.svelte` - Workspace switcher, folder navigation (shadcn sidebar-07)
+- [x] Create `FolderItem.svelte` - Recursive folder tree component (unlimited depth)
+- [x] Create `FileGrid.svelte` - Grid/list display of files/folders
+- [x] Implement breadcrumb navigation in layout
+- [ ] Create `FileListItem.svelte` - Individual file/folder card component (optional extraction)
 
 #### Main Layout Pages
 
-- [ ] Update `src/routes/+layout.svelte` - Main app shell with sidebar + header
-- [ ] Create `src/routes/+page.svelte` - Workspace selector / welcome
+- [x] Update `src/routes/+layout.svelte` - Main app shell with sidebar + breadcrumbs
+- [x] Create `src/routes/+page.svelte` - Workspace selector / welcome
 - [ ] Create `src/routes/workspace/[id]/+page.svelte` - Main dashboard (folder view)
 
 ### High Priority - Week 2 (Interaction & State)
 
 #### Svelte Stores (State Management)
 
-- [ ] Create `src/lib/stores/workspace.ts` - Current workspace state
-- [ ] Create `src/lib/stores/folders.ts` - Folder navigation, current folder
-- [ ] Create `src/lib/stores/files.ts` - File list, sorting, filtering
-- [ ] Create `src/lib/stores/tags.ts` - Available tags state
-- [ ] Create `src/lib/stores/selection.ts` - Selected files/folders (for actions)
+- [x] Create `src/lib/stores/workspace.ts` - Current workspace state
+- [x] Create `src/lib/stores/folders.ts` - Folder navigation, current folder
+- [x] Create `src/lib/stores/files.ts` - File list, sorting, filtering
+- [x] Create `src/lib/stores/tags.ts` - Available tags state
+- [x] Create `src/lib/stores/selection.ts` - Selected files/folders (for actions)
 
 #### Mock Data Seeding
 
-- [ ] Create `src/lib/data/mock.ts` - Sample workspaces, folders, files, tags
-- [ ] Add `PUBLIC_USE_MOCK_DATA` env var check for seeding
-- [ ] Create realistic sample data (5+ workspaces, 20+ folders, 50+ files)
+- [x] Create `src/lib/data/mock.ts` - Sample workspaces, folders, files, tags
+- [x] Add `PUBLIC_USE_MOCK_DATA` env var check for seeding
+- [x] Create realistic sample data (3 workspaces, hierarchical folders, files with metadata)
 - [ ] Add `src/routes/demo` page showcasing mock data
-- [ ] Ensure mock data easily disableable in production
+- [x] Ensure mock data easily disableable in production
 
 #### Modals & Dialogs
 
-- [ ] Create folder creation modal
-- [ ] Create file upload modal (no actual upload yet, just UI)
-- [ ] Create rename dialog
-- [ ] Create delete confirmation modal
+- [x] Create folder creation modal (NewFolderModal.svelte)
+- [x] Create file upload modal (UploadModal.svelte - no actual upload yet, just UI)
+- [x] Create rename dialog (RenameModal.svelte)
+- [x] Create delete confirmation modal (DeleteConfirmModal.svelte)
 - [ ] Wire modals to stores (optimistic updates)
+- [ ] Connect modal triggers to buttons in sidebar/FileGrid
 
 #### Additional Pages
 

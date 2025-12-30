@@ -9,9 +9,15 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Badge } from '$lib/components/ui/badge';
-	import { currentFiles, currentFolder, selectedFileIds, viewType } from '$lib/stores';
-	import { mockFiles, getFilesForFolder } from '$lib/data/mock';
-	import type { File } from '$lib/types';
+	import {
+		currentFiles,
+		currentFolder,
+		currentWorkspace,
+		selectedFileIds,
+		viewType
+	} from '$lib/stores';
+	import { mockFiles, getFilesForFolder, getSubfolders } from '$lib/data/mock';
+	import type { File, Folder } from '$lib/types';
 	import {
 		File as FileIcon,
 		FileImage,
@@ -24,16 +30,25 @@
 		Trash2,
 		Package,
 		Calendar,
-		FolderOpen
+		FolderOpen,
+		Folder as FolderIcon
 	} from '@lucide/svelte';
 
 	let files: File[] = [];
+	let folders: Folder[] = [];
 
-	// Subscribe to current folder and update files
+	// Subscribe to current folder and update files/folders
 	$: if ($currentFolder) {
+		// Inside a folder: show both subfolders AND files
 		files = getFilesForFolder($currentFolder.id);
+		folders = getSubfolders($currentFolder.id, $currentWorkspace?.id || '');
+	} else if ($currentWorkspace) {
+		// At workspace root: show only top-level folders
+		files = [];
+		folders = getSubfolders(null, $currentWorkspace.id);
 	} else {
-		files = mockFiles.filter((f) => !f.deletedAt);
+		files = [];
+		folders = [];
 	}
 
 	function toggleFileSelect(fileId: string) {
@@ -44,6 +59,10 @@
 			newSelection.add(fileId);
 		}
 		selectedFileIds.set(newSelection);
+	}
+
+	function navigateToFolder(folder: Folder) {
+		currentFolder.set(folder);
 	}
 
 	function getFileIconComponent(mimeType: string) {
@@ -73,82 +92,125 @@
 {#if $viewType === 'grid'}
 	<!-- Grid View -->
 	<div class="space-y-4 p-6">
-		<!-- Header -->
-		<div class="flex items-center justify-between">
-			<div>
-				<h2 class="text-2xl font-bold">
-					{$currentFolder ? $currentFolder.name : 'All Files'}
-				</h2>
-				{#if $currentFolder?.description}
-					<p class="text-sm text-muted-foreground">{$currentFolder.description}</p>
-				{/if}
-			</div>
-			<div class="flex gap-2">
-				<Button class="gap-2">
-					<Plus class="h-4 w-4" />
-					New Folder
-				</Button>
-				<Button class="gap-2">
-					<Upload class="h-4 w-4" />
-					Upload
-				</Button>
-			</div>
-		</div>
-
-		<!-- Files Grid -->
-		{#if files.length > 0}
+		<!-- Show folders at workspace root, files inside folders -->
+		{#if !$currentFolder && folders.length > 0}
+			<!-- Workspace Root: Display Folders -->
 			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-				{#each files as file (file.id)}
+				{#each folders as folder (folder.id)}
 					<div class="group h-full">
-						<Card class="relative h-full cursor-pointer transition-shadow hover:shadow-lg">
-							<!-- Checkbox on hover -->
-							<div
-								class="absolute top-2 left-2 z-10 opacity-0 transition-opacity group-hover:opacity-100"
-							>
-								<Checkbox
-									checked={$selectedFileIds.has(file.id)}
-									onCheckedChange={() => toggleFileSelect(file.id)}
-								/>
-							</div>
-
+						<Card
+							class="relative h-full cursor-pointer transition-shadow hover:shadow-lg"
+							onclick={() => navigateToFolder(folder)}
+						>
 							<CardContent class="h-full p-4">
-								<!-- File Icon/Preview -->
+								<!-- Folder Icon -->
 								<div class="mb-2 flex justify-center">
-									<svelte:component
-										this={getFileIconComponent(file.mimeType)}
-										class="h-12 w-12 text-muted-foreground"
-									/>
+									<FolderIcon class="h-12 w-12 text-accent" />
 								</div>
 
-								<!-- File Name -->
-								<h3 class="mb-2 line-clamp-2 text-center text-sm font-medium">{file.name}</h3>
+								<!-- Folder Name -->
+								<h3 class="mb-2 line-clamp-2 text-center text-sm font-medium">{folder.name}</h3>
 
-								<!-- File Info -->
-								<div class="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-									<div class="flex items-center gap-1">
-										<Package class="h-3 w-3" />
-										{formatFileSize(file.size)}
-									</div>
-									<span>•</span>
-									<div class="flex items-center gap-1">
-										<Calendar class="h-3 w-3" />
-										{formatDate(file.createdAt)}
-									</div>
-								</div>
-
-								<!-- Tags -->
-								{#if file.tagIds && file.tagIds.length > 0}
-									<div class="mt-2 flex flex-wrap justify-center gap-1">
-										{#each file.tagIds as tagId}
-											<Badge variant="secondary">Tag</Badge>
-										{/each}
-									</div>
+								<!-- Folder Description -->
+								{#if folder.description}
+									<p class="line-clamp-2 text-center text-xs text-muted-foreground">
+										{folder.description}
+									</p>
 								{/if}
 							</CardContent>
 						</Card>
 					</div>
 				{/each}
 			</div>
+		{:else if $currentFolder && (folders.length > 0 || files.length > 0)}
+			<!-- Inside Folder: Display Both Subfolders and Files -->
+			<!-- Subfolders -->
+			{#if folders.length > 0}
+				<div class="mb-4">
+					<h3 class="mb-3 text-sm font-medium text-muted-foreground">FOLDERS</h3>
+					<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+						{#each folders as folder (folder.id)}
+							<div class="group h-full">
+								<Card
+									class="relative h-full cursor-pointer transition-shadow hover:shadow-lg"
+									onclick={() => navigateToFolder(folder)}
+								>
+									<CardContent class="h-full p-4">
+										<div class="mb-2 flex justify-center">
+											<FolderIcon class="h-12 w-12 text-accent" />
+										</div>
+										<h3 class="mb-2 line-clamp-2 text-center text-sm font-medium">{folder.name}</h3>
+										{#if folder.description}
+											<p class="line-clamp-2 text-center text-xs text-muted-foreground">
+												{folder.description}
+											</p>
+										{/if}
+									</CardContent>
+								</Card>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
+			<!-- Files -->
+			{#if files.length > 0}
+				{#if folders.length > 0}
+					<h3 class="mt-6 mb-3 text-sm font-medium text-muted-foreground">FILES</h3>
+				{/if}
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+					{#each files as file (file.id)}
+						<div class="group h-full">
+							<Card class="relative h-full cursor-pointer transition-shadow hover:shadow-lg">
+								<!-- Checkbox on hover -->
+								<div
+									class="absolute top-2 left-2 z-10 opacity-0 transition-opacity group-hover:opacity-100"
+								>
+									<Checkbox
+										checked={$selectedFileIds.has(file.id)}
+										onCheckedChange={() => toggleFileSelect(file.id)}
+									/>
+								</div>
+
+								<CardContent class="h-full p-4">
+									<!-- File Icon/Preview -->
+									<div class="mb-2 flex justify-center">
+										<svelte:component
+											this={getFileIconComponent(file.mimeType)}
+											class="h-12 w-12 text-muted-foreground"
+										/>
+									</div>
+
+									<!-- File Name -->
+									<h3 class="mb-2 line-clamp-2 text-center text-sm font-medium">{file.name}</h3>
+
+									<!-- File Info -->
+									<div class="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+										<div class="flex items-center gap-1">
+											<Package class="h-3 w-3" />
+											{formatFileSize(file.size)}
+										</div>
+										<span>•</span>
+										<div class="flex items-center gap-1">
+											<Calendar class="h-3 w-3" />
+											{formatDate(file.createdAt)}
+										</div>
+									</div>
+
+									<!-- Tags -->
+									{#if file.tagIds && file.tagIds.length > 0}
+										<div class="mt-2 flex flex-wrap justify-center gap-1">
+											{#each file.tagIds as tagId}
+												<Badge variant="secondary">Tag</Badge>
+											{/each}
+										</div>
+									{/if}
+								</CardContent>
+							</Card>
+						</div>
+					{/each}
+				</div>
+			{/if}
 		{:else}
 			<div class="py-12 text-center">
 				<div class="mb-4 flex justify-center">
@@ -164,46 +226,84 @@
 {:else}
 	<!-- List View -->
 	<div class="p-6">
-		<div class="mb-4 flex items-center justify-between">
-			<h2 class="text-2xl font-bold">
-				{$currentFolder ? $currentFolder.name : 'All Files'}
-			</h2>
-			<div class="flex gap-2">
-				<Button class="gap-2">
-					<Plus class="h-4 w-4" />
-					New Folder
-				</Button>
-				<Button class="gap-2">
-					<Upload class="h-4 w-4" />
-					Upload
-				</Button>
-			</div>
-		</div>
-
-		{#if files.length > 0}
+		{#if !$currentFolder && folders.length > 0}
+			<!-- Workspace Root: Display Folders -->
 			<div class="space-y-2">
-				{#each files as file (file.id)}
-					<div class="flex items-center gap-3 rounded border p-3 hover:bg-muted">
-						<Checkbox
-							checked={$selectedFileIds.has(file.id)}
-							onCheckedChange={() => toggleFileSelect(file.id)}
-						/>
-						<svelte:component
-							this={getFileIconComponent(file.mimeType)}
-							class="h-6 w-6 text-muted-foreground"
-						/>
+				{#each folders as folder (folder.id)}
+					<button
+						type="button"
+						class="flex w-full cursor-pointer items-center gap-3 rounded border p-3 text-left transition-colors hover:bg-muted"
+						onclick={() => navigateToFolder(folder)}
+					>
+						<FolderIcon class="h-6 w-6 text-accent" />
 						<div class="flex-1">
-							<p class="font-medium">{file.name}</p>
-							<p class="text-sm text-muted-foreground">
-								{formatFileSize(file.size)} • {formatDate(file.createdAt)}
-							</p>
+							<p class="font-medium">{folder.name}</p>
+							{#if folder.description}
+								<p class="text-sm text-muted-foreground">{folder.description}</p>
+							{/if}
 						</div>
 						<Button variant="ghost" size="icon">
 							<MoreVertical class="h-4 w-4" />
 						</Button>
-					</div>
+					</button>
 				{/each}
 			</div>
+		{:else if $currentFolder && (folders.length > 0 || files.length > 0)}
+			<!-- Inside Folder: Display Both Subfolders and Files -->
+			{#if folders.length > 0}
+				<div class="mb-6">
+					<h3 class="mb-3 text-sm font-medium text-muted-foreground">FOLDERS</h3>
+					<div class="space-y-2">
+						{#each folders as folder (folder.id)}
+							<button
+								type="button"
+								class="flex w-full cursor-pointer items-center gap-3 rounded border p-3 text-left transition-colors hover:bg-muted"
+								onclick={() => navigateToFolder(folder)}
+							>
+								<FolderIcon class="h-6 w-6 text-accent" />
+								<div class="flex-1">
+									<p class="font-medium">{folder.name}</p>
+									{#if folder.description}
+										<p class="text-sm text-muted-foreground">{folder.description}</p>
+									{/if}
+								</div>
+								<Button variant="ghost" size="icon">
+									<MoreVertical class="h-4 w-4" />
+								</Button>
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
+			{#if files.length > 0}
+				{#if folders.length > 0}
+					<h3 class="mb-3 text-sm font-medium text-muted-foreground">FILES</h3>
+				{/if}
+				<div class="space-y-2">
+					{#each files as file (file.id)}
+						<div class="flex items-center gap-3 rounded border p-3 hover:bg-muted">
+							<Checkbox
+								checked={$selectedFileIds.has(file.id)}
+								onCheckedChange={() => toggleFileSelect(file.id)}
+							/>
+							<svelte:component
+								this={getFileIconComponent(file.mimeType)}
+								class="h-6 w-6 text-muted-foreground"
+							/>
+							<div class="flex-1">
+								<p class="font-medium">{file.name}</p>
+								<p class="text-sm text-muted-foreground">
+									{formatFileSize(file.size)} • {formatDate(file.createdAt)}
+								</p>
+							</div>
+							<Button variant="ghost" size="icon">
+								<MoreVertical class="h-4 w-4" />
+							</Button>
+						</div>
+					{/each}
+				</div>
+			{/if}
 		{:else}
 			<div class="py-12 text-center">
 				<p class="text-muted-foreground">No files found</p>

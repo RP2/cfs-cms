@@ -29,8 +29,8 @@ This document tracks which shadcn-svelte components have been installed for easy
 
 - ✅ **tabs** - Grid/list view toggle
 - ✅ **toggle-group** - Toggle button groups (grid/list view)
-- ✅ **select** - Visual dividers between sections
 - ✅ **separator** - Visual dividers between sections
+- ✅ **sidebar** - Collapsible responsive sidebar (sidebar-07 variant)
 
 ### Feedback & Indicators
 
