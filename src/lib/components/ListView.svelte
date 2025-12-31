@@ -16,12 +16,12 @@
 		Calendar,
 		FolderOpen,
 		Folder as FolderIcon,
-		MoreVertical,
-		Copy,
-		Clipboard
+		MoreVertical
 	} from '@lucide/svelte';
 	import type { SvelteComponent } from 'svelte';
 	import type { File, Folder, Tag, Workspace, ViewMode } from '$lib/types';
+	import { buildBackgroundMenu, buildFileMenu, buildFolderMenu } from './context-menus/menuBuilder';
+	import MenuContent from './context-menus/MenuContent.svelte';
 
 	type IconComponent = typeof SvelteComponent;
 
@@ -108,6 +108,7 @@
 		onHandlePermanentDeleteFolder,
 		onHandleRestoreWorkspace,
 		onHandlePermanentDeleteWorkspace,
+		clipboard,
 		dragArmingId,
 		folderDragArmingId,
 		onFilePointerDown,
@@ -121,16 +122,63 @@
 		onFolderDragOver,
 		onFolderDragLeave,
 		onFolderDrop,
-		clipboard,
 		onCopyFile,
 		onCopyFolder,
 		onPaste
 	}: Props = $props();
+
+	const fileMenu = (file: File) =>
+		buildFileMenu({
+			isTrash: isTrashView,
+			clipboard,
+			isSelected: selectedFileIds.has(file.id),
+			isStarred: file.starred,
+			inRoot: !file.folderId,
+			onToggleSelect: () => onToggleFileSelect(file.id),
+			onRename: () => onOpenRename(file, 'file'),
+			onStar: () => onHandleStarFile(file.id),
+			onRestore: () => onHandleRestoreFile(file.id),
+			onDelete: () => onOpenDelete(file, 'file'),
+			onPermanentDelete: () => onHandlePermanentDeleteFile(file.id),
+			onCopy: () => onCopyFile(file.id),
+			onPaste: (targetFolderId) => onPaste(targetFolderId),
+			targetFolderId: file.folderId ?? null,
+			pasteLabelMode: 'generic'
+		});
+
+	const folderMenu = (folder: Folder) =>
+		buildFolderMenu({
+			isTrash: isTrashView,
+			clipboard,
+			inRoot: false,
+			isStarred: folder.starred,
+			onNewFolder: !isTrashView ? () => onOpenNewFolder(folder.id) : undefined,
+			onRename: () => onOpenRename(folder, 'folder'),
+			onStar: () => onHandleStarFolder(folder.id),
+			onRestore: () => onHandleRestoreFolder(folder.id),
+			onDelete: () => onOpenDelete(folder, 'folder'),
+			onPermanentDelete: () => onHandlePermanentDeleteFolder(folder.id),
+			onCopy: () => onCopyFolder(folder.id),
+			onPaste: (targetFolderId) => onPaste(targetFolderId),
+			targetFolderId: folder.id,
+			pasteLabelMode: 'folder'
+		});
+
+	const backgroundMenu = () =>
+		buildBackgroundMenu({
+			clipboard,
+			inRoot: !currentFolder,
+			onNewFolder: () => onOpenNewFolder(currentFolder?.id ?? null),
+			onUpload: onOpenUpload,
+			onPaste: (targetFolderId) => onPaste(targetFolderId),
+			targetFolderId: currentFolder?.id ?? null,
+			pasteLabelMode: 'generic'
+		});
 </script>
 
 <ContextMenu.Root>
 	<ContextMenu.Trigger>
-		<div class="flex min-h-0 flex-1 flex-col overflow-auto p-4 md:p-8">
+		<div class="flex min-h-[calc(100vh-4rem)] flex-1 flex-col overflow-auto p-4 md:p-8">
 			{#if isTrashView}
 				<div
 					class="mb-4 flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-muted-foreground"
@@ -144,7 +192,6 @@
 			{/if}
 			{#if isLoading}
 				<div>
-					tabindex="0"
 					<h3 class="mb-3 text-sm font-medium text-muted-foreground">LOADING</h3>
 					<div class="space-y-2">
 						{#each Array(6) as _}
@@ -255,35 +302,7 @@
 											</button>
 										</div>
 									</ContextMenu.Trigger>
-									<ContextMenu.Content>
-										{#if currentView === 'trash'}
-											<ContextMenu.Item onclick={() => onHandleRestoreFolder(folder.id)}>
-												Restore
-											</ContextMenu.Item>
-											<ContextMenu.Item
-												variant="destructive"
-												onclick={() => onHandlePermanentDeleteFolder(folder.id)}
-											>
-												Delete permanently
-											</ContextMenu.Item>
-										{:else}
-											<ContextMenu.Item onclick={() => onOpenNewFolder(folder.id)}
-												>New Folder</ContextMenu.Item
-											>
-											<ContextMenu.Item onclick={() => onOpenRename(folder, 'folder')}>
-												Edit
-											</ContextMenu.Item>
-											<ContextMenu.Item onclick={() => onHandleStarFolder(folder.id)}>
-												{folder.starred ? 'Unstar' : 'Star'}
-											</ContextMenu.Item>
-											<ContextMenu.Item
-												variant="destructive"
-												onclick={() => onOpenDelete(folder, 'folder')}
-											>
-												Move to Trash
-											</ContextMenu.Item>
-										{/if}
-									</ContextMenu.Content>
+									<MenuContent items={folderMenu(folder)} />
 								</ContextMenu.Root>
 							{/each}
 						</div>
@@ -339,35 +358,7 @@
 										{/if}
 									</div>
 								</ContextMenu.Trigger>
-								<ContextMenu.Content>
-									{#if currentView === 'trash'}
-										<ContextMenu.Item onclick={() => onHandleRestoreFile(file.id)}>
-											Restore
-										</ContextMenu.Item>
-										<ContextMenu.Item
-											variant="destructive"
-											onclick={() => onHandlePermanentDeleteFile(file.id)}
-										>
-											Delete permanently
-										</ContextMenu.Item>
-									{:else}
-										<ContextMenu.Item onclick={() => onToggleFileSelect(file.id)}>
-											{selectedFileIds.has(file.id) ? 'Deselect' : 'Select'}
-										</ContextMenu.Item>
-										<ContextMenu.Item onclick={() => onOpenRename(file, 'file')}>
-											Edit
-										</ContextMenu.Item>
-										<ContextMenu.Item onclick={() => onHandleStarFile(file.id)}>
-											{file.starred ? 'Unstar' : 'Star'}
-										</ContextMenu.Item>
-										<ContextMenu.Item
-											variant="destructive"
-											onclick={() => onOpenDelete(file, 'file')}
-										>
-											Move to Trash
-										</ContextMenu.Item>
-									{/if}
-								</ContextMenu.Content>
+								<MenuContent items={fileMenu(file)} />
 							</ContextMenu.Root>
 						{/each}
 					</div>
@@ -433,35 +424,7 @@
 											</button>
 										</div>
 									</ContextMenu.Trigger>
-									<ContextMenu.Content>
-										{#if currentView === 'trash'}
-											<ContextMenu.Item onclick={() => onHandleRestoreFolder(folder.id)}>
-												Restore
-											</ContextMenu.Item>
-											<ContextMenu.Item
-												variant="destructive"
-												onclick={() => onHandlePermanentDeleteFolder(folder.id)}
-											>
-												Delete permanently
-											</ContextMenu.Item>
-										{:else}
-											<ContextMenu.Item onclick={() => onOpenNewFolder(folder.id)}>
-												New Folder
-											</ContextMenu.Item>
-											<ContextMenu.Item onclick={() => onOpenRename(folder, 'folder')}>
-												Edit
-											</ContextMenu.Item>
-											<ContextMenu.Item onclick={() => onHandleStarFolder(folder.id)}>
-												{folder.starred ? 'Unstar' : 'Star'}
-											</ContextMenu.Item>
-											<ContextMenu.Item
-												variant="destructive"
-												onclick={() => onOpenDelete(folder, 'folder')}
-											>
-												Move to Trash
-											</ContextMenu.Item>
-										{/if}
-									</ContextMenu.Content>
+									<MenuContent items={folderMenu(folder)} />
 								</ContextMenu.Root>
 							{/each}
 						</div>
@@ -516,35 +479,7 @@
 										{/if}
 									</div>
 								</ContextMenu.Trigger>
-								<ContextMenu.Content>
-									{#if currentView === 'trash'}
-										<ContextMenu.Item onclick={() => onHandleRestoreFile(file.id)}>
-											Restore
-										</ContextMenu.Item>
-										<ContextMenu.Item
-											variant="destructive"
-											onclick={() => onHandlePermanentDeleteFile(file.id)}
-										>
-											Delete permanently
-										</ContextMenu.Item>
-									{:else}
-										<ContextMenu.Item onclick={() => onToggleFileSelect(file.id)}>
-											{selectedFileIds.has(file.id) ? 'Deselect' : 'Select'}
-										</ContextMenu.Item>
-										<ContextMenu.Item onclick={() => onOpenRename(file, 'file')}>
-											Edit
-										</ContextMenu.Item>
-										<ContextMenu.Item onclick={() => onHandleStarFile(file.id)}>
-											{file.starred ? 'Unstar' : 'Star'}
-										</ContextMenu.Item>
-										<ContextMenu.Item
-											variant="destructive"
-											onclick={() => onOpenDelete(file, 'file')}
-										>
-											Move to Trash
-										</ContextMenu.Item>
-									{/if}
-								</ContextMenu.Content>
+								<MenuContent items={fileMenu(file)} />
 							</ContextMenu.Root>
 						{/each}
 					</div>
@@ -562,8 +497,5 @@
 			{/if}
 		</div>
 	</ContextMenu.Trigger>
-	<ContextMenu.Content>
-		<ContextMenu.Item onclick={() => onOpenNewFolder()}>New Folder</ContextMenu.Item>
-		<ContextMenu.Item onclick={onOpenUpload}>Upload Files</ContextMenu.Item>
-	</ContextMenu.Content>
+	<MenuContent items={backgroundMenu()} />
 </ContextMenu.Root>

@@ -36,17 +36,18 @@
 		toggleFolderStar,
 		restoreFile,
 		restoreFolder,
+		restoreWorkspace,
 		permanentlyDeleteFile,
 		permanentlyDeleteFolder,
 		deleteFiles,
+		deleteWorkspace,
 		moveFilesToFolder,
 		moveFilesToWorkspace,
 		moveFolder,
-		moveFolderToWorkspace,
 		addTagsToFiles,
 		copyFilesToFolder,
-		copyFilesToWorkspace,
-		copyFoldersToFolder
+		copyFoldersToFolder,
+		getDescendantFolderIds
 	} from '$lib/services/dataService';
 	import {
 		buildDragPayload,
@@ -259,17 +260,24 @@
 			const isMac =
 				typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 			const modKey = isMac ? e.metaKey : e.ctrlKey;
+			const target = e.target as HTMLElement | null;
+			const isEditableTarget =
+				target?.closest('input, textarea, [contenteditable="true"], [contenteditable=""]') !== null;
+			const hasSelection = typeof window !== 'undefined' && window.getSelection()?.toString();
+
+			// Skip shortcuts when user is typing or selecting text
+			if (isEditableTarget || hasSelection) return;
 
 			// Ctrl/Cmd + C: Copy selected files to clipboard
 			if (modKey && e.key === 'c') {
-				e.preventDefault();
 				const selectedIds = Array.from($selectedFileIds);
 				if (selectedIds.length > 0) {
+					e.preventDefault();
 					clipboard.set({
 						type: 'file',
 						ids: selectedIds
 					});
-					selectedFileIds.set(new Set()); // Clear selection
+					selectedFileIds.set(new Set());
 					toast.success(
 						`Copied ${selectedIds.length} file${selectedIds.length === 1 ? '' : 's'} to clipboard`
 					);
@@ -278,20 +286,18 @@
 
 			// Ctrl/Cmd + V: Paste clipboard contents to current folder
 			if (modKey && e.key === 'v') {
-				e.preventDefault();
 				const clipboardData = $clipboard;
 				if (!clipboardData || !$currentWorkspace) return;
+				e.preventDefault();
 
 				try {
 					if (clipboardData.type === 'file') {
 						copyFilesToFolder(clipboardData.ids, $currentFolder?.id ?? null);
-						clipboard.clear();
 						toast.success(
 							`Pasted ${clipboardData.ids.length} file${clipboardData.ids.length === 1 ? '' : 's'}`
 						);
 					} else if (clipboardData.type === 'folder') {
 						copyFoldersToFolder(clipboardData.ids, $currentFolder?.id ?? null);
-						clipboard.clear();
 						toast.success(
 							`Pasted ${clipboardData.ids.length} folder${clipboardData.ids.length === 1 ? '' : 's'}`
 						);
@@ -304,9 +310,9 @@
 
 			// Ctrl/Cmd + X: Move selected files to trash
 			if (modKey && e.key === 'x') {
-				e.preventDefault();
 				const selectedIds = Array.from($selectedFileIds);
 				if (selectedIds.length > 0) {
+					e.preventDefault();
 					showBulkTrashConfirm = true;
 					pendingMoveIds = selectedIds;
 				}
@@ -341,13 +347,11 @@
 		try {
 			if (clipboardData.type === 'file') {
 				copyFilesToFolder(clipboardData.ids, targetFolderId);
-				clipboard.clear();
 				toast.success(
 					`Pasted ${clipboardData.ids.length} file${clipboardData.ids.length === 1 ? '' : 's'}`
 				);
 			} else if (clipboardData.type === 'folder') {
 				copyFoldersToFolder(clipboardData.ids, targetFolderId);
-				clipboard.clear();
 				toast.success(
 					`Pasted ${clipboardData.ids.length} folder${clipboardData.ids.length === 1 ? '' : 's'}`
 				);
@@ -373,12 +377,13 @@
 			if ($currentWorkspace && targetWs !== $currentWorkspace.id) {
 				moveFilesToWorkspace(ids, targetWs, targetFolder);
 			} else {
-				moveFilesToFolder(ids, targetFolder, { targetWorkspaceId: targetWs });
+				moveFilesToFolder(ids, targetFolder);
 			}
 			selectedFileIds.set(new Set());
 			showMoveModal = false;
 			showMoveConfirm = false;
 			pendingMoveIds = [];
+			toast.success(`Moved ${ids.length} file${ids.length === 1 ? '' : 's'}`);
 		} catch (e) {
 			moveError = (e as Error).message;
 		}
@@ -579,7 +584,16 @@
 	}
 
 	function handlePermanentDeleteFile(fileId: string) {
-		permanentlyDeleteFile(fileId);
+		const remainingCopies = permanentlyDeleteFile(fileId);
+
+		// Show feedback based on copy count
+		if (remainingCopies > 0) {
+			toast.success(
+				`File permanently deleted (${remainingCopies} ${remainingCopies === 1 ? 'copy' : 'copies'} remain)`
+			);
+		} else {
+			toast.success('File permanently deleted');
+		}
 	}
 
 	function handlePermanentDeleteFolder(folderId: string) {
@@ -587,15 +601,23 @@
 	}
 
 	function handleRestoreWorkspace(workspaceId: string) {
-		const updated = $workspaces.map((ws) =>
-			ws.id === workspaceId ? { ...ws, deletedAt: null } : ws
-		);
-		workspaces.set(updated);
+		try {
+			restoreWorkspace(workspaceId);
+			toast.success('Workspace restored');
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Unknown error';
+			toast.error(`Failed to restore workspace: ${message}`);
+		}
 	}
 
 	function handlePermanentDeleteWorkspace(workspaceId: string) {
-		const updated = $workspaces.filter((ws) => ws.id !== workspaceId);
-		workspaces.set(updated);
+		try {
+			deleteWorkspace(workspaceId);
+			toast.success('Workspace deleted permanently');
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Unknown error';
+			toast.error(`Failed to delete workspace: ${message}`);
+		}
 	}
 
 	function selectAll() {
@@ -709,23 +731,6 @@
 		}
 
 		performMove(targetWorkspaceId, targetFolderId, ids);
-	}
-
-	function getDescendantFolderIds(allFolders: Folder[], folderId: string): Set<string> {
-		const descendants = new Set<string>();
-		const stack = [folderId];
-		while (stack.length > 0) {
-			const current = stack.pop();
-			if (!current) continue;
-			const children = allFolders.filter((f) => f.parentId === current && !f.deletedAt);
-			for (const child of children) {
-				if (!descendants.has(child.id)) {
-					descendants.add(child.id);
-					stack.push(child.id);
-				}
-			}
-		}
-		return descendants;
 	}
 
 	function dropFoldersToFolder(folderIds: string[], targetFolderId: string | null) {

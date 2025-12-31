@@ -73,28 +73,12 @@ export interface ClipboardItem {
 }
 
 function createClipboardStore() {
-	const stored = typeof window !== 'undefined' ? localStorage.getItem('cfs-clipboard') : null;
-	const initial: ClipboardItem | null = stored ? JSON.parse(stored) : null;
-	const { subscribe, set } = writable<ClipboardItem | null>(initial);
+	const { subscribe, set } = writable<ClipboardItem | null>(null);
 
 	return {
 		subscribe,
-		set: (value: ClipboardItem | null) => {
-			if (typeof window !== 'undefined') {
-				if (value) {
-					localStorage.setItem('cfs-clipboard', JSON.stringify(value));
-				} else {
-					localStorage.removeItem('cfs-clipboard');
-				}
-			}
-			set(value);
-		},
-		clear: () => {
-			if (typeof window !== 'undefined') {
-				localStorage.removeItem('cfs-clipboard');
-			}
-			set(null);
-		}
+		set: (value: ClipboardItem | null) => set(value),
+		clear: () => set(null)
 	};
 }
 

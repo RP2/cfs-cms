@@ -6,6 +6,8 @@
 	import { Folder as FolderIcon, ChevronRight } from '@lucide/svelte';
 	import FolderItem from './FolderItem.svelte';
 	import { createEventDispatcher } from 'svelte';
+	import MenuContent from './context-menus/MenuContent.svelte';
+	import { buildFolderMenu } from './context-menus/menuBuilder';
 
 	interface Props {
 		folder: Folder;
@@ -13,6 +15,11 @@
 		onFolderDragOver?: (event: DragEvent, key?: string) => void;
 		onFolderDragLeave?: (key?: string) => void;
 		onFolderDrop?: (event: DragEvent, folderId: string, workspaceId: string) => void;
+		clipboard?: { type: 'file' | 'folder'; ids: string[] } | null;
+		onCopyFolder?: (folderId: string) => void;
+		onPaste?: (targetFolderId: string | null, workspaceId: string) => void;
+		onStarFolder?: (folderId: string) => void;
+		onNewFolder?: (parentId: string) => void;
 	}
 
 	let {
@@ -20,7 +27,12 @@
 		activeDropTargetKey = null,
 		onFolderDragOver,
 		onFolderDragLeave,
-		onFolderDrop
+		onFolderDrop,
+		clipboard,
+		onCopyFolder,
+		onPaste,
+		onStarFolder,
+		onNewFolder
 	}: Props = $props();
 	const dispatch = createEventDispatcher<{ 'rename-folder': Folder; 'delete-folder': Folder }>();
 
@@ -59,6 +71,28 @@
 			open = true;
 		}
 	});
+
+	const menuItems = $derived(
+		buildFolderMenu({
+			isTrash: false,
+			clipboard: clipboard ?? null,
+			inRoot: true,
+			isStarred: false,
+			onToggleOpen: hasChildren ? toggleOpen : undefined,
+			toggleLabel: hasChildren ? (open ? 'Collapse' : 'Expand') : undefined,
+			onNewFolder: onNewFolder ? () => onNewFolder(folder.id) : undefined,
+			onRename: () => dispatch('rename-folder', folder),
+			onStar: () => onStarFolder?.(folder.id),
+			onRestore: () => {},
+			onDelete: () => dispatch('delete-folder', folder),
+			onPermanentDelete: () => {},
+			onCopy: () => onCopyFolder?.(folder.id),
+			onPaste: (targetFolderId) => onPaste?.(targetFolderId, folder.workspaceId),
+			targetFolderId: folder.id,
+			deleteLabel: 'Delete',
+			pasteLabelMode: 'folder'
+		})
+	);
 </script>
 
 <Sidebar.MenuItem>
@@ -84,15 +118,7 @@
 				</Sidebar.MenuAction>
 			{/if}
 		</ContextMenu.Trigger>
-		<ContextMenu.Content>
-			{#if hasChildren}
-				<ContextMenu.Item onclick={toggleOpen}>{open ? 'Collapse' : 'Expand'}</ContextMenu.Item>
-			{/if}
-			<ContextMenu.Item onclick={() => dispatch('rename-folder', folder)}>Rename</ContextMenu.Item>
-			<ContextMenu.Item variant="destructive" onclick={() => dispatch('delete-folder', folder)}>
-				Delete
-			</ContextMenu.Item>
-		</ContextMenu.Content>
+		<MenuContent items={menuItems} />
 	</ContextMenu.Root>
 
 	{#if hasChildren && open}
@@ -105,6 +131,9 @@
 						{onFolderDragOver}
 						{onFolderDragLeave}
 						{onFolderDrop}
+						{clipboard}
+						{onCopyFolder}
+						{onPaste}
 						on:rename-folder={(event) => dispatch('rename-folder', event.detail)}
 						on:delete-folder={(event) => dispatch('delete-folder', event.detail)}
 					/>

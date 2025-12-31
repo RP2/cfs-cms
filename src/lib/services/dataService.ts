@@ -42,14 +42,20 @@ function toUTC(date: Date): string {
 	return date.toISOString();
 }
 
-function getDescendantFolderIds(allFolders: Folder[], folderId: string): Set<string> {
+/**
+ * Get all descendant folder IDs for circular reference validation
+ * Used to prevent moving a folder into itself or its own subfolder
+ */
+export function getDescendantFolderIds(allFolders: Folder[], folderId: string): Set<string> {
 	const descendants = new Set<string>();
 	const stack = [folderId];
 
 	while (stack.length > 0) {
 		const current = stack.pop();
 		if (!current) continue;
-		const children = allFolders.filter((f) => f.parentId === current).map((f) => f.id);
+		const children = allFolders
+			.filter((f) => f.parentId === current && !f.deletedAt)
+			.map((f) => f.id);
 		for (const childId of children) {
 			if (!descendants.has(childId)) {
 				descendants.add(childId);
@@ -149,6 +155,15 @@ export function deleteWorkspace(workspaceId: string): void {
 		currentWorkspace.set(nextWorkspace);
 		currentFolder.set(null);
 	}
+}
+
+export function restoreWorkspace(workspaceId: string): void {
+	const currentWorkspacesList = get(workspaces);
+	const updated = currentWorkspacesList.map((ws) =>
+		ws.id === workspaceId ? { ...ws, deletedAt: null } : ws
+	);
+	workspaces.set(updated);
+	// TODO: Replace with Cloudflare backend call (PATCH /api/workspaces/:id)
 }
 
 export function createFolder(parentId: string | null, name: string): Folder {
@@ -739,6 +754,29 @@ export function permanentlyDeleteFolder(folderId: string): void {
 
 // ==================== COPY/PASTE OPERATIONS ====================
 
+// Strips existing copy prefix so we don't stack "Copy of Copy of ..."
+function stripCopyPrefix(name: string): string | null {
+	const match = /^Copy(?: \((\d+)\))? of (.+)$/.exec(name);
+	return match ? match[2] : null;
+}
+
+// Ensures copy indicator is a prefix so it can be removed or renumbered later
+function buildCopyName(originalName: string, existingNames: Set<string>): string {
+	const baseName = stripCopyPrefix(originalName) ?? originalName;
+	const lastDot = baseName.lastIndexOf('.');
+	const hasExtension = lastDot > 0; // treat ".env" as no-extension for prefixing
+	const base = hasExtension ? baseName.slice(0, lastDot) : baseName;
+	const ext = hasExtension ? baseName.slice(lastDot) : '';
+
+	let attempt = 1;
+	while (true) {
+		const prefix = attempt === 1 ? 'Copy of ' : `Copy (${attempt}) of `;
+		const candidate = `${prefix}${base}${ext}`;
+		if (!existingNames.has(candidate)) return candidate;
+		attempt += 1;
+	}
+}
+
 /**
  * Copy files to target folder in current workspace
  * Creates new file records pointing to same R2 storage (no duplication)
@@ -757,6 +795,14 @@ export function copyFilesToFolder(fileIds: string[], targetFolderId: string | nu
 
 	if (!workspace) throw new Error('No workspace selected');
 
+	const existingNames = new Set(
+		currentFilesList
+			.filter(
+				(f) => f.workspaceId === workspace.id && f.folderId === targetFolderId && !f.deletedAt
+			)
+			.map((f) => f.name)
+	);
+
 	const copied: File[] = [];
 
 	for (const fileId of fileIds) {
@@ -768,7 +814,7 @@ export function copyFilesToFolder(fileIds: string[], targetFolderId: string | nu
 			id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Unique ID
 			workspaceId: workspace.id,
 			folderId: targetFolderId,
-			name: `${original.name} (copy)`,
+			name: buildCopyName(original.name, existingNames),
 			mimeType: original.mimeType,
 			size: original.size,
 			storagePath: original.storagePath, // ONLY thing shared - R2 file reference
@@ -782,6 +828,7 @@ export function copyFilesToFolder(fileIds: string[], targetFolderId: string | nu
 		};
 
 		copied.push(newFile);
+		existingNames.add(newFile.name);
 	}
 
 	// Add all copies to store
@@ -802,6 +849,12 @@ export function copyFilesToFolder(fileIds: string[], targetFolderId: string | nu
 export function copyFilesToWorkspace(fileIds: string[], targetWorkspaceId: string): File[] {
 	const currentFilesList = get(currentFiles);
 
+	const existingNames = new Set(
+		currentFilesList
+			.filter((f) => f.workspaceId === targetWorkspaceId && f.folderId === null && !f.deletedAt)
+			.map((f) => f.name)
+	);
+
 	const copied: File[] = [];
 
 	for (const fileId of fileIds) {
@@ -813,7 +866,7 @@ export function copyFilesToWorkspace(fileIds: string[], targetWorkspaceId: strin
 			id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Unique ID
 			workspaceId: targetWorkspaceId, // Different workspace
 			folderId: null, // Start at root
-			name: `${original.name} (copy)`,
+			name: buildCopyName(original.name, existingNames),
 			mimeType: original.mimeType,
 			size: original.size,
 			storagePath: original.storagePath, // ONLY thing shared - R2 file reference
@@ -827,6 +880,7 @@ export function copyFilesToWorkspace(fileIds: string[], targetWorkspaceId: strin
 		};
 
 		copied.push(newFile);
+		existingNames.add(newFile.name);
 	}
 
 	// Add all copies to store
@@ -851,6 +905,19 @@ export function copyFoldersToFolder(folderIds: string[], targetFolderId: string 
 
 	if (!workspace) throw new Error('No workspace selected');
 
+	const folderNamesByParent = new Map<string | null, Set<string>>();
+	const getFolderNames = (parentId: string | null) => {
+		if (folderNamesByParent.has(parentId)) return folderNamesByParent.get(parentId)!;
+
+		const names = new Set(
+			currentFoldersList
+				.filter((f) => f.workspaceId === workspace.id && f.parentId === parentId && !f.deletedAt)
+				.map((f) => f.name)
+		);
+		folderNamesByParent.set(parentId, names);
+		return names;
+	};
+
 	const copied: Folder[] = [];
 	const oldToNewFolderMap = new Map<string, string>();
 
@@ -861,12 +928,13 @@ export function copyFoldersToFolder(folderIds: string[], targetFolderId: string 
 		if (!sourceFolder || sourceFolder.deletedAt) return;
 
 		// Create new independent folder
+		const nameSet = getFolderNames(newParentId);
 		const newFolderId = `folder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 		const newFolder: Folder = {
 			id: newFolderId, // Unique ID
 			workspaceId: workspace.id,
 			parentId: newParentId,
-			name: `${sourceFolder.name} (copy)`,
+			name: buildCopyName(sourceFolder.name, nameSet),
 			description: sourceFolder.description,
 			starred: false, // Copies are never starred
 			createdAt: new Date(), // TODO Phase 2: Use toUTC() for D1
@@ -876,6 +944,7 @@ export function copyFoldersToFolder(folderIds: string[], targetFolderId: string 
 		};
 
 		copied.push(newFolder);
+		nameSet.add(newFolder.name);
 		oldToNewFolderMap.set(sourceFolderId, newFolderId);
 
 		// Recursively copy children

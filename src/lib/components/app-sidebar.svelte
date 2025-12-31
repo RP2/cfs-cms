@@ -18,13 +18,17 @@
 		workspaceFolders,
 		workspaces,
 		currentView,
-		viewScope
+		viewScope,
+		clipboard
 	} from '$lib/stores';
 	import {
 		moveFilesToFolder,
 		moveFilesToWorkspace,
 		moveFolder,
-		moveFolderToWorkspace
+		moveFolderToWorkspace,
+		copyFoldersToFolder,
+		copyFilesToFolder,
+		toggleFolderStar
 	} from '$lib/services/dataService';
 	import { allowMoveDrop, parseDragData } from '$lib/utils/drag';
 	import type { Folder, Workspace } from '$lib/types';
@@ -55,6 +59,9 @@
 	} from '@lucide/svelte';
 	import type { ComponentProps } from 'svelte';
 	import IconPickerModal from './modals/IconPickerModal.svelte';
+	import { toast } from 'svelte-sonner';
+	import MenuContent from './context-menus/MenuContent.svelte';
+	import { buildWorkspaceMenu } from './context-menus/menuBuilder';
 
 	let {
 		ref = $bindable(null),
@@ -108,6 +115,82 @@
 	let pendingDropTargetWorkspaceId = $state<string | null>(null);
 	let pendingDropTargetFolderId = $state<string | null>(null);
 	let activeDropTargetKey = $state<string | null>(null);
+
+	function ensureWorkspaceContext(workspaceId: string) {
+		const target = $workspaces.find((ws) => ws.id === workspaceId);
+		if (!target) return;
+		const current = $currentWorkspace;
+		if (!current || current.id !== workspaceId) {
+			currentWorkspace.set(target);
+			currentFolder.set(null);
+		}
+	}
+
+	function handleCopySidebarFolder(folderId: string) {
+		clipboard.set({ type: 'folder', ids: [folderId] });
+		toast.success('Copied folder to clipboard');
+	}
+
+	function handlePasteToFolder(targetFolderId: string | null, workspaceId: string) {
+		const clip = $clipboard;
+		if (!clip) return;
+		ensureWorkspaceContext(workspaceId);
+		try {
+			if (clip.type === 'file') {
+				copyFilesToFolder(clip.ids, targetFolderId);
+				toast.success(
+					`Pasted ${clip.ids.length} file${clip.ids.length === 1 ? '' : 's'}${
+						targetFolderId ? ' here' : ''
+					}`
+				);
+			} else {
+				copyFoldersToFolder(clip.ids, targetFolderId);
+				toast.success(
+					`Pasted ${clip.ids.length} folder${clip.ids.length === 1 ? '' : 's'}${
+						targetFolderId ? ' here' : ''
+					}`
+				);
+			}
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Unknown error';
+			toast.error(`Paste failed: ${message}`);
+		}
+	}
+
+	function handlePasteToWorkspace(workspace: Workspace) {
+		const clip = $clipboard;
+		if (!clip) return;
+		ensureWorkspaceContext(workspace.id);
+		try {
+			if (clip.type === 'file') {
+				copyFilesToFolder(clip.ids, null);
+				toast.success(
+					`Pasted ${clip.ids.length} file${clip.ids.length === 1 ? '' : 's'} into ${workspace.name}`
+				);
+			} else {
+				copyFoldersToFolder(clip.ids, null);
+				toast.success(
+					`Pasted ${clip.ids.length} folder${clip.ids.length === 1 ? '' : 's'} into ${workspace.name}`
+				);
+			}
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Unknown error';
+			toast.error(`Paste failed: ${message}`);
+		}
+	}
+
+	function handleStarFolder(folderId: string) {
+		toggleFolderStar(folderId);
+	}
+
+	function workspaceMenuItems(workspace: Workspace) {
+		return buildWorkspaceMenu({
+			clipboard: $clipboard,
+			onChangeIcon: () => openIconPicker(workspace.id),
+			onPaste: () => handlePasteToWorkspace(workspace),
+			onDeleteWorkspace: () => handleDeleteWorkspace(workspace)
+		});
+	}
 
 	function clearActiveDropTarget(key?: string) {
 		if (!key || activeDropTargetKey === key) {
@@ -327,17 +410,7 @@
 								<span>{workspace.name}</span>
 							</Sidebar.MenuButton>
 						</ContextMenu.Trigger>
-						<ContextMenu.Content>
-							<ContextMenu.Item onclick={() => openIconPicker(workspace.id)}>
-								Change icon
-							</ContextMenu.Item>
-							<ContextMenu.Item
-								variant="destructive"
-								onclick={() => handleDeleteWorkspace(workspace)}
-							>
-								Delete workspace
-							</ContextMenu.Item>
-						</ContextMenu.Content>
+						<MenuContent items={workspaceMenuItems(workspace)} />
 					</ContextMenu.Root>
 				</Sidebar.MenuItem>
 			{/each}
@@ -364,6 +437,10 @@
 					<FolderItem
 						{folder}
 						{activeDropTargetKey}
+						clipboard={$clipboard}
+						onCopyFolder={handleCopySidebarFolder}
+						onPaste={handlePasteToFolder}
+						onStarFolder={handleStarFolder}
 						onFolderDragOver={(event, key) => handleSidebarDragOver(event, key)}
 						onFolderDragLeave={(key) => handleSidebarDragLeave(key)}
 						onFolderDrop={(event, folderId, workspaceId) =>
