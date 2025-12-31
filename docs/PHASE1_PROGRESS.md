@@ -18,6 +18,12 @@
 - Multi-select toolbar supports bulk trash/move/tag actions; selection state wired through `selectedFileIds` with keyboard shortcuts (Ctrl/Cmd+A) handled in ViewWrapper.
 - Basic file/folder search flow in data service and search service updated; list/grid consume filtered sets via derived state (mock data phase).
 
+### Context Menus, Paste, and Clipboard
+
+- Context menus now distinguish generic vs folder paste labels; background menus paste into the current folder while folder menus use "Paste into folder".
+- Clipboard is session-only (no persistence); keyboard shortcuts avoid hijacking native copy/paste and skip when focus is in editable contexts.
+- Right-click menus cover grid/list items, folder tiles/rows, and sidebar folders with consistent actions.
+
 ## Recent Updates (December 30, 2025)
 
 ### Component Architecture Refactor
@@ -258,7 +264,7 @@ When Phase 2 starts (Backend integration):
 - Keep same component structure
 - Stores will fetch from API routes instead
 
-## Current Status (December 30, 2025)
+## Current Status (December 31, 2025)
 
 **Phase**: 1 - UI/UX First (In Progress)  
 **Status**: Core UI complete, ViewWrapper pattern stable, all tests passing
@@ -277,6 +283,7 @@ When Phase 2 starts (Backend integration):
 - ✅ File selection UI
 - ✅ Hot reloading (all views update immediately on changes)
 - ✅ TypeScript strict mode (no errors)
+- ✅ Context menus with correct paste targeting/labels; clipboard is session-only and shortcuts respect native copy/paste
 
 **Architecture Ready for Phase 2**:
 
@@ -287,6 +294,6 @@ When Phase 2 starts (Backend integration):
 
 ---
 
-**Last Updated**: December 30, 2025  
+**Last Updated**: December 31, 2025  
 **Phase**: 1 (UI/UX First)  
 **Status**: Core UI complete, interactive, production-ready architecture

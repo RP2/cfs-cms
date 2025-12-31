@@ -18,6 +18,7 @@ This document is designed to provide AI models (Copilot, Cursor, Claude, etc.) w
 - ✅ Fixed cross-workspace data corruption issues
 - ✅ Implemented hot reloading with Svelte 5 runes
 - ✅ Created comprehensive ARCHITECTURE.md documentation
+- ✅ Context menus/paste behavior polished: generic vs folder paste labels, background paste into current folder, session-only clipboard, keyboard shortcuts avoid hijacking native copy/paste
 
 ## Business Goals
 

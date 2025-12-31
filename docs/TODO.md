@@ -12,6 +12,8 @@
 - ✅ Aligned folder star placement in ListView with file star position
 - ✅ Multi-select toolbar enabled for bulk trash/move/tag; selection state centralized in `selectedFileIds`
 - ✅ Basic file/folder search flow refreshed (mock data) so grid/list consume filtered sets via derived state
+- ✅ Context menus/paste polish: generic vs folder-specific paste labels, background paste targets current folder, session-only clipboard, and keyboard shortcuts now avoid hijacking native copy/paste
+- ✅ Implemented copy/paste data layer functions (`copyFilesToFolder`, `copyFilesToWorkspace`, `copyFoldersToFolder`) that create independent records but reuse `storagePath` so R2 objects are not duplicated
 
 **Recent Improvements (December 30, 2025)**:
 
@@ -94,7 +96,7 @@
 #### Interactions & UX Polish
 
 - [x] Drag/drop file moves (ViewWrapper + dataService, cross-workspace confirm)
-- [ ] File/folder context menu (right-click)
+- [x] File/folder context menu (right-click)
 - [ ] Keyboard shortcuts (Ctrl+A select, Delete, etc.)
 - [ ] Loading states and animations
 - [ ] Empty state UI (new workspace, no files)
@@ -114,6 +116,7 @@
 - [ ] Visual refinements based on Google Drive design patterns
 - [ ] Performance optimization (virtualization for large lists)
 - [ ] Unit tests for store logic
+- [ ] Copy/paste backend contract: reuse `storagePath` on copies, reference-count R2 objects, and ensure API endpoints duplicate metadata only (no extra uploads)
 
 ---
 
