@@ -1,4 +1,5 @@
 <script lang="ts">
+	// Note: use native on* attributes (ondragover/ondrop/ondragstart) instead of on: syntax here to avoid Svelte 5 warnings.
 	import { Card, CardContent } from '$lib/components/ui/card';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
@@ -40,6 +41,7 @@
 		formatTrashExpiry: (item: File | Folder) => string | null;
 		getFileIconComponent: (mimeType: string) => IconComponent;
 		getTagClass: (tagId: string) => string;
+		dragArmingId: string | null;
 		onNavigateToFolder: (folder: Folder) => void;
 		onToggleFileSelect: (id: string) => void;
 		onOpenNewFolder: (parentId?: string | null) => void;
@@ -54,6 +56,12 @@
 		onHandlePermanentDeleteFolder: (id: string) => void;
 		onHandleRestoreWorkspace: (id: string) => void;
 		onHandlePermanentDeleteWorkspace: (id: string) => void;
+		onFilePointerDown: (event: PointerEvent, fileId: string) => void;
+		onFilePointerMove: (event: PointerEvent) => void;
+		onFilePointerEnd: () => void;
+		onFileDragStart: (event: DragEvent, fileId: string) => void;
+		onFolderDragOver: (event: DragEvent) => void;
+		onFolderDrop: (event: DragEvent, folderId: string | null) => void;
 	}
 
 	let {
@@ -86,7 +94,14 @@
 		onHandlePermanentDeleteFile,
 		onHandlePermanentDeleteFolder,
 		onHandleRestoreWorkspace,
-		onHandlePermanentDeleteWorkspace
+		onHandlePermanentDeleteWorkspace,
+		dragArmingId,
+		onFilePointerDown,
+		onFilePointerMove,
+		onFilePointerEnd,
+		onFileDragStart,
+		onFolderDragOver,
+		onFolderDrop
 	}: Props = $props();
 </script>
 
@@ -156,6 +171,8 @@
 											<Card
 												class="relative h-full cursor-pointer transition-shadow hover:shadow-lg"
 												onclick={() => onNavigateToFolder(folder)}
+												ondragover={onFolderDragOver}
+												ondrop={(event) => onFolderDrop(event, folder.id)}
 											>
 												{#if folder.starred}
 													<Star
@@ -239,8 +256,17 @@
 							{@const Icon = getFileIconComponent(file.mimeType)}
 							<ContextMenu.Root>
 								<ContextMenu.Trigger>
-									<div class="group h-full">
-										<Card class="relative h-full transition-shadow hover:shadow-lg">
+									<div class="group h-full" class:animate-pulse={dragArmingId === file.id}>
+										<Card
+											class="relative h-full transition-shadow hover:shadow-lg"
+											draggable="true"
+											onpointerdown={(event) => onFilePointerDown(event, file.id)}
+											onpointermove={onFilePointerMove}
+											onpointerup={onFilePointerEnd}
+											onpointerleave={onFilePointerEnd}
+											onpointercancel={onFilePointerEnd}
+											ondragstart={(event) => onFileDragStart(event, file.id)}
+										>
 											{#if file.starred}
 												<Star
 													class="absolute top-2 right-2 h-4 w-4 text-accent"
@@ -258,7 +284,6 @@
 													onCheckedChange={() => onToggleFileSelect(file.id)}
 												/>
 											</div>
-
 											<CardContent class="h-full p-4">
 												<div class="mb-2 flex justify-center">
 													<Icon class="h-12 w-12 text-muted-foreground" />
@@ -350,6 +375,8 @@
 											<Card
 												class="relative h-full cursor-pointer transition-shadow hover:shadow-lg"
 												onclick={() => onNavigateToFolder(folder)}
+												ondragover={onFolderDragOver}
+												ondrop={(event) => onFolderDrop(event, folder.id)}
 											>
 												{#if folder.starred}
 													<Star
@@ -416,8 +443,17 @@
 							{@const Icon = getFileIconComponent(file.mimeType)}
 							<ContextMenu.Root>
 								<ContextMenu.Trigger>
-									<div class="group h-full">
-										<Card class="relative h-full transition-shadow hover:shadow-lg">
+									<div class="group h-full" class:animate-pulse={dragArmingId === file.id}>
+										<Card
+											class="relative h-full transition-shadow hover:shadow-lg"
+											draggable="true"
+											onpointerdown={(event) => onFilePointerDown(event, file.id)}
+											onpointermove={onFilePointerMove}
+											onpointerup={onFilePointerEnd}
+											onpointerleave={onFilePointerEnd}
+											onpointercancel={onFilePointerEnd}
+											ondragstart={(event) => onFileDragStart(event, file.id)}
+										>
 											{#if file.starred}
 												<Star
 													class="absolute top-2 right-2 h-4 w-4 text-accent"

@@ -1,8 +1,8 @@
 <script lang="ts">
+	// Note: use native on* attributes (ondragover/ondrop/ondragstart) instead of on: syntax here to avoid Svelte 5 warnings.
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Skeleton } from '$lib/components/ui/skeleton';
-	import { Badge } from '$lib/components/ui/badge';
 	import * as ContextMenu from '$lib/components/ui/context-menu/index.js';
 	import {
 		File as FileIcon,
@@ -40,6 +40,7 @@
 		formatTrashExpiry: (item: File | Folder) => string | null;
 		getFileIconComponent: (mimeType: string) => IconComponent;
 		getTagClass: (tagId: string) => string;
+		dragArmingId: string | null;
 		onNavigateToFolder: (folder: Folder) => void;
 		onToggleFileSelect: (id: string) => void;
 		onOpenNewFolder: (parentId?: string | null) => void;
@@ -54,6 +55,12 @@
 		onHandlePermanentDeleteFolder: (id: string) => void;
 		onHandleRestoreWorkspace: (id: string) => void;
 		onHandlePermanentDeleteWorkspace: (id: string) => void;
+		onFilePointerDown: (event: PointerEvent, fileId: string) => void;
+		onFilePointerMove: (event: PointerEvent) => void;
+		onFilePointerEnd: () => void;
+		onFileDragStart: (event: DragEvent, fileId: string) => void;
+		onFolderDragOver: (event: DragEvent) => void;
+		onFolderDrop: (event: DragEvent, folderId: string | null) => void;
 	}
 
 	let {
@@ -86,7 +93,14 @@
 		onHandlePermanentDeleteFile,
 		onHandlePermanentDeleteFolder,
 		onHandleRestoreWorkspace,
-		onHandlePermanentDeleteWorkspace
+		onHandlePermanentDeleteWorkspace,
+		dragArmingId,
+		onFilePointerDown,
+		onFilePointerMove,
+		onFilePointerEnd,
+		onFileDragStart,
+		onFolderDragOver,
+		onFolderDrop
 	}: Props = $props();
 </script>
 
@@ -106,6 +120,7 @@
 			{/if}
 			{#if isLoading}
 				<div>
+					tabindex="0"
 					<h3 class="mb-3 text-sm font-medium text-muted-foreground">LOADING</h3>
 					<div class="space-y-2">
 						{#each Array(6) as _}
@@ -169,6 +184,8 @@
 											type="button"
 											class="relative flex w-full cursor-pointer items-center gap-3 rounded border p-3 text-left transition-colors hover:bg-muted"
 											onclick={() => onNavigateToFolder(folder)}
+											ondragover={onFolderDragOver}
+											ondrop={(event) => onFolderDrop(event, folder.id)}
 										>
 											<FolderIcon class="h-6 w-6 text-accent" />
 											<div class="flex-1">
@@ -184,14 +201,10 @@
 												{/if}
 											</div>
 											{#if folder.starred}
-												<Star
-													class="absolute top-3 right-12 h-4 w-4 text-accent"
-													fill="currentColor"
-												/>
+												<div class="ml-auto flex items-center pr-1">
+													<Star class="h-4 w-4 text-accent" fill="currentColor" />
+												</div>
 											{/if}
-											<Button variant="ghost" size="icon">
-												<MoreVertical class="h-4 w-4" />
-											</Button>
 										</button>
 									</ContextMenu.Trigger>
 									<ContextMenu.Content>
@@ -241,7 +254,19 @@
 							{@const Icon = getFileIconComponent(file.mimeType)}
 							<ContextMenu.Root>
 								<ContextMenu.Trigger>
-									<div class="relative flex items-center gap-3 rounded border p-3 hover:bg-muted">
+									<div
+										class="relative flex items-center gap-3 rounded border p-3 hover:bg-muted"
+										draggable="true"
+										role="button"
+										tabindex="0"
+										class:animate-pulse={dragArmingId === file.id}
+										onpointerdown={(event) => onFilePointerDown(event, file.id)}
+										onpointermove={onFilePointerMove}
+										onpointerup={onFilePointerEnd}
+										onpointerleave={onFilePointerEnd}
+										onpointercancel={onFilePointerEnd}
+										ondragstart={(event) => onFileDragStart(event, file.id)}
+									>
 										<Checkbox
 											checked={selectedFileIds.has(file.id)}
 											onCheckedChange={() => onToggleFileSelect(file.id)}
@@ -260,14 +285,10 @@
 											{/if}
 										</div>
 										{#if file.starred}
-											<Star
-												class="absolute top-3 right-12 h-4 w-4 text-accent"
-												fill="currentColor"
-											/>
+											<div class="ml-auto flex items-center pr-1">
+												<Star class="h-4 w-4 text-accent" fill="currentColor" />
+											</div>
 										{/if}
-										<Button variant="ghost" size="icon">
-											<MoreVertical class="h-4 w-4" />
-										</Button>
 									</div>
 								</ContextMenu.Trigger>
 								<ContextMenu.Content>
@@ -315,6 +336,8 @@
 											type="button"
 											class="relative flex w-full cursor-pointer items-center gap-3 rounded border p-3 text-left transition-colors hover:bg-muted"
 											onclick={() => onNavigateToFolder(folder)}
+											ondragover={onFolderDragOver}
+											ondrop={(event) => onFolderDrop(event, folder.id)}
 										>
 											<FolderIcon class="h-6 w-6 text-accent" />
 											<div class="flex-1">
@@ -330,14 +353,10 @@
 												{/if}
 											</div>
 											{#if folder.starred}
-												<Star
-													class="absolute top-3 right-12 h-4 w-4 text-accent"
-													fill="currentColor"
-												/>
+												<div class="ml-auto flex items-center pr-1">
+													<Star class="h-4 w-4 text-accent" fill="currentColor" />
+												</div>
 											{/if}
-											<Button variant="ghost" size="icon">
-												<MoreVertical class="h-4 w-4" />
-											</Button>
 										</button>
 									</ContextMenu.Trigger>
 									<ContextMenu.Content>
@@ -372,7 +391,18 @@
 							{@const Icon = getFileIconComponent(file.mimeType)}
 							<ContextMenu.Root>
 								<ContextMenu.Trigger>
-									<div class="relative flex items-center gap-3 rounded border p-3 hover:bg-muted">
+									<div
+										class="relative flex items-center gap-3 rounded border p-3 hover:bg-muted"
+										draggable="true"
+										role="button"
+										tabindex="0"
+										onpointerdown={(event) => onFilePointerDown(event, file.id)}
+										onpointermove={onFilePointerMove}
+										onpointerup={onFilePointerEnd}
+										onpointerleave={onFilePointerEnd}
+										onpointercancel={onFilePointerEnd}
+										ondragstart={(event) => onFileDragStart(event, file.id)}
+									>
 										<Checkbox
 											checked={selectedFileIds.has(file.id)}
 											onCheckedChange={() => onToggleFileSelect(file.id)}
@@ -391,14 +421,10 @@
 											{/if}
 										</div>
 										{#if file.starred}
-											<Star
-												class="absolute top-3 right-12 h-4 w-4 text-accent"
-												fill="currentColor"
-											/>
+											<div class="ml-auto flex items-center pr-1">
+												<Star class="h-4 w-4 text-accent" fill="currentColor" />
+											</div>
 										{/if}
-										<Button variant="ghost" size="icon">
-											<MoreVertical class="h-4 w-4" />
-										</Button>
 									</div>
 								</ContextMenu.Trigger>
 								<ContextMenu.Content>

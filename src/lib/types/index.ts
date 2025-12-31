@@ -38,7 +38,7 @@ export interface Folder {
 export interface File {
 	id: string;
 	workspaceId: string;
-	folderId: string;
+	folderId: string | null;
 	name: string;
 	mimeType: string;
 	size: number; // in bytes

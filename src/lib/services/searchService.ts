@@ -8,7 +8,7 @@ export interface SearchResult {
 	type: 'file' | 'folder';
 	path: string;
 	tags: Tag[];
-	folderId?: string;
+	folderId?: string | null;
 	workspaceId: string;
 }
 

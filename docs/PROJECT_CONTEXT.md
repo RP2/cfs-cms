@@ -8,10 +8,12 @@ This document is designed to provide AI models (Copilot, Cursor, Claude, etc.) w
 **Purpose**: A Google Drive-like CMS for managing content across multiple websites  
 **Creator**: Riley  
 **Status**: Phase 1 - UI/UX First (Active Development)  
-**Last Updated**: December 30, 2025
+**Last Updated**: December 31, 2025
 
 **Recent Updates**:
 
+- ✅ Centralized drag/drop arming and tuning (`DRAG_ARM_DELAY_MS`, `DRAG_MOVE_THRESHOLD_PX`) with ViewWrapper-owned controller and Grid/List hooks
+- ✅ Drag/drop file moves routed through dataService (`moveFilesToFolder`/`moveFilesToWorkspace`) with cross-workspace confirmation
 - ✅ Completed architecture refactoring (three-layer data flow)
 - ✅ Fixed cross-workspace data corruption issues
 - ✅ Implemented hot reloading with Svelte 5 runes
@@ -85,7 +87,7 @@ This document is designed to provide AI models (Copilot, Cursor, Claude, etc.) w
 
 ### Layer Structure
 
-```
+```text
 ┌─────────────────────────────────────┐
 │      Svelte Components (UI)          │  - Page components
 │      Form handling & validation      │  - Layout components

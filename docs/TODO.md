@@ -4,6 +4,15 @@
 
 **Strategy**: Build functional Google Drive-like UI with mocked data first. Backend integration with Cloudflare comes after UI is solid. Auth deferred until Phase 2 (using Cloudflare Zero Trust for MVP protection).
 
+**Recent Improvements (December 31, 2025)**:
+
+- ✅ Centralized drag/drop arming with shared constants (`DRAG_ARM_DELAY_MS`, `DRAG_MOVE_THRESHOLD_PX`) in `src/lib/utils/drag.ts`, owned by ViewWrapper
+- ✅ Drag/drop moves files via dataService (`moveFilesToFolder`/`moveFilesToWorkspace`) with cross-workspace confirmation
+- ✅ Added arming feedback on grid/list items; normal click preserved when not armed
+- ✅ Aligned folder star placement in ListView with file star position
+- ✅ Multi-select toolbar enabled for bulk trash/move/tag; selection state centralized in `selectedFileIds`
+- ✅ Basic file/folder search flow refreshed (mock data) so grid/list consume filtered sets via derived state
+
 **Recent Improvements (December 30, 2025)**:
 
 - ✅ Fixed cross-workspace data corruption bug
@@ -84,7 +93,7 @@
 
 #### Interactions & UX Polish
 
-- [ ] Drag-drop folder navigation (basic implementation)
+- [x] Drag/drop file moves (ViewWrapper + dataService, cross-workspace confirm)
 - [ ] File/folder context menu (right-click)
 - [ ] Keyboard shortcuts (Ctrl+A select, Delete, etc.)
 - [ ] Loading states and animations

@@ -1,5 +1,23 @@
 # Phase 1 Implementation Progress
 
+## Recent Updates (December 31, 2025)
+
+### Drag & Drop Polish
+
+- Centralized drag tuning constants (`DRAG_ARM_DELAY_MS`, `DRAG_MOVE_THRESHOLD_PX`) in `src/lib/utils/drag.ts`; ViewWrapper owns the controller and passes handlers to Grid/List.
+- Hybrid arming (short delay + small move threshold) to balance click vs drag; drag image and payload set in `handleFileDragStart`.
+- Grid/List show arming feedback (`animate-pulse`) while the drag controller arms; normal clicks still open navigation/actions when not armed.
+- File moves via drag/drop always go through dataService (`moveFilesToFolder`/`moveFilesToWorkspace`), with cross-workspace confirmation in ViewWrapper.
+
+### UI Consistency
+
+- Folder stars in ListView now align with file star placement (right-aligned inline).
+
+### Batch Operations & Search
+
+- Multi-select toolbar supports bulk trash/move/tag actions; selection state wired through `selectedFileIds` with keyboard shortcuts (Ctrl/Cmd+A) handled in ViewWrapper.
+- Basic file/folder search flow in data service and search service updated; list/grid consume filtered sets via derived state (mock data phase).
+
 ## Recent Updates (December 30, 2025)
 
 ### Component Architecture Refactor
@@ -204,7 +222,7 @@
    - Accessibility audit (ARIA labels, keyboard nav)
    - Dark mode support
 
-### Ready for Phase 2 When:
+### Ready for Phase 2 When
 
 - All modals functional with optimistic updates
 - Full local testing with mock data

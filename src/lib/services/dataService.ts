@@ -12,6 +12,25 @@ import { get } from 'svelte/store';
 const TRASH_RETENTION_DAYS = 30;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+function getDescendantFolderIds(allFolders: Folder[], folderId: string): Set<string> {
+	const descendants = new Set<string>();
+	const stack = [folderId];
+
+	while (stack.length > 0) {
+		const current = stack.pop();
+		if (!current) continue;
+		const children = allFolders.filter((f) => f.parentId === current).map((f) => f.id);
+		for (const childId of children) {
+			if (!descendants.has(childId)) {
+				descendants.add(childId);
+				stack.push(childId);
+			}
+		}
+	}
+
+	return descendants;
+}
+
 function normalizeTagName(name: string): string {
 	return name.trim().toLowerCase();
 }
@@ -209,6 +228,23 @@ export function deleteFile(fileId: string): void {
 	currentFiles.set([...currentFilesList]);
 }
 
+export function deleteFiles(fileIds: string[]): void {
+	if (fileIds.length === 0) return;
+
+	const currentFilesList = get(currentFiles);
+	const now = new Date();
+	const idSet = new Set(fileIds);
+
+	currentFilesList.forEach((file) => {
+		if (!idSet.has(file.id)) return;
+		file.deletedAt = now;
+		file.trashedUntil = computeTrashedUntil(now);
+		file.updatedAt = now;
+	});
+
+	currentFiles.set([...currentFilesList]);
+}
+
 export function uploadFiles(files: FileList): void {
 	const currentWs = get(currentWorkspace);
 	const currentFolder_ = get(currentFolder);
@@ -240,6 +276,142 @@ export function uploadFiles(files: FileList): void {
 	}
 
 	currentFiles.set([...currentFilesList]);
+}
+
+// ==================== MOVE OPERATIONS ====================
+
+export function moveFilesToFolder(
+	fileIds: string[],
+	targetFolderId: string | null,
+	opts?: { targetWorkspaceId?: string }
+): void {
+	if (fileIds.length === 0) return;
+
+	const folders = get(workspaceFolders);
+	const files = get(currentFiles);
+	const targetFolder = targetFolderId
+		? folders.find((f) => f.id === targetFolderId && !f.deletedAt)
+		: null;
+
+	const targetWorkspaceId = targetFolder
+		? targetFolder.workspaceId
+		: (opts?.targetWorkspaceId ?? get(currentWorkspace)?.id);
+
+	if (!targetWorkspaceId) {
+		throw new Error('A target workspace is required to move files.');
+	}
+
+	if (targetFolder && targetFolder.workspaceId !== targetWorkspaceId) {
+		throw new Error('Target folder is not in the specified workspace.');
+	}
+
+	const now = new Date();
+	const idSet = new Set(fileIds);
+
+	files.forEach((file) => {
+		if (!idSet.has(file.id)) return;
+		file.workspaceId = targetWorkspaceId;
+		file.folderId = targetFolderId;
+		file.updatedAt = now;
+	});
+
+	currentFiles.set([...files]);
+}
+
+export function moveFilesToWorkspace(
+	fileIds: string[],
+	targetWorkspaceId: string,
+	targetFolderId: string | null = null
+): void {
+	const targetWorkspace = get(workspaces).find((w) => w.id === targetWorkspaceId && !w.deletedAt);
+	if (!targetWorkspace) {
+		throw new Error('Target workspace not found.');
+	}
+
+	if (targetFolderId) {
+		const folders = get(workspaceFolders);
+		const targetFolder = folders.find(
+			(f) => f.id === targetFolderId && f.workspaceId === targetWorkspaceId && !f.deletedAt
+		);
+		if (!targetFolder) {
+			throw new Error('Target folder is not available in the destination workspace.');
+		}
+	}
+
+	moveFilesToFolder(fileIds, targetFolderId, { targetWorkspaceId });
+}
+
+export function moveFolder(folderId: string, targetParentId: string | null): void {
+	const folders = get(workspaceFolders);
+	const folder = folders.find((f) => f.id === folderId && !f.deletedAt);
+	if (!folder) return;
+
+	const targetParent = targetParentId
+		? folders.find((f) => f.id === targetParentId && !f.deletedAt)
+		: null;
+
+	if (targetParent && targetParent.workspaceId !== folder.workspaceId) {
+		throw new Error('Cannot move folder into a different workspace without confirmation.');
+	}
+
+	const descendants = getDescendantFolderIds(folders, folderId);
+	if (targetParentId && descendants.has(targetParentId)) {
+		throw new Error('Cannot move a folder into its own descendant.');
+	}
+
+	folder.parentId = targetParentId;
+	folder.updatedAt = new Date();
+	workspaceFolders.set([...folders]);
+}
+
+export function moveFolderToWorkspace(
+	folderId: string,
+	targetWorkspaceId: string,
+	targetParentId: string | null = null
+): void {
+	const folders = get(workspaceFolders);
+	const files = get(currentFiles);
+	const folder = folders.find((f) => f.id === folderId && !f.deletedAt);
+	if (!folder) return;
+
+	const targetWorkspace = get(workspaces).find((w) => w.id === targetWorkspaceId && !w.deletedAt);
+	if (!targetWorkspace) {
+		throw new Error('Target workspace not found.');
+	}
+
+	const targetParent = targetParentId
+		? folders.find(
+				(f) => f.id === targetParentId && f.workspaceId === targetWorkspaceId && !f.deletedAt
+			)
+		: null;
+
+	const descendants = getDescendantFolderIds(folders, folderId);
+	if (targetParentId && descendants.has(targetParentId)) {
+		throw new Error('Cannot move a folder into its own descendant.');
+	}
+
+	const allAffectedFolderIds = new Set([folderId, ...Array.from(descendants)]);
+	const now = new Date();
+
+	folders.forEach((f) => {
+		if (!allAffectedFolderIds.has(f.id)) return;
+		f.workspaceId = targetWorkspaceId;
+		// Preserve hierarchy; only the root moved folder changes parent if specified
+		if (f.id === folderId) {
+			f.parentId = targetParentId;
+		}
+		f.updatedAt = now;
+	});
+
+	files.forEach((file) => {
+		const folderId = file.folderId;
+		if (!folderId || !allAffectedFolderIds.has(folderId)) return;
+		file.workspaceId = targetWorkspaceId;
+		file.updatedAt = now;
+	});
+
+	workspaceFolders.set([...folders]);
+	currentFiles.set([...files]);
 }
 
 // ==================== STAR/UNSTAR OPERATIONS ====================
@@ -360,6 +532,51 @@ export function addTagsToFile(
 
 	currentFiles.set([...files]);
 	return { tags: createdOrFoundTags, file: files[targetIndex] };
+}
+
+export function addTagsToFiles(
+	fileIds: string[],
+	workspaceId: string,
+	names: string[],
+	opts?: { color?: string }
+): { tags: Tag[]; updatedFiles: File[] } {
+	if (fileIds.length === 0) return { tags: [], updatedFiles: [] };
+
+	const files = get(currentFiles);
+	const idSet = new Set(fileIds);
+
+	const normalizedNames = names
+		.map((n) => n.trim())
+		.filter(Boolean)
+		.map((n) => normalizeTagName(n));
+
+	const uniqueNormalized = Array.from(new Set(normalizedNames));
+	const nameByNormalized = new Map<string, string>();
+	for (const rawName of names.map((n) => n.trim()).filter(Boolean)) {
+		const norm = normalizeTagName(rawName);
+		if (norm && !nameByNormalized.has(norm)) {
+			nameByNormalized.set(norm, rawName);
+		}
+	}
+
+	const resolvedTags = uniqueNormalized
+		.map((norm) => {
+			const displayName = nameByNormalized.get(norm) ?? norm;
+			return upsertTag(workspaceId, displayName, opts?.color);
+		})
+		.filter(Boolean) as Tag[];
+
+	const newTagIds = resolvedTags.map((t) => t.id);
+	const now = new Date();
+
+	const updatedFiles = files.map((file) => {
+		if (!idSet.has(file.id)) return file;
+		const merged = Array.from(new Set([...(file.tagIds || []), ...newTagIds]));
+		return { ...file, tagIds: merged, updatedAt: now };
+	});
+
+	currentFiles.set(updatedFiles);
+	return { tags: resolvedTags, updatedFiles: updatedFiles.filter((f) => idSet.has(f.id)) };
 }
 
 export function replaceFileTags(
