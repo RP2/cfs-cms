@@ -92,7 +92,7 @@
 
 <ContextMenu.Root>
 	<ContextMenu.Trigger>
-		<div class="min-h-screen p-6">
+		<div class="min-h-screen p-4 md:p-8">
 			{#if isTrashView}
 				<div
 					class="mb-4 flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-muted-foreground"

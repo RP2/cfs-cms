@@ -1,8 +1,15 @@
 <script lang="ts">
 	import { Input } from '$lib/components/ui/input';
+	import { cn } from '$lib/utils';
 	import { createEventDispatcher } from 'svelte';
+	import type { ComponentType } from 'svelte';
 
-	type Item = { id: string; label: string };
+	type Item = {
+		id: string;
+		label: string;
+		description?: string;
+		icon?: ComponentType;
+	};
 
 	const dispatch = createEventDispatcher<{
 		select: Item;
@@ -15,7 +22,8 @@
 		emptyMessage = $bindable('No results'),
 		openOnFocus = $bindable(true),
 		clearOnSelect = $bindable(true),
-		clearOnCreate = $bindable(true)
+		clearOnCreate = $bindable(true),
+		inputClass = $bindable('')
 	} = $props();
 
 	let inputValue = $state('');
@@ -119,7 +127,7 @@
 		onfocus={handleFocus}
 		onblur={handleBlur}
 		onkeydown={handleKeydown}
-		class="w-full"
+		class={cn('w-full', inputClass)}
 	/>
 
 	{#if isOpen}
@@ -131,13 +139,22 @@
 					{#each filteredItems as item, index}
 						<button
 							type="button"
-							class={`flex w-full items-center px-3 py-2 text-left transition hover:bg-muted ${
+							class={`flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-muted ${
 								highlightedIndex === index ? 'bg-muted' : ''
 							}`}
 							onmousedown={(event) => event.preventDefault()}
 							onclick={() => selectItem(item)}
 						>
-							{item.label}
+							{#if item.icon}
+								{@const Icon = item.icon}
+								<Icon class="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+							{/if}
+							<div class="flex min-w-0 flex-col">
+								<span class="truncate">{item.label}</span>
+								{#if item.description}
+									<span class="truncate text-xs text-muted-foreground">{item.description}</span>
+								{/if}
+							</div>
 						</button>
 					{/each}
 				</div>
