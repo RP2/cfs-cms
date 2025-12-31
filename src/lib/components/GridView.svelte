@@ -43,6 +43,7 @@
 		getFileIconComponent: (mimeType: string) => IconComponent;
 		getTagClass: (tagId: string) => string;
 		dragArmingId: string | null;
+		folderDragArmingId: string | null;
 		onNavigateToFolder: (folder: Folder) => void;
 		onToggleFileSelect: (id: string) => void;
 		onOpenNewFolder: (parentId?: string | null) => void;
@@ -61,6 +62,10 @@
 		onFilePointerMove: (event: PointerEvent) => void;
 		onFilePointerEnd: () => void;
 		onFileDragStart: (event: DragEvent, fileId: string) => void;
+		onFolderPointerDown: (event: PointerEvent, folderId: string) => void;
+		onFolderPointerMove: (event: PointerEvent) => void;
+		onFolderPointerEnd: () => void;
+		onFolderItemDragStart: (event: DragEvent, folderId: string) => void;
 		onFolderDragOver: (event: DragEvent, key?: string) => void;
 		onFolderDragLeave?: (key?: string) => void;
 		onFolderDrop: (event: DragEvent, folderId: string | null) => void;
@@ -99,10 +104,15 @@
 		onHandleRestoreWorkspace,
 		onHandlePermanentDeleteWorkspace,
 		dragArmingId,
+		folderDragArmingId,
 		onFilePointerDown,
 		onFilePointerMove,
 		onFilePointerEnd,
 		onFileDragStart,
+		onFolderPointerDown,
+		onFolderPointerMove,
+		onFolderPointerEnd,
+		onFolderItemDragStart,
 		onFolderDragOver,
 		onFolderDragLeave,
 		onFolderDrop
@@ -185,10 +195,21 @@
 											}}
 										>
 											<Card
-												class={`relative h-full cursor-pointer transition-all hover:shadow-lg ${
-													activeDropTargetKey === dropKey ? 'border-2 border-accent shadow-lg' : ''
-												}`}
+												class={`relative h-full cursor-pointer border transition-all hover:shadow-lg ${
+													activeDropTargetKey === dropKey ? 'border-accent' : 'border-border'
+												} ${folderDragArmingId === folder.id ? 'animate-pulse' : ''}`}
 												onclick={() => onNavigateToFolder(folder)}
+												draggable={!isTrashView}
+												onpointerdown={!isTrashView
+													? (event) => onFolderPointerDown(event, folder.id)
+													: undefined}
+												onpointermove={!isTrashView ? onFolderPointerMove : undefined}
+												onpointerup={!isTrashView ? onFolderPointerEnd : undefined}
+												onpointerleave={!isTrashView ? onFolderPointerEnd : undefined}
+												onpointercancel={!isTrashView ? onFolderPointerEnd : undefined}
+												ondragstart={!isTrashView
+													? (event) => onFolderItemDragStart(event, folder.id)
+													: undefined}
 											>
 												{#if folder.starred}
 													<Star
@@ -385,14 +406,39 @@
 						<h3 class="mb-3 text-sm font-medium text-muted-foreground">FOLDERS</h3>
 						<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
 							{#each folders as folder (folder.id)}
+								{@const dropKey = `folder-${folder.id}`}
 								<ContextMenu.Root>
 									<ContextMenu.Trigger>
-										<div class="group h-full">
+										<div
+											class="group h-full"
+											role="button"
+											tabindex="0"
+											ondragenter={(event) => onFolderDragOver(event, dropKey)}
+											ondragover={(event) => onFolderDragOver(event, dropKey)}
+											ondragleave={() => onFolderDragLeave?.(dropKey)}
+											ondrop={(event) => {
+												onFolderDrop(event, folder.id);
+												onFolderDragLeave?.(dropKey);
+											}}
+										>
 											<Card
-												class="relative h-full cursor-pointer transition-shadow hover:shadow-lg"
+												class={`relative h-full cursor-pointer border border-border transition-all hover:shadow-lg ${
+													activeDropTargetKey === dropKey
+														? 'ring-2 ring-accent ring-offset-2 ring-offset-background'
+														: ''
+												} ${folderDragArmingId === folder.id ? 'animate-pulse' : ''}`}
 												onclick={() => onNavigateToFolder(folder)}
-												ondragover={onFolderDragOver}
-												ondrop={(event) => onFolderDrop(event, folder.id)}
+												draggable={!isTrashView}
+												onpointerdown={!isTrashView
+													? (event) => onFolderPointerDown(event, folder.id)
+													: undefined}
+												onpointermove={!isTrashView ? onFolderPointerMove : undefined}
+												onpointerup={!isTrashView ? onFolderPointerEnd : undefined}
+												onpointerleave={!isTrashView ? onFolderPointerEnd : undefined}
+												onpointercancel={!isTrashView ? onFolderPointerEnd : undefined}
+												ondragstart={!isTrashView
+													? (event) => onFolderItemDragStart(event, folder.id)
+													: undefined}
 											>
 												{#if folder.starred}
 													<Star
@@ -428,18 +474,33 @@
 										</div>
 									</ContextMenu.Trigger>
 									<ContextMenu.Content>
-										<ContextMenu.Item onclick={() => onOpenNewFolder(folder.id)}>
-											New Folder
-										</ContextMenu.Item>
-										<ContextMenu.Item onclick={() => onOpenRename(folder, 'folder')}>
-											Edit
-										</ContextMenu.Item>
-										<ContextMenu.Item
-											variant="destructive"
-											onclick={() => onOpenDelete(folder, 'folder')}
-										>
-											Move to Trash
-										</ContextMenu.Item>
+										{#if currentView === 'trash'}
+											<ContextMenu.Item onclick={() => onHandleRestoreFolder(folder.id)}>
+												Restore
+											</ContextMenu.Item>
+											<ContextMenu.Item
+												variant="destructive"
+												onclick={() => onHandlePermanentDeleteFolder(folder.id)}
+											>
+												Delete permanently
+											</ContextMenu.Item>
+										{:else}
+											<ContextMenu.Item onclick={() => onOpenNewFolder(folder.id)}>
+												New Folder
+											</ContextMenu.Item>
+											<ContextMenu.Item onclick={() => onOpenRename(folder, 'folder')}>
+												Edit
+											</ContextMenu.Item>
+											<ContextMenu.Item onclick={() => onHandleStarFolder(folder.id)}>
+												{folder.starred ? 'Unstar' : 'Star'}
+											</ContextMenu.Item>
+											<ContextMenu.Item
+												variant="destructive"
+												onclick={() => onOpenDelete(folder, 'folder')}
+											>
+												Move to Trash
+											</ContextMenu.Item>
+										{/if}
 									</ContextMenu.Content>
 								</ContextMenu.Root>
 							{/each}

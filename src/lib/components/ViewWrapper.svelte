@@ -38,6 +38,8 @@
 		deleteFiles,
 		moveFilesToFolder,
 		moveFilesToWorkspace,
+		moveFolder,
+		moveFolderToWorkspace,
 		addTagsToFiles
 	} from '$lib/services/dataService';
 	import {
@@ -50,6 +52,14 @@
 		DRAG_ARM_DELAY_MS,
 		DRAG_MOVE_THRESHOLD_PX
 	} from '$lib/utils/drag';
+	import {
+		buildFolderPath as buildFolderPathUtil,
+		formatDateShort,
+		formatFileSize,
+		formatTrashExpiry as formatTrashExpiryUtil,
+		getTagClass as getTagClassUtil,
+		getWorkspaceName as getWorkspaceNameUtil
+	} from '$lib/utils/formatters';
 	import type { File, Folder, Tag as TagType } from '$lib/types';
 	import type { SvelteComponent } from 'svelte';
 	import {
@@ -69,7 +79,6 @@
 	type IconComponent = typeof SvelteComponent;
 
 	const TRASH_RETENTION_DAYS = 30;
-	const MS_PER_DAY = 24 * 60 * 60 * 1000;
 	let selectionContextKey = $state('');
 
 	let files = $state<File[]>([]);
@@ -97,7 +106,9 @@
 	let bulkPendingTagNames = $state<string[]>([]);
 	let pendingMoveIds = $state<string[]>([]);
 	const dragController = createDragController(DRAG_ARM_DELAY_MS, DRAG_MOVE_THRESHOLD_PX);
+	const folderDragController = createDragController(DRAG_ARM_DELAY_MS, DRAG_MOVE_THRESHOLD_PX);
 	let dragArmingId = $state<string | null>(null);
+	let folderDragArmingId = $state<string | null>(null);
 	let activeFolderDropKey = $state<string | null>(null);
 
 	let renameTarget = $state<File | Folder | null>(null);
@@ -188,6 +199,10 @@
 					!bulkPendingTagNames.some((pending) => pending.toLowerCase() === tag.name.toLowerCase())
 			)
 			.map((tag) => ({ id: tag.id, label: tag.name }))
+	);
+
+	const allVisibleSelected = $derived(
+		files.length > 0 && files.every((file) => $selectedFileIds.has(file.id))
 	);
 
 	$effect(() => {
@@ -396,62 +411,18 @@
 		return FileIcon as unknown as IconComponent;
 	}
 
-	function buildFolderPath(folderId: string | null): string {
-		if (!folderId) return 'Workspace Root';
-		const path: string[] = [];
-		let current = $workspaceFolders.find((f) => f.id === folderId);
-		while (current) {
-			path.unshift(current.name);
-			current = $workspaceFolders.find((f) => f.id === current?.parentId);
-		}
-		return path.join(' / ') || 'Workspace Root';
-	}
+	const buildFolderPath = (folderId: string | null) =>
+		buildFolderPathUtil(folderId, $workspaceFolders);
 
-	function getWorkspaceName(id: string | null | undefined): string {
-		const ws = availableWorkspaces.find((w) => w.id === id);
-		return ws?.name ?? 'Workspace';
-	}
+	const getWorkspaceName = (id: string | null | undefined) =>
+		getWorkspaceNameUtil(id, availableWorkspaces);
 
-	function formatFileSize(bytes: number): string {
-		if (bytes === 0) return '0 B';
-		const k = 1024;
-		const sizes = ['B', 'KB', 'MB', 'GB'];
-		const i = Math.floor(Math.log(bytes) / Math.log(k));
-		return Math.round((bytes / Math.pow(k, i)) * 10) / 10 + ' ' + sizes[i];
-	}
+	const formatDate = (date: Date | string) => formatDateShort(date);
 
-	function formatDate(date: Date): string {
-		return new Date(date).toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			year: 'numeric'
-		});
-	}
+	const formatTrashExpiry = (item: File | Folder) =>
+		formatTrashExpiryUtil(item, TRASH_RETENTION_DAYS, formatDate);
 
-	function getTrashExpiry(item: File | Folder): Date | null {
-		const deletedAt = item.deletedAt;
-		if (!deletedAt && !item.trashedUntil) return null;
-		const base = item.trashedUntil ?? new Date(new Date(deletedAt as Date).getTime());
-		if (!item.trashedUntil && deletedAt) {
-			base.setTime(base.getTime() + TRASH_RETENTION_DAYS * MS_PER_DAY);
-		}
-		return base;
-	}
-
-	function formatTrashExpiry(item: File | Folder): string | null {
-		const expiry = getTrashExpiry(item);
-		if (!expiry) return null;
-		const today = Date.now();
-		const diffDays = Math.max(0, Math.ceil((expiry.getTime() - today) / MS_PER_DAY));
-		return `${formatDate(expiry)} (${diffDays} day${diffDays === 1 ? '' : 's'} left)`;
-	}
-
-	function getTagClass(tagId: string): string {
-		const tag = tagMap.get(tagId);
-		if (!tag) return 'border-transparent bg-muted text-muted-foreground';
-		const textColor = tag.color === 'muted' ? 'muted-foreground' : `${tag.color}-foreground`;
-		return `border-transparent bg-${tag.color} text-${textColor}`;
-	}
+	const getTagClass = (tagId: string) => getTagClassUtil(tagId, tagMap);
 
 	function openRename(item: File | Folder, type: 'file' | 'folder') {
 		if (type === 'file') {
@@ -560,9 +531,34 @@
 		dragArmingId = null;
 	}
 
+	function handleFolderPointerDown(event: PointerEvent, folderId: string) {
+		folderDragController.pointerDown(folderId, { x: event.clientX, y: event.clientY });
+		folderDragArmingId = folderId;
+	}
+
+	function handleFolderPointerMove(event: PointerEvent) {
+		folderDragController.pointerMove({ x: event.clientX, y: event.clientY });
+	}
+
+	function handleFolderPointerEnd() {
+		folderDragController.pointerEnd();
+		folderDragArmingId = null;
+	}
+
+	function handleFolderItemDragStart(event: DragEvent, folderId: string) {
+		if (!folderDragController.isReady(folderId)) {
+			event.preventDefault();
+			return;
+		}
+
+		setDragImageFromTarget(event);
+		const payload = buildDragPayload(folderId, new Set(), 'folder');
+		setDragData(event, payload);
+		folderDragArmingId = null;
+	}
+
 	function handleFolderDragOver(event: DragEvent, key?: string) {
-		event.preventDefault();
-		if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+		allowMoveDrop(event);
 		if (key) activeFolderDropKey = key;
 	}
 
@@ -576,8 +572,13 @@
 		activeFolderDropKey = null;
 		allowMoveDrop(event);
 		const parsed = parseDragData(event);
-		if (parsed?.type !== 'file' || !parsed.ids?.length) return;
-		dropFilesToFolder(parsed.ids, folderId);
+		if (!parsed?.ids?.length) return;
+
+		if (parsed.type === 'file') {
+			dropFilesToFolder(parsed.ids, folderId);
+		} else if (parsed.type === 'folder') {
+			dropFoldersToFolder(parsed.ids, folderId);
+		}
 	}
 
 	function dropFilesToFolder(ids: string[], folderId: string | null) {
@@ -596,6 +597,67 @@
 		}
 
 		performMove(targetWorkspaceId, targetFolderId, ids);
+	}
+
+	function getDescendantFolderIds(allFolders: Folder[], folderId: string): Set<string> {
+		const descendants = new Set<string>();
+		const stack = [folderId];
+		while (stack.length > 0) {
+			const current = stack.pop();
+			if (!current) continue;
+			const children = allFolders.filter((f) => f.parentId === current && !f.deletedAt);
+			for (const child of children) {
+				if (!descendants.has(child.id)) {
+					descendants.add(child.id);
+					stack.push(child.id);
+				}
+			}
+		}
+		return descendants;
+	}
+
+	function dropFoldersToFolder(folderIds: string[], targetFolderId: string | null) {
+		const targetFolder = targetFolderId
+			? $workspaceFolders.find((f) => f.id === targetFolderId)
+			: null;
+		const targetWorkspaceId = targetFolder?.workspaceId ?? $currentWorkspace?.id;
+		if (!targetWorkspaceId) return;
+
+		// Prevent moving into itself or descendant
+		const allFolders = $workspaceFolders;
+		for (const folderId of folderIds) {
+			if (folderId === targetFolderId) {
+				alert('Cannot move a folder into itself');
+				return;
+			}
+			if (targetFolderId) {
+				const descendants = getDescendantFolderIds(allFolders, folderId);
+				if (descendants.has(targetFolderId)) {
+					alert('Cannot move a folder into its own descendant.');
+					return;
+				}
+			}
+		}
+
+		const isCrossWorkspace = $currentWorkspace && targetWorkspaceId !== $currentWorkspace.id;
+
+		if (isCrossWorkspace) {
+			// Cross-workspace folder move - show confirmation
+			pendingMoveIds = folderIds;
+			moveTargetWorkspaceId = targetWorkspaceId;
+			moveTargetFolderId = targetFolderId ?? '';
+			showMoveConfirm = true;
+			return;
+		}
+
+		// Same workspace move
+		try {
+			for (const folderId of folderIds) {
+				moveFolder(folderId, targetFolderId);
+			}
+		} catch (error) {
+			alert((error as Error).message);
+		}
 	}
 </script>
 
@@ -627,7 +689,7 @@
 				<Button
 					variant="ghost"
 					size="sm"
-					class="h-8 gap-1 px-2 text-accent-foreground hover:bg-accent/80"
+					class="h-8 gap-1 px-2 text-accent-foreground hover:ring-2 hover:ring-accent hover:ring-offset-2 hover:ring-offset-background"
 					onclick={handleBulkTrash}
 				>
 					<Trash2 class="h-4 w-4" />
@@ -637,7 +699,7 @@
 			<Button
 				variant="ghost"
 				size="sm"
-				class="h-8 gap-1 px-2 text-accent-foreground hover:bg-accent/80"
+				class="h-8 gap-1 px-2 text-accent-foreground hover:ring-2 hover:ring-accent hover:ring-offset-2 hover:ring-offset-background"
 				onclick={openMoveModal}
 			>
 				<FolderUp class="h-4 w-4" />
@@ -646,24 +708,30 @@
 			<Button
 				variant="ghost"
 				size="sm"
-				class="h-8 gap-1 px-2 text-accent-foreground hover:bg-accent/80"
+				class="h-8 gap-1 px-2 text-accent-foreground hover:ring-2 hover:ring-accent hover:ring-offset-2 hover:ring-offset-background"
 				onclick={openTagModal}
 			>
 				<Tag class="h-4 w-4" />
 				Add Tags
 			</Button>
+			{#if allVisibleSelected}
+				<Button variant="ghost" size="sm" class="h-8 px-2 text-accent-foreground" disabled>
+					All selected
+				</Button>
+			{:else}
+				<Button
+					variant="ghost"
+					size="sm"
+					class="h-8 px-2 text-accent-foreground hover:ring-2 hover:ring-accent hover:ring-offset-2 hover:ring-offset-background"
+					onclick={selectAll}
+				>
+					Select All
+				</Button>
+			{/if}
 			<Button
 				variant="ghost"
 				size="sm"
-				class="h-8 px-2 text-accent-foreground hover:bg-accent/80"
-				onclick={selectAll}
-			>
-				Select All
-			</Button>
-			<Button
-				variant="ghost"
-				size="sm"
-				class="h-8 px-2 text-accent-foreground hover:bg-accent/80"
+				class="h-8 px-2 text-accent-foreground hover:ring-2 hover:ring-accent hover:ring-offset-2 hover:ring-offset-background"
 				onclick={clearSelection}
 			>
 				<X class="h-4 w-4" />
@@ -844,6 +912,7 @@
 		{getFileIconComponent}
 		{getTagClass}
 		{dragArmingId}
+		{folderDragArmingId}
 		onNavigateToFolder={navigateToFolder}
 		onToggleFileSelect={toggleFileSelect}
 		onOpenNewFolder={openNewFolder}
@@ -862,6 +931,10 @@
 		onFilePointerMove={handleFilePointerMove}
 		onFilePointerEnd={handleFilePointerEnd}
 		onFileDragStart={handleFileDragStart}
+		onFolderPointerDown={handleFolderPointerDown}
+		onFolderPointerMove={handleFolderPointerMove}
+		onFolderPointerEnd={handleFolderPointerEnd}
+		onFolderItemDragStart={handleFolderItemDragStart}
 		onFolderDragOver={handleFolderDragOver}
 		onFolderDragLeave={handleFolderDragLeave}
 		onFolderDrop={handleFolderDrop}
@@ -886,6 +959,7 @@
 		{getFileIconComponent}
 		{getTagClass}
 		{dragArmingId}
+		{folderDragArmingId}
 		onNavigateToFolder={navigateToFolder}
 		onToggleFileSelect={toggleFileSelect}
 		onOpenNewFolder={openNewFolder}
@@ -904,6 +978,10 @@
 		onFilePointerMove={handleFilePointerMove}
 		onFilePointerEnd={handleFilePointerEnd}
 		onFileDragStart={handleFileDragStart}
+		onFolderPointerDown={handleFolderPointerDown}
+		onFolderPointerMove={handleFolderPointerMove}
+		onFolderPointerEnd={handleFolderPointerEnd}
+		onFolderItemDragStart={handleFolderItemDragStart}
 		onFolderDragOver={handleFolderDragOver}
 		onFolderDragLeave={handleFolderDragLeave}
 		onFolderDrop={handleFolderDrop}

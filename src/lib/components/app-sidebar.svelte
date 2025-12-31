@@ -20,7 +20,12 @@
 		currentView,
 		viewScope
 	} from '$lib/stores';
-	import { moveFilesToFolder, moveFilesToWorkspace } from '$lib/services/dataService';
+	import {
+		moveFilesToFolder,
+		moveFilesToWorkspace,
+		moveFolder,
+		moveFolderToWorkspace
+	} from '$lib/services/dataService';
 	import { allowMoveDrop, parseDragData } from '$lib/utils/drag';
 	import type { Folder, Workspace } from '$lib/types';
 	import FolderItem from './FolderItem.svelte';
@@ -99,6 +104,7 @@
 	let deleteWorkspaceTarget = $state<Workspace | null>(null);
 	let showCrossDropConfirm = $state(false);
 	let pendingDropIds = $state<string[]>([]);
+	let pendingDropType = $state<'file' | 'folder'>('file');
 	let pendingDropTargetWorkspaceId = $state<string | null>(null);
 	let pendingDropTargetFolderId = $state<string | null>(null);
 	let activeDropTargetKey = $state<string | null>(null);
@@ -119,6 +125,7 @@
 	function clearPendingDrop() {
 		showCrossDropConfirm = false;
 		pendingDropIds = [];
+		pendingDropType = 'file';
 		pendingDropTargetWorkspaceId = null;
 		pendingDropTargetFolderId = null;
 	}
@@ -128,7 +135,18 @@
 			clearPendingDrop();
 			return;
 		}
-		moveFilesToWorkspace(pendingDropIds, pendingDropTargetWorkspaceId, pendingDropTargetFolderId);
+
+		if (pendingDropType === 'file') {
+			moveFilesToWorkspace(pendingDropIds, pendingDropTargetWorkspaceId, pendingDropTargetFolderId);
+		} else {
+			try {
+				for (const folderId of pendingDropIds) {
+					moveFolderToWorkspace(folderId, pendingDropTargetWorkspaceId, pendingDropTargetFolderId);
+				}
+			} catch (error) {
+				alert((error as Error).message);
+			}
+		}
 		clearPendingDrop();
 	}
 
@@ -148,20 +166,33 @@
 	) {
 		allowMoveDrop(event);
 		const parsed = parseDragData(event);
-		if (parsed?.type !== 'file' || !parsed.ids?.length) return;
+		if (!parsed?.ids?.length) return;
 
 		const ids = parsed.ids;
 		const isCrossWorkspace = $currentWorkspace && targetWorkspaceId !== $currentWorkspace.id;
 		clearActiveDropTarget();
+
 		if (isCrossWorkspace) {
 			pendingDropIds = ids;
+			pendingDropType = parsed.type;
 			pendingDropTargetWorkspaceId = targetWorkspaceId;
 			pendingDropTargetFolderId = targetFolderId;
 			showCrossDropConfirm = true;
 			return;
 		}
 
-		moveFilesToFolder(ids, targetFolderId, { targetWorkspaceId });
+		// Same workspace move
+		if (parsed.type === 'file') {
+			moveFilesToFolder(ids, targetFolderId, { targetWorkspaceId });
+		} else if (parsed.type === 'folder') {
+			try {
+				for (const folderId of ids) {
+					moveFolder(folderId, targetFolderId);
+				}
+			} catch (error) {
+				alert((error as Error).message);
+			}
+		}
 	}
 
 	function getWorkspaceIconComponent(workspace: Workspace) {
@@ -430,7 +461,8 @@
 		<DialogHeader>
 			<DialogTitle>Move to another workspace?</DialogTitle>
 			<DialogDescription>
-				Move {pendingDropIds.length} file{pendingDropIds.length === 1 ? '' : 's'} to
+				Move {pendingDropIds.length}
+				{pendingDropType}{pendingDropIds.length === 1 ? '' : 's'} to
 				{#if pendingDropTargetWorkspaceId}
 					{$workspaces.find((ws) => ws.id === pendingDropTargetWorkspaceId)?.name ?? 'workspace'}
 				{:else}
