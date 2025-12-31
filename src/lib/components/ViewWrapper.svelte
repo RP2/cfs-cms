@@ -9,6 +9,8 @@
 		DialogFooter
 	} from '$lib/components/ui/dialog';
 	import { Combobox } from '$lib/components/ui/combobox';
+	import { toast } from 'svelte-sonner';
+	import { fly } from 'svelte/transition';
 	import NewFolderModal from './modals/NewFolderModal.svelte';
 	import RenameModal from './modals/RenameModal.svelte';
 	import EditFileModal from './modals/EditFileModal.svelte';
@@ -26,7 +28,8 @@
 		viewType,
 		currentView,
 		workspaceTags,
-		appliedFilters
+		appliedFilters,
+		clipboard
 	} from '$lib/stores';
 	import {
 		toggleFileStar,
@@ -40,7 +43,10 @@
 		moveFilesToWorkspace,
 		moveFolder,
 		moveFolderToWorkspace,
-		addTagsToFiles
+		addTagsToFiles,
+		copyFilesToFolder,
+		copyFilesToWorkspace,
+		copyFoldersToFolder
 	} from '$lib/services/dataService';
 	import {
 		buildDragPayload,
@@ -73,7 +79,8 @@
 		FolderUp,
 		Tag,
 		Building2,
-		Folder as FolderIconOutline
+		Folder as FolderIconOutline,
+		Copy
 	} from '@lucide/svelte';
 
 	type IconComponent = typeof SvelteComponent;
@@ -245,6 +252,111 @@
 			selectionContextKey = key;
 		}
 	});
+
+	// Keyboard shortcuts: Ctrl+C (copy), Ctrl+V (paste), Ctrl+X (cut/trash)
+	$effect(() => {
+		function handleKeyDown(e: KeyboardEvent) {
+			const isMac =
+				typeof navigator !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+			const modKey = isMac ? e.metaKey : e.ctrlKey;
+
+			// Ctrl/Cmd + C: Copy selected files to clipboard
+			if (modKey && e.key === 'c') {
+				e.preventDefault();
+				const selectedIds = Array.from($selectedFileIds);
+				if (selectedIds.length > 0) {
+					clipboard.set({
+						type: 'file',
+						ids: selectedIds
+					});
+					selectedFileIds.set(new Set()); // Clear selection
+					toast.success(
+						`Copied ${selectedIds.length} file${selectedIds.length === 1 ? '' : 's'} to clipboard`
+					);
+				}
+			}
+
+			// Ctrl/Cmd + V: Paste clipboard contents to current folder
+			if (modKey && e.key === 'v') {
+				e.preventDefault();
+				const clipboardData = $clipboard;
+				if (!clipboardData || !$currentWorkspace) return;
+
+				try {
+					if (clipboardData.type === 'file') {
+						copyFilesToFolder(clipboardData.ids, $currentFolder?.id ?? null);
+						clipboard.clear();
+						toast.success(
+							`Pasted ${clipboardData.ids.length} file${clipboardData.ids.length === 1 ? '' : 's'}`
+						);
+					} else if (clipboardData.type === 'folder') {
+						copyFoldersToFolder(clipboardData.ids, $currentFolder?.id ?? null);
+						clipboard.clear();
+						toast.success(
+							`Pasted ${clipboardData.ids.length} folder${clipboardData.ids.length === 1 ? '' : 's'}`
+						);
+					}
+				} catch (e) {
+					console.error('Paste failed:', e);
+					toast.error('Paste failed');
+				}
+			}
+
+			// Ctrl/Cmd + X: Move selected files to trash
+			if (modKey && e.key === 'x') {
+				e.preventDefault();
+				const selectedIds = Array.from($selectedFileIds);
+				if (selectedIds.length > 0) {
+					showBulkTrashConfirm = true;
+					pendingMoveIds = selectedIds;
+				}
+			}
+		}
+
+		window.addEventListener('keydown', handleKeyDown);
+		return () => window.removeEventListener('keydown', handleKeyDown);
+	});
+
+	// Copy/paste handlers for context menu
+	function handleCopyFile(fileId: string) {
+		clipboard.set({
+			type: 'file',
+			ids: [fileId]
+		});
+		toast.success('Copied to clipboard');
+	}
+
+	function handleCopyFolder(folderId: string) {
+		clipboard.set({
+			type: 'folder',
+			ids: [folderId]
+		});
+		toast.success('Copied to clipboard');
+	}
+
+	function handlePaste(targetFolderId: string | null) {
+		const clipboardData = $clipboard;
+		if (!clipboardData || !$currentWorkspace) return;
+
+		try {
+			if (clipboardData.type === 'file') {
+				copyFilesToFolder(clipboardData.ids, targetFolderId);
+				clipboard.clear();
+				toast.success(
+					`Pasted ${clipboardData.ids.length} file${clipboardData.ids.length === 1 ? '' : 's'}`
+				);
+			} else if (clipboardData.type === 'folder') {
+				copyFoldersToFolder(clipboardData.ids, targetFolderId);
+				clipboard.clear();
+				toast.success(
+					`Pasted ${clipboardData.ids.length} folder${clipboardData.ids.length === 1 ? '' : 's'}`
+				);
+			}
+		} catch (e) {
+			console.error('Paste failed:', e);
+			toast.error('Paste failed');
+		}
+	}
 
 	function openMoveModal() {
 		if ($selectedFileIds.size === 0) return;
@@ -669,6 +781,8 @@
 
 {#if $selectedFileIds.size > 0}
 	<div
+		in:fly={{ y: 20, duration: 200 }}
+		out:fly={{ y: 20, duration: 150 }}
 		class="fixed right-6 bottom-6 z-50 flex items-center gap-3 rounded-lg border border-accent bg-accent/95 p-4 shadow-lg backdrop-blur-sm"
 	>
 		<span class="text-sm font-medium text-accent-foreground"
@@ -696,6 +810,27 @@
 					Trash
 				</Button>
 			{/if}
+			<Button
+				variant="ghost"
+				size="sm"
+				class="h-8 gap-1 px-2 text-accent-foreground hover:ring-2 hover:ring-accent hover:ring-offset-2 hover:ring-offset-background"
+				onclick={() => {
+					const selectedIds = Array.from($selectedFileIds);
+					if (selectedIds.length > 0) {
+						clipboard.set({
+							type: 'file',
+							ids: selectedIds
+						});
+						selectedFileIds.set(new Set()); // Clear selection
+						toast.success(
+							`Copied ${selectedIds.length} file${selectedIds.length === 1 ? '' : 's'} to clipboard`
+						);
+					}
+				}}
+			>
+				<Copy class="h-4 w-4" />
+				Copy
+			</Button>
 			<Button
 				variant="ghost"
 				size="sm"
@@ -906,6 +1041,7 @@
 		{deletedWorkspaces}
 		trashRetentionDays={TRASH_RETENTION_DAYS}
 		activeDropTargetKey={activeFolderDropKey}
+		clipboard={$clipboard}
 		{formatFileSize}
 		{formatDate}
 		{formatTrashExpiry}
@@ -938,6 +1074,9 @@
 		onFolderDragOver={handleFolderDragOver}
 		onFolderDragLeave={handleFolderDragLeave}
 		onFolderDrop={handleFolderDrop}
+		onCopyFile={handleCopyFile}
+		onCopyFolder={handleCopyFolder}
+		onPaste={handlePaste}
 	/>
 {:else}
 	<ListView
@@ -953,6 +1092,7 @@
 		{deletedWorkspaces}
 		trashRetentionDays={TRASH_RETENTION_DAYS}
 		activeDropTargetKey={activeFolderDropKey}
+		clipboard={$clipboard}
 		{formatFileSize}
 		{formatDate}
 		{formatTrashExpiry}
@@ -985,6 +1125,9 @@
 		onFolderDragOver={handleFolderDragOver}
 		onFolderDragLeave={handleFolderDragLeave}
 		onFolderDrop={handleFolderDrop}
+		onCopyFile={handleCopyFile}
+		onCopyFolder={handleCopyFolder}
+		onPaste={handlePaste}
 	/>
 {/if}
 

@@ -2,6 +2,7 @@
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import AppSidebar from '$lib/components/app-sidebar.svelte';
+	import Sonner from '$lib/components/ui/sonner/sonner.svelte';
 	import { Combobox } from '$lib/components/ui/combobox';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import {
@@ -176,3 +177,5 @@
 		</main>
 	</Sidebar.Inset>
 </Sidebar.Provider>
+
+<Sonner />

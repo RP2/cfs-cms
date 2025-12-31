@@ -65,3 +65,37 @@ export const currentUser = writable<{ id: string; email: string; name: string } 
 	email: 'user@example.com',
 	name: 'User'
 });
+
+// Clipboard store for copy/paste operations
+export interface ClipboardItem {
+	type: 'file' | 'folder';
+	ids: string[];
+}
+
+function createClipboardStore() {
+	const stored = typeof window !== 'undefined' ? localStorage.getItem('cfs-clipboard') : null;
+	const initial: ClipboardItem | null = stored ? JSON.parse(stored) : null;
+	const { subscribe, set } = writable<ClipboardItem | null>(initial);
+
+	return {
+		subscribe,
+		set: (value: ClipboardItem | null) => {
+			if (typeof window !== 'undefined') {
+				if (value) {
+					localStorage.setItem('cfs-clipboard', JSON.stringify(value));
+				} else {
+					localStorage.removeItem('cfs-clipboard');
+				}
+			}
+			set(value);
+		},
+		clear: () => {
+			if (typeof window !== 'undefined') {
+				localStorage.removeItem('cfs-clipboard');
+			}
+			set(null);
+		}
+	};
+}
+
+export const clipboard = createClipboardStore();

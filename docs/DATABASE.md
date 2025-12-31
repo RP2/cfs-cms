@@ -316,13 +316,50 @@ wrangler d1 migrations apply
 - **TEXT** - Strings, UUIDs, JSON
 - **INTEGER** - Counts, file sizes
 - **BOOLEAN** - True/false (0/1)
-- **DATETIME** - Timestamps (ISO 8601)
+- **DATETIME** - Timestamps (ISO 8601, **always UTC**)
 - **NULL** - Optional values
 
 ## Implementation Notes
 
+### Timestamp Handling (CRITICAL)
+
+**Storage**:
+
+- D1 stores timestamps as TEXT in ISO 8601 format: `YYYY-MM-DD HH:MM:SS.SSS`
+- **ALWAYS use UTC** - D1's `CURRENT_TIMESTAMP` returns UTC
+- When inserting from application: use `new Date().toISOString()` (always UTC)
+
+**Frontend**:
+
+- JavaScript `Date` objects store time in UTC internally (milliseconds since epoch)
+- `new Date()` is safe for in-memory operations (Phase 1)
+- When sending to backend: **MUST use `.toISOString()`** to ensure UTC
+- Display in user's local timezone in the UI using `.toLocaleString()`
+
+**Why UTC?**:
+
+- Prevents timezone bugs when users are in different timezones
+- Prevents bugs when user travels or changes timezone
+- Cloudflare infrastructure is UTC-based
+- Trash retention (30 days) must be consistent across timezones
+
+**Example**:
+
+```typescript
+// ✅ CORRECT: Send to D1
+const timestamp = new Date().toISOString(); // "2025-12-31T10:30:00.000Z"
+await db.prepare('INSERT INTO files (..., created_at) VALUES (?, ?)').bind(..., timestamp);
+
+// ✅ CORRECT: Display to user
+const displayTime = new Date(file.createdAt).toLocaleString(); // User's local timezone
+
+// ❌ WRONG: Serialize Date object
+const timestamp = new Date(); // Will use local timezone when serialized
+```
+
+### Other Notes
+
 - Use UUIDs (TEXT) for all IDs
-- Use ISO 8601 for timestamps (`CURRENT_TIMESTAMP` or explicit format)
 - Implement row-level security in application layer
 - Regular backups via Cloudflare
 - Monitor query performance with D1 analytics

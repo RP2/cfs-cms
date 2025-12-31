@@ -17,7 +17,9 @@
 		Package,
 		Calendar,
 		FolderOpen,
-		Folder as FolderIcon
+		Folder as FolderIcon,
+		Copy,
+		Clipboard
 	} from '@lucide/svelte';
 	import type { SvelteComponent } from 'svelte';
 	import type { File, Folder, Tag, Workspace, ViewMode } from '$lib/types';
@@ -37,6 +39,7 @@
 		deletedWorkspaces: Workspace[];
 		trashRetentionDays: number;
 		activeDropTargetKey: string | null;
+		clipboard: { type: 'file' | 'folder'; ids: string[] } | null;
 		formatFileSize: (size: number) => string;
 		formatDate: (date: Date) => string;
 		formatTrashExpiry: (item: File | Folder) => string | null;
@@ -69,6 +72,9 @@
 		onFolderDragOver: (event: DragEvent, key?: string) => void;
 		onFolderDragLeave?: (key?: string) => void;
 		onFolderDrop: (event: DragEvent, folderId: string | null) => void;
+		onCopyFile: (fileId: string) => void;
+		onCopyFolder: (folderId: string) => void;
+		onPaste: (targetFolderId: string | null) => void;
 	}
 
 	let {
@@ -115,13 +121,17 @@
 		onFolderItemDragStart,
 		onFolderDragOver,
 		onFolderDragLeave,
-		onFolderDrop
+		onFolderDrop,
+		clipboard,
+		onCopyFile,
+		onCopyFolder,
+		onPaste
 	}: Props = $props();
 </script>
 
 <ContextMenu.Root>
 	<ContextMenu.Trigger>
-		<div class="min-h-screen space-y-4 p-4 md:p-8">
+		<div class="flex min-h-0 flex-1 flex-col space-y-4 overflow-auto p-4 md:p-8">
 			{#if isTrashView}
 				<div
 					class="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-muted-foreground"
@@ -388,6 +398,11 @@
 										<ContextMenu.Item onclick={() => onHandleStarFile(file.id)}>
 											{file.starred ? 'Unstar' : 'Star'}
 										</ContextMenu.Item>
+										<ContextMenu.Separator />
+										<ContextMenu.Item onclick={() => onCopyFile(file.id)}>
+											<Copy class="mr-2 h-4 w-4" />
+											Copy
+										</ContextMenu.Item>
 										<ContextMenu.Item
 											variant="destructive"
 											onclick={() => onOpenDelete(file, 'file')}
@@ -493,6 +508,11 @@
 											</ContextMenu.Item>
 											<ContextMenu.Item onclick={() => onHandleStarFolder(folder.id)}>
 												{folder.starred ? 'Unstar' : 'Star'}
+											</ContextMenu.Item>
+											<ContextMenu.Separator />
+											<ContextMenu.Item onclick={() => onCopyFolder(folder.id)}>
+												<Copy class="mr-2 h-4 w-4" />
+												Copy
 											</ContextMenu.Item>
 											<ContextMenu.Item
 												variant="destructive"
@@ -644,5 +664,12 @@
 	<ContextMenu.Content>
 		<ContextMenu.Item onclick={() => onOpenNewFolder()}>New Folder</ContextMenu.Item>
 		<ContextMenu.Item onclick={onOpenUpload}>Upload Files</ContextMenu.Item>
+		{#if clipboard}
+			<ContextMenu.Separator />
+			<ContextMenu.Item onclick={() => onPaste(currentFolder?.id ?? null)}>
+				<Clipboard class="mr-2 h-4 w-4" />
+				Paste
+			</ContextMenu.Item>
+		{/if}
 	</ContextMenu.Content>
 </ContextMenu.Root>

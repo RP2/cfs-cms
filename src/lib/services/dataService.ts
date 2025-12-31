@@ -12,6 +12,36 @@ import { get } from 'svelte/store';
 const TRASH_RETENTION_DAYS = 30;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+/**
+ * IMPORTANT: Timestamp Handling
+ *
+ * JavaScript Date objects store time in UTC internally (milliseconds since Unix epoch).
+ * However, when serialized to JSON, they use the local timezone.
+ *
+ * For Phase 2+ (Cloudflare D1 backend):
+ * - D1 stores timestamps as TEXT in ISO 8601 format (YYYY-MM-DD HH:MM:SS.SSS)
+ * - ALWAYS use .toISOString() when sending to backend
+ * - ALWAYS store in UTC to avoid timezone bugs
+ * - Display in user's local timezone in the UI
+ *
+ * Current Phase 1 (mock data):
+ * - Date objects are fine since they're in-memory
+ * - Still stored in UTC internally (Date.now() is always UTC)
+ * - No timezone issues as long as we don't serialize/deserialize
+ *
+ * Phase 2 Migration:
+ * Replace: createdAt: new Date()
+ * With: createdAt: new Date() // Backend will use .toISOString() when sending to D1
+ */
+
+/**
+ * Helper for Phase 2: Convert Date to ISO string for D1 storage
+ * Use this when sending timestamps to Cloudflare backend
+ */
+function toUTC(date: Date): string {
+	return date.toISOString();
+}
+
 function getDescendantFolderIds(allFolders: Folder[], folderId: string): Set<string> {
 	const descendants = new Set<string>();
 	const stack = [folderId];
@@ -33,6 +63,14 @@ function getDescendantFolderIds(allFolders: Folder[], folderId: string): Set<str
 
 function normalizeTagName(name: string): string {
 	return name.trim().toLowerCase();
+}
+
+/**
+ * Create a UTC timestamp to avoid timezone issues
+ * Cloudflare D1 stores timestamps in UTC, so we should too
+ */
+function utcNow(): Date {
+	return new Date(Date.now());
 }
 
 function computeTrashedUntil(deletedAt: Date): Date {
@@ -209,7 +247,7 @@ export function setFileTags(fileId: string, tagIds: string[]): void {
 	if (!file) return;
 
 	file.tagIds = [...new Set(tagIds)];
-	file.updatedAt = new Date();
+	file.updatedAt = utcNow();
 
 	currentFiles.set([...currentFilesList]);
 }
@@ -221,7 +259,7 @@ export function deleteFile(fileId: string): void {
 	if (!file) return;
 
 	// Soft delete file
-	file.deletedAt = new Date();
+	file.deletedAt = utcNow();
 	file.trashedUntil = computeTrashedUntil(file.deletedAt);
 	file.updatedAt = file.deletedAt;
 
@@ -232,7 +270,7 @@ export function deleteFiles(fileIds: string[]): void {
 	if (fileIds.length === 0) return;
 
 	const currentFilesList = get(currentFiles);
-	const now = new Date();
+	const now = utcNow();
 	const idSet = new Set(fileIds);
 
 	currentFilesList.forEach((file) => {
@@ -640,14 +678,46 @@ export function restoreFolder(folderId: string): void {
 	workspaceFolders.set([...currentFoldersList]);
 }
 
-export function permanentlyDeleteFile(fileId: string): void {
+/**
+ * Get the count of file copies that share the same storage path
+ * Used to determine if R2 file can be safely deleted
+ */
+export function getFileCopyCount(fileId: string): number {
+	const currentFilesList = get(currentFiles);
+	const file = currentFilesList.find((f) => f.id === fileId);
+
+	if (!file) return 0;
+
+	// Count all files with same storagePath (including this one)
+	return currentFilesList.filter((f) => f.storagePath === file.storagePath).length;
+}
+
+/**
+ * Permanently delete a file from the system
+ * Returns the count of remaining copies that share the same storagePath
+ * @returns Number of remaining copies (for UI feedback)
+ */
+export function permanentlyDeleteFile(fileId: string): number {
 	// TODO: Replace with Cloudflare backend call (DELETE /api/files/:id?permanent=true)
-	// Backend should delete from R2 storage and D1 database
+	// Backend MUST implement reference counting before deleting R2 files:
+	// 1. Delete the file record from D1
+	// 2. Check if any other file records reference the same storagePath
+	// 3. Only delete from R2 if refcount = 0 (no other copies exist)
+	// This prevents deleting R2 files that still have active copies
 
 	const currentFilesList = get(currentFiles);
-	const filtered = currentFilesList.filter((f) => f.id !== fileId);
+	const file = currentFilesList.find((f) => f.id === fileId);
 
+	// Count remaining copies BEFORE deleting this one
+	const totalCopies = file ? getFileCopyCount(fileId) : 0;
+	const remainingCopies = totalCopies - 1;
+
+	// Remove this file record from UI
+	const filtered = currentFilesList.filter((f) => f.id !== fileId);
 	currentFiles.set(filtered);
+
+	// Return count for UI feedback
+	return remainingCopies;
 }
 
 export function permanentlyDeleteFolder(folderId: string): void {
@@ -665,4 +735,196 @@ export function permanentlyDeleteFolder(folderId: string): void {
 
 	workspaceFolders.set(filteredFolders);
 	currentFiles.set(filteredFiles);
+}
+
+// ==================== COPY/PASTE OPERATIONS ====================
+
+/**
+ * Copy files to target folder in current workspace
+ * Creates new file records pointing to same R2 storage (no duplication)
+ *
+ * IMPORTANT: Copies are COMPLETELY INDEPENDENT from originals:
+ * - New unique ID (separate database row)
+ * - Always starts as NOT deleted (deletedAt: null)
+ * - Always starts as NOT starred (starred: false)
+ * - Only shares storagePath (R2 file reference)
+ * - Original can be deleted without affecting copies
+ * - Copies can be deleted without affecting original
+ */
+export function copyFilesToFolder(fileIds: string[], targetFolderId: string | null): File[] {
+	const currentFilesList = get(currentFiles);
+	const workspace = get(currentWorkspace);
+
+	if (!workspace) throw new Error('No workspace selected');
+
+	const copied: File[] = [];
+
+	for (const fileId of fileIds) {
+		const original = currentFilesList.find((f) => f.id === fileId);
+		if (!original) continue; // Allow copying even if file is deleted
+
+		// Create completely independent file record
+		const newFile: File = {
+			id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Unique ID
+			workspaceId: workspace.id,
+			folderId: targetFolderId,
+			name: `${original.name} (copy)`,
+			mimeType: original.mimeType,
+			size: original.size,
+			storagePath: original.storagePath, // ONLY thing shared - R2 file reference
+			uploadedBy: 'user_1', // TODO: Get from auth context
+			starred: false, // Copies are never starred
+			createdAt: new Date(), // TODO Phase 2: Use toUTC() for D1
+			updatedAt: new Date(), // TODO Phase 2: Use toUTC() for D1
+			deletedAt: null, // Copies are never deleted (independent from original)
+			trashedUntil: null,
+			tagIds: [] // Copies don't inherit tags
+		};
+
+		copied.push(newFile);
+	}
+
+	// Add all copies to store
+	currentFiles.set([...currentFilesList, ...copied]);
+	return copied;
+}
+
+/**
+ * Copy files to a different workspace
+ * Files keep their structure in the target workspace root
+ *
+ * IMPORTANT: Cross-workspace copies are COMPLETELY INDEPENDENT:
+ * - New unique ID (separate database row)
+ * - Different workspace_id (multi-tenant isolation)
+ * - Always starts fresh (not deleted, not starred, no tags)
+ * - Only shares storagePath (R2 file reference)
+ */
+export function copyFilesToWorkspace(fileIds: string[], targetWorkspaceId: string): File[] {
+	const currentFilesList = get(currentFiles);
+
+	const copied: File[] = [];
+
+	for (const fileId of fileIds) {
+		const original = currentFilesList.find((f) => f.id === fileId);
+		if (!original) continue; // Allow copying even if file is deleted
+
+		// Create completely independent file record
+		const newFile: File = {
+			id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Unique ID
+			workspaceId: targetWorkspaceId, // Different workspace
+			folderId: null, // Start at root
+			name: `${original.name} (copy)`,
+			mimeType: original.mimeType,
+			size: original.size,
+			storagePath: original.storagePath, // ONLY thing shared - R2 file reference
+			uploadedBy: 'user_1', // TODO: Get from auth context
+			starred: false, // Copies are never starred
+			createdAt: new Date(), // TODO Phase 2: Use toUTC() for D1
+			updatedAt: new Date(), // TODO Phase 2: Use toUTC() for D1
+			deletedAt: null, // Copies are never deleted (independent from original)
+			trashedUntil: null,
+			tagIds: [] // Copies don't inherit tags
+		};
+
+		copied.push(newFile);
+	}
+
+	// Add all copies to store
+	currentFiles.set([...currentFilesList, ...copied]);
+	return copied;
+}
+
+/**
+ * Copy folders to target folder in current workspace
+ * Recursively copies folder structure and all nested files
+ *
+ * IMPORTANT: Copied folders and files are COMPLETELY INDEPENDENT:
+ * - New unique IDs for folders and all nested files
+ * - All copies start fresh (not deleted, not starred)
+ * - Files inside share storagePath with originals (R2 references)
+ * - Deleting original folder doesn't affect copies
+ */
+export function copyFoldersToFolder(folderIds: string[], targetFolderId: string | null): Folder[] {
+	const currentFoldersList = get(workspaceFolders);
+	const currentFilesList = get(currentFiles);
+	const workspace = get(currentWorkspace);
+
+	if (!workspace) throw new Error('No workspace selected');
+
+	const copied: Folder[] = [];
+	const oldToNewFolderMap = new Map<string, string>();
+
+	// Copy folders recursively
+	const copyFolderRecursive = (sourceFolderId: string, newParentId: string | null): void => {
+		// Get source folder and children
+		const sourceFolder = currentFoldersList.find((f) => f.id === sourceFolderId);
+		if (!sourceFolder || sourceFolder.deletedAt) return;
+
+		// Create new independent folder
+		const newFolderId = `folder_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+		const newFolder: Folder = {
+			id: newFolderId, // Unique ID
+			workspaceId: workspace.id,
+			parentId: newParentId,
+			name: `${sourceFolder.name} (copy)`,
+			description: sourceFolder.description,
+			starred: false, // Copies are never starred
+			createdAt: new Date(), // TODO Phase 2: Use toUTC() for D1
+			updatedAt: new Date(), // TODO Phase 2: Use toUTC() for D1
+			deletedAt: null, // Copies are never deleted (independent)
+			trashedUntil: null
+		};
+
+		copied.push(newFolder);
+		oldToNewFolderMap.set(sourceFolderId, newFolderId);
+
+		// Recursively copy children
+		const children = currentFoldersList.filter(
+			(f) => f.parentId === sourceFolderId && !f.deletedAt
+		);
+		for (const child of children) {
+			copyFolderRecursive(child.id, newFolderId);
+		}
+	};
+
+	// Start copying each requested folder
+	for (const folderId of folderIds) {
+		copyFolderRecursive(folderId, targetFolderId);
+	}
+
+	// Copy all files in the new folders (each file is independent)
+	const copiedFiles: File[] = [];
+	for (const [oldFolderId, newFolderId] of oldToNewFolderMap.entries()) {
+		const filesInOldFolder = currentFilesList.filter(
+			(f) => f.folderId === oldFolderId && !f.deletedAt
+		);
+
+		for (const originalFile of filesInOldFolder) {
+			// Create independent file record
+			const newFile: File = {
+				id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Unique ID
+				workspaceId: workspace.id,
+				folderId: newFolderId, // New folder structure
+				name: originalFile.name, // Keep original name (inside copy folder)
+				mimeType: originalFile.mimeType,
+				size: originalFile.size,
+				storagePath: originalFile.storagePath, // ONLY thing shared - R2 file reference
+				uploadedBy: 'user_1', // TODO: Get from auth context
+				starred: false, // Copies are never starred
+				createdAt: new Date(), // TODO Phase 2: Use toUTC() for D1
+				updatedAt: new Date(), // TODO Phase 2: Use toUTC() for D1
+				deletedAt: null, // Copies are never deleted (independent)
+				trashedUntil: null,
+				tagIds: [] // Copies don't inherit tags
+			};
+
+			copiedFiles.push(newFile);
+		}
+	}
+
+	// Update stores
+	workspaceFolders.set([...currentFoldersList, ...copied]);
+	currentFiles.set([...currentFilesList, ...copiedFiles]);
+
+	return copied;
 }

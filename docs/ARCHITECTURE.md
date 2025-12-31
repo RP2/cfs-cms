@@ -1,6 +1,6 @@
 # CFS CMS - Architecture Documentation
 
-**Last Updated**: December 30, 2025  
+**Last Updated**: December 31, 2025  
 **Current Phase**: Phase 1 - UI/UX First (Mock Data)
 
 ## Table of Contents
@@ -601,6 +601,80 @@ When creating new view components:
 
 ---
 
+## Copy/Paste Architecture
+
+### File Independence Model
+
+**Core Principle**: Copied files are **completely independent** database records that happen to share the same R2 storage file.
+
+```text
+Original File (in trash)          Copy 1 (active)             Copy 2 (in workspace 2)
+┌──────────────────────┐         ┌──────────────────────┐    ┌──────────────────────┐
+│ id: file_123         │         │ id: file_456         │    │ id: file_789         │
+│ workspaceId: ws_1    │         │ workspaceId: ws_1    │    │ workspaceId: ws_2    │
+│ folderId: folder_A   │         │ folderId: folder_B   │    │ folderId: null       │
+│ name: "document.pdf" │         │ name: "doc (copy)"   │    │ name: "doc (copy)"   │
+│ deletedAt: 2025-12   │         │ deletedAt: null      │    │ deletedAt: null      │
+│ starred: true        │         │ starred: false       │    │ starred: true        │
+│ tagIds: [tag1, tag2] │         │ tagIds: []           │    │ tagIds: [tag3]       │
+│ storagePath: "abc123"│◄────┐   │ storagePath: "abc123"│◄───┼──│ storagePath: "abc123"│
+└──────────────────────┘     │   └──────────────────────┘    │  └──────────────────────┘
+                             │                               │
+                             └───────────────────────────────┘
+                                  SHARED R2 FILE (content-addressed)
+                                  Only deleted when ALL copies removed
+```
+
+### Independence Guarantees
+
+**Each copy has**:
+
+- ✅ Unique `id` (separate database row)
+- ✅ Own `workspaceId` (can be in different workspace)
+- ✅ Own `folderId` (can be in different location)
+- ✅ Own `name` (can be renamed independently)
+- ✅ Own `deletedAt` (can be trashed/restored independently)
+- ✅ Own `starred` (starred status doesn't transfer)
+- ✅ Own `tagIds` (tags don't transfer)
+- ✅ Own `createdAt`/`updatedAt` (separate lifecycle)
+
+**Shared between copies**:
+
+- 🔗 `storagePath` - Points to same R2 object (content-addressed by checksum)
+
+### Why This Works
+
+1. **Copy from trash**: Original can be deleted, copy stays active
+2. **Cross-workspace copies**: Full multi-tenant isolation
+3. **Reference counting**: R2 file only deleted when ALL copies removed
+4. **Zero storage duplication**: 1000 copies = 1 R2 file
+5. **Independent lifecycle**: Each copy has its own trash/restore/delete flow
+
+### Phase 2 Backend Implementation
+
+```typescript
+// When permanently deleting a file
+async function permanentlyDeleteFile(fileId: string): Promise<number> {
+	// 1. Delete the file record from D1
+	await db.prepare('DELETE FROM files WHERE id = ?').bind(fileId).run();
+
+	// 2. Check remaining copies
+	const result = await db
+		.prepare('SELECT COUNT(*) as count FROM files WHERE storage_path = ?')
+		.bind(storagePath)
+		.first();
+
+	// 3. Only delete from R2 if no copies remain
+	if (result.count === 0) {
+		await env.R2.delete(storagePath);
+	}
+
+	return result.count; // Return for UI feedback
+}
+```
+
+---
+
 ## Best Practices
 
 ### DO ✅
@@ -615,6 +689,8 @@ When creating new view components:
 - **Filter by workspace** in UI layer, stores hold all data
 - **Workspace-scope quick links** (Starred, Tags, Trash per workspace)
 - **Require empty workspace** before deletion (enforce in dataService)
+- **Use UTC timestamps** - `.toISOString()` when sending to backend (Phase 2+)
+- **Independent copies** - Each copy is a separate database row with unique lifecycle
 
 ### DON'T ❌
 

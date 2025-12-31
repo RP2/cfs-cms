@@ -16,7 +16,9 @@
 		Calendar,
 		FolderOpen,
 		Folder as FolderIcon,
-		MoreVertical
+		MoreVertical,
+		Copy,
+		Clipboard
 	} from '@lucide/svelte';
 	import type { SvelteComponent } from 'svelte';
 	import type { File, Folder, Tag, Workspace, ViewMode } from '$lib/types';
@@ -36,6 +38,7 @@
 		deletedWorkspaces: Workspace[];
 		trashRetentionDays: number;
 		activeDropTargetKey: string | null;
+		clipboard: { type: 'file' | 'folder'; ids: string[] } | null;
 		formatFileSize: (size: number) => string;
 		formatDate: (date: Date) => string;
 		formatTrashExpiry: (item: File | Folder) => string | null;
@@ -68,6 +71,9 @@
 		onFolderDragOver: (event: DragEvent, key?: string) => void;
 		onFolderDragLeave?: (key?: string) => void;
 		onFolderDrop: (event: DragEvent, folderId: string | null) => void;
+		onCopyFile: (fileId: string) => void;
+		onCopyFolder: (folderId: string) => void;
+		onPaste: (targetFolderId: string | null) => void;
 	}
 
 	let {
@@ -114,13 +120,17 @@
 		onFolderItemDragStart,
 		onFolderDragOver,
 		onFolderDragLeave,
-		onFolderDrop
+		onFolderDrop,
+		clipboard,
+		onCopyFile,
+		onCopyFolder,
+		onPaste
 	}: Props = $props();
 </script>
 
 <ContextMenu.Root>
 	<ContextMenu.Trigger>
-		<div class="min-h-screen p-4 md:p-8">
+		<div class="flex min-h-0 flex-1 flex-col overflow-auto p-4 md:p-8">
 			{#if isTrashView}
 				<div
 					class="mb-4 flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-muted-foreground"
