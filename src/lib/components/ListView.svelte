@@ -35,6 +35,7 @@
 		selectedFileIds: Set<string>;
 		deletedWorkspaces: Workspace[];
 		trashRetentionDays: number;
+		activeDropTargetKey: string | null;
 		formatFileSize: (size: number) => string;
 		formatDate: (date: Date) => string;
 		formatTrashExpiry: (item: File | Folder) => string | null;
@@ -59,7 +60,8 @@
 		onFilePointerMove: (event: PointerEvent) => void;
 		onFilePointerEnd: () => void;
 		onFileDragStart: (event: DragEvent, fileId: string) => void;
-		onFolderDragOver: (event: DragEvent) => void;
+		onFolderDragOver: (event: DragEvent, key?: string) => void;
+		onFolderDragLeave?: (key?: string) => void;
 		onFolderDrop: (event: DragEvent, folderId: string | null) => void;
 	}
 
@@ -80,6 +82,7 @@
 		formatTrashExpiry,
 		getFileIconComponent,
 		getTagClass,
+		activeDropTargetKey,
 		onNavigateToFolder,
 		onToggleFileSelect,
 		onOpenNewFolder,
@@ -100,6 +103,7 @@
 		onFilePointerEnd,
 		onFileDragStart,
 		onFolderDragOver,
+		onFolderDragLeave,
 		onFolderDrop
 	}: Props = $props();
 </script>
@@ -178,34 +182,47 @@
 						<h3 class="mb-3 text-sm font-medium text-muted-foreground">FOLDERS</h3>
 						<div class="space-y-2">
 							{#each folders as folder (folder.id)}
+								{@const dropKey = `folder-${folder.id}`}
 								<ContextMenu.Root>
 									<ContextMenu.Trigger>
-										<button
-											type="button"
-											class="relative flex w-full cursor-pointer items-center gap-3 rounded border p-3 text-left transition-colors hover:bg-muted"
-											onclick={() => onNavigateToFolder(folder)}
-											ondragover={onFolderDragOver}
-											ondrop={(event) => onFolderDrop(event, folder.id)}
+										<div
+											role="button"
+											tabindex="0"
+											ondragenter={(event) => onFolderDragOver(event, dropKey)}
+											ondragover={(event) => onFolderDragOver(event, dropKey)}
+											ondragleave={() => onFolderDragLeave?.(dropKey)}
+											ondrop={(event) => {
+												onFolderDrop(event, folder.id);
+												onFolderDragLeave?.(dropKey);
+											}}
 										>
-											<FolderIcon class="h-6 w-6 text-accent" />
-											<div class="flex-1">
-												<p class="font-medium">{folder.name}</p>
-												{#if folder.description}
-													<p class="text-sm text-muted-foreground">{folder.description}</p>
-												{/if}
-												{#if isTrashView}
-													{@const expiry = formatTrashExpiry(folder)}
-													{#if expiry}
-														<p class="text-xs text-muted-foreground">Auto-deletes {expiry}</p>
+											<button
+												type="button"
+												class={`relative flex w-full cursor-pointer items-center gap-3 rounded border p-3 text-left transition-all hover:bg-muted ${
+													activeDropTargetKey === dropKey ? 'border-2 border-accent' : ''
+												}`}
+												onclick={() => onNavigateToFolder(folder)}
+											>
+												<FolderIcon class="h-6 w-6 text-accent" />
+												<div class="flex-1">
+													<p class="font-medium">{folder.name}</p>
+													{#if folder.description}
+														<p class="text-sm text-muted-foreground">{folder.description}</p>
 													{/if}
-												{/if}
-											</div>
-											{#if folder.starred}
-												<div class="ml-auto flex items-center pr-1">
-													<Star class="h-4 w-4 text-accent" fill="currentColor" />
+													{#if isTrashView}
+														{@const expiry = formatTrashExpiry(folder)}
+														{#if expiry}
+															<p class="text-xs text-muted-foreground">Auto-deletes {expiry}</p>
+														{/if}
+													{/if}
 												</div>
-											{/if}
-										</button>
+												{#if folder.starred}
+													<div class="ml-auto flex items-center pr-1">
+														<Star class="h-4 w-4 text-accent" fill="currentColor" />
+													</div>
+												{/if}
+											</button>
+										</div>
 									</ContextMenu.Trigger>
 									<ContextMenu.Content>
 										{#if currentView === 'trash'}

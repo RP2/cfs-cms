@@ -98,6 +98,7 @@
 	let pendingMoveIds = $state<string[]>([]);
 	const dragController = createDragController(DRAG_ARM_DELAY_MS, DRAG_MOVE_THRESHOLD_PX);
 	let dragArmingId = $state<string | null>(null);
+	let activeFolderDropKey = $state<string | null>(null);
 
 	let renameTarget = $state<File | Folder | null>(null);
 	let renameType = $state<'file' | 'folder'>('file');
@@ -559,11 +560,20 @@
 		dragArmingId = null;
 	}
 
-	function handleFolderDragOver(event: DragEvent) {
-		allowMoveDrop(event);
+	function handleFolderDragOver(event: DragEvent, key?: string) {
+		event.preventDefault();
+		if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+		if (key) activeFolderDropKey = key;
+	}
+
+	function handleFolderDragLeave(key?: string) {
+		if (!key || activeFolderDropKey === key) {
+			activeFolderDropKey = null;
+		}
 	}
 
 	function handleFolderDrop(event: DragEvent, folderId: string | null) {
+		activeFolderDropKey = null;
 		allowMoveDrop(event);
 		const parsed = parseDragData(event);
 		if (parsed?.type !== 'file' || !parsed.ids?.length) return;
@@ -589,7 +599,11 @@
 	}
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
+<svelte:window
+	onkeydown={handleKeydown}
+	ondragend={() => (activeFolderDropKey = null)}
+	ondrop={() => (activeFolderDropKey = null)}
+/>
 
 {#if $selectedFileIds.size > 0}
 	<div
@@ -823,6 +837,7 @@
 		selectedFileIds={$selectedFileIds}
 		{deletedWorkspaces}
 		trashRetentionDays={TRASH_RETENTION_DAYS}
+		activeDropTargetKey={activeFolderDropKey}
 		{formatFileSize}
 		{formatDate}
 		{formatTrashExpiry}
@@ -848,6 +863,7 @@
 		onFilePointerEnd={handleFilePointerEnd}
 		onFileDragStart={handleFileDragStart}
 		onFolderDragOver={handleFolderDragOver}
+		onFolderDragLeave={handleFolderDragLeave}
 		onFolderDrop={handleFolderDrop}
 	/>
 {:else}
@@ -863,6 +879,7 @@
 		selectedFileIds={$selectedFileIds}
 		{deletedWorkspaces}
 		trashRetentionDays={TRASH_RETENTION_DAYS}
+		activeDropTargetKey={activeFolderDropKey}
 		{formatFileSize}
 		{formatDate}
 		{formatTrashExpiry}
@@ -888,6 +905,7 @@
 		onFilePointerEnd={handleFilePointerEnd}
 		onFileDragStart={handleFileDragStart}
 		onFolderDragOver={handleFolderDragOver}
+		onFolderDragLeave={handleFolderDragLeave}
 		onFolderDrop={handleFolderDrop}
 	/>
 {/if}

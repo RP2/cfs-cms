@@ -36,6 +36,7 @@
 		selectedFileIds: Set<string>;
 		deletedWorkspaces: Workspace[];
 		trashRetentionDays: number;
+		activeDropTargetKey: string | null;
 		formatFileSize: (size: number) => string;
 		formatDate: (date: Date) => string;
 		formatTrashExpiry: (item: File | Folder) => string | null;
@@ -60,7 +61,8 @@
 		onFilePointerMove: (event: PointerEvent) => void;
 		onFilePointerEnd: () => void;
 		onFileDragStart: (event: DragEvent, fileId: string) => void;
-		onFolderDragOver: (event: DragEvent) => void;
+		onFolderDragOver: (event: DragEvent, key?: string) => void;
+		onFolderDragLeave?: (key?: string) => void;
 		onFolderDrop: (event: DragEvent, folderId: string | null) => void;
 	}
 
@@ -81,6 +83,7 @@
 		formatTrashExpiry,
 		getFileIconComponent,
 		getTagClass,
+		activeDropTargetKey,
 		onNavigateToFolder,
 		onToggleFileSelect,
 		onOpenNewFolder,
@@ -101,6 +104,7 @@
 		onFilePointerEnd,
 		onFileDragStart,
 		onFolderDragOver,
+		onFolderDragLeave,
 		onFolderDrop
 	}: Props = $props();
 </script>
@@ -165,14 +169,26 @@
 						<h3 class="mb-3 text-sm font-medium text-muted-foreground">FOLDERS</h3>
 						<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
 							{#each folders as folder (folder.id)}
+								{@const dropKey = `folder-${folder.id}`}
 								<ContextMenu.Root>
 									<ContextMenu.Trigger>
-										<div class="group h-full">
+										<div
+											class="group h-full"
+											role="button"
+											tabindex="0"
+											ondragenter={(event) => onFolderDragOver(event, dropKey)}
+											ondragover={(event) => onFolderDragOver(event, dropKey)}
+											ondragleave={() => onFolderDragLeave?.(dropKey)}
+											ondrop={(event) => {
+												onFolderDrop(event, folder.id);
+												onFolderDragLeave?.(dropKey);
+											}}
+										>
 											<Card
-												class="relative h-full cursor-pointer transition-shadow hover:shadow-lg"
+												class={`relative h-full cursor-pointer transition-all hover:shadow-lg ${
+													activeDropTargetKey === dropKey ? 'border-2 border-accent shadow-lg' : ''
+												}`}
 												onclick={() => onNavigateToFolder(folder)}
-												ondragover={onFolderDragOver}
-												ondrop={(event) => onFolderDrop(event, folder.id)}
 											>
 												{#if folder.starred}
 													<Star

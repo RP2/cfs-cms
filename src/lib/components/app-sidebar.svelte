@@ -3,6 +3,15 @@
 	import * as ContextMenu from '$lib/components/ui/context-menu/index.js';
 	import { Avatar, AvatarFallback } from '$lib/components/ui/avatar';
 	import {
+		Dialog,
+		DialogContent,
+		DialogDescription,
+		DialogFooter,
+		DialogHeader,
+		DialogTitle
+	} from '$lib/components/ui/dialog';
+	import { Button } from '$lib/components/ui/button';
+	import {
 		currentWorkspace,
 		currentFolder,
 		viewType,
@@ -11,6 +20,8 @@
 		currentView,
 		viewScope
 	} from '$lib/stores';
+	import { moveFilesToFolder, moveFilesToWorkspace } from '$lib/services/dataService';
+	import { allowMoveDrop, parseDragData } from '$lib/utils/drag';
 	import type { Folder, Workspace } from '$lib/types';
 	import FolderItem from './FolderItem.svelte';
 	import NewFolderModal from './modals/NewFolderModal.svelte';
@@ -86,12 +97,71 @@
 	let renameTarget = $state<Folder | null>(null);
 	let deleteTarget = $state<Folder | null>(null);
 	let deleteWorkspaceTarget = $state<Workspace | null>(null);
+	let showCrossDropConfirm = $state(false);
+	let pendingDropIds = $state<string[]>([]);
+	let pendingDropTargetWorkspaceId = $state<string | null>(null);
+	let pendingDropTargetFolderId = $state<string | null>(null);
+	let activeDropTargetKey = $state<string | null>(null);
+
+	function clearActiveDropTarget(key?: string) {
+		if (!key || activeDropTargetKey === key) {
+			activeDropTargetKey = null;
+		}
+	}
 
 	function selectWorkspace(workspace: any) {
 		currentWorkspace.set(workspace);
 		currentFolder.set(null);
 		currentView.set('normal');
 		viewScope.set('workspace');
+	}
+
+	function clearPendingDrop() {
+		showCrossDropConfirm = false;
+		pendingDropIds = [];
+		pendingDropTargetWorkspaceId = null;
+		pendingDropTargetFolderId = null;
+	}
+
+	function confirmCrossWorkspaceDrop() {
+		if (!pendingDropIds.length || !pendingDropTargetWorkspaceId) {
+			clearPendingDrop();
+			return;
+		}
+		moveFilesToWorkspace(pendingDropIds, pendingDropTargetWorkspaceId, pendingDropTargetFolderId);
+		clearPendingDrop();
+	}
+
+	function handleSidebarDragOver(event: DragEvent, key?: string) {
+		allowMoveDrop(event);
+		if (key) activeDropTargetKey = key;
+	}
+
+	function handleSidebarDragLeave(key?: string) {
+		clearActiveDropTarget(key);
+	}
+
+	function handleSidebarDrop(
+		event: DragEvent,
+		targetWorkspaceId: string,
+		targetFolderId: string | null
+	) {
+		allowMoveDrop(event);
+		const parsed = parseDragData(event);
+		if (parsed?.type !== 'file' || !parsed.ids?.length) return;
+
+		const ids = parsed.ids;
+		const isCrossWorkspace = $currentWorkspace && targetWorkspaceId !== $currentWorkspace.id;
+		clearActiveDropTarget();
+		if (isCrossWorkspace) {
+			pendingDropIds = ids;
+			pendingDropTargetWorkspaceId = targetWorkspaceId;
+			pendingDropTargetFolderId = targetFolderId;
+			showCrossDropConfirm = true;
+			return;
+		}
+
+		moveFilesToFolder(ids, targetFolderId, { targetWorkspaceId });
 	}
 
 	function getWorkspaceIconComponent(workspace: Workspace) {
@@ -167,6 +237,8 @@
 	}
 </script>
 
+<svelte:window ondragend={() => clearActiveDropTarget()} ondrop={() => clearActiveDropTarget()} />
+
 <Sidebar.Root {collapsible} {...restProps} bind:ref>
 	<!-- Workspace Selector Header -->
 	<Sidebar.Header>
@@ -211,9 +283,14 @@
 							<Sidebar.MenuButton
 								isActive={$currentWorkspace?.id === workspace.id}
 								onclick={() => selectWorkspace(workspace)}
-								class={$currentWorkspace?.id === workspace.id
-									? 'border-accent bg-accent/15 text-foreground ring-1 ring-accent'
-									: ''}
+								ondragover={(event) => handleSidebarDragOver(event, `ws-${workspace.id}`)}
+								ondragleave={() => handleSidebarDragLeave(`ws-${workspace.id}`)}
+								ondrop={(event) => handleSidebarDrop(event, workspace.id, null)}
+								class={`${
+									$currentWorkspace?.id === workspace.id
+										? 'border-accent bg-accent/15 text-foreground ring-1 ring-accent'
+										: ''
+								} ${activeDropTargetKey === `ws-${workspace.id}` ? 'ring-2 ring-accent' : ''}`.trim()}
 							>
 								<WorkspaceIcon class="size-4 text-current" />
 								<span>{workspace.name}</span>
@@ -255,6 +332,11 @@
 				{#each rootFolders as folder (folder.id)}
 					<FolderItem
 						{folder}
+						{activeDropTargetKey}
+						onFolderDragOver={(event, key) => handleSidebarDragOver(event, key)}
+						onFolderDragLeave={(key) => handleSidebarDragLeave(key)}
+						onFolderDrop={(event, folderId, workspaceId) =>
+							handleSidebarDrop(event, workspaceId, folderId)}
 						on:rename-folder={(event) => handleRenameFolder(event.detail)}
 						on:delete-folder={(event) => handleDeleteFolder(event.detail)}
 					/>
@@ -342,3 +424,24 @@
 
 	<Sidebar.Rail />
 </Sidebar.Root>
+
+<Dialog bind:open={showCrossDropConfirm}>
+	<DialogContent class="max-w-md">
+		<DialogHeader>
+			<DialogTitle>Move to another workspace?</DialogTitle>
+			<DialogDescription>
+				Move {pendingDropIds.length} file{pendingDropIds.length === 1 ? '' : 's'} to
+				{#if pendingDropTargetWorkspaceId}
+					{$workspaces.find((ws) => ws.id === pendingDropTargetWorkspaceId)?.name ?? 'workspace'}
+				{:else}
+					workspace
+				{/if}
+				?
+			</DialogDescription>
+		</DialogHeader>
+		<DialogFooter>
+			<Button variant="outline" onclick={clearPendingDrop}>Cancel</Button>
+			<Button variant="destructive" onclick={confirmCrossWorkspaceDrop}>Move</Button>
+		</DialogFooter>
+	</DialogContent>
+</Dialog>

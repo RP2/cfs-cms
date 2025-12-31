@@ -9,12 +9,25 @@
 
 	interface Props {
 		folder: Folder;
+		activeDropTargetKey?: string | null;
+		onFolderDragOver?: (event: DragEvent, key?: string) => void;
+		onFolderDragLeave?: (key?: string) => void;
+		onFolderDrop?: (event: DragEvent, folderId: string, workspaceId: string) => void;
 	}
 
-	let { folder }: Props = $props();
+	let {
+		folder,
+		activeDropTargetKey = null,
+		onFolderDragOver,
+		onFolderDragLeave,
+		onFolderDrop
+	}: Props = $props();
 	const dispatch = createEventDispatcher<{ 'rename-folder': Folder; 'delete-folder': Folder }>();
 
 	let open = $state(false);
+	let activeDropClass = $derived(
+		activeDropTargetKey === `folder-${folder.id}` ? 'ring-2 ring-accent' : ''
+	);
 
 	// Derive children from store instead of query function
 	let children = $derived(
@@ -51,7 +64,14 @@
 <Sidebar.MenuItem>
 	<ContextMenu.Root>
 		<ContextMenu.Trigger>
-			<Sidebar.MenuButton isActive={$currentFolder?.id === folder.id} onclick={selectThisFolder}>
+			<Sidebar.MenuButton
+				isActive={$currentFolder?.id === folder.id}
+				onclick={selectThisFolder}
+				ondragover={(event) => onFolderDragOver?.(event, `folder-${folder.id}`)}
+				ondragleave={() => onFolderDragLeave?.(`folder-${folder.id}`)}
+				ondrop={(event) => onFolderDrop?.(event, folder.id, folder.workspaceId)}
+				class={activeDropClass}
+			>
 				<FolderIcon />
 				<span>{folder.name}</span>
 			</Sidebar.MenuButton>
@@ -81,6 +101,10 @@
 				<Sidebar.MenuSubItem>
 					<FolderItem
 						folder={subfolder}
+						{activeDropTargetKey}
+						{onFolderDragOver}
+						{onFolderDragLeave}
+						{onFolderDrop}
 						on:rename-folder={(event) => dispatch('rename-folder', event.detail)}
 						on:delete-folder={(event) => dispatch('delete-folder', event.detail)}
 					/>
