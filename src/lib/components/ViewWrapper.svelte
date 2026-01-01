@@ -16,6 +16,9 @@
 	import EditFileModal from './modals/EditFileModal.svelte';
 	import DeleteConfirmModal from './modals/DeleteConfirmModal.svelte';
 	import UploadModal from './modals/UploadModal.svelte';
+	import FileDetailModal from './modals/FileDetailModal.svelte';
+	import BulkSelectionMenu from './BulkSelectionMenu.svelte';
+	import BreadcrumbNav from './BreadcrumbNav.svelte';
 	import GridView from './GridView.svelte';
 	import ListView from './ListView.svelte';
 	import {
@@ -65,7 +68,8 @@
 		formatFileSize,
 		formatTrashExpiry as formatTrashExpiryUtil,
 		getTagClass as getTagClassUtil,
-		getWorkspaceName as getWorkspaceNameUtil
+		getWorkspaceName as getWorkspaceNameUtil,
+		downloadFile
 	} from '$lib/utils/formatters';
 	import type { File, Folder, Tag as TagType } from '$lib/types';
 	import type { SvelteComponent } from 'svelte';
@@ -75,13 +79,8 @@
 		FileVideoCamera,
 		FileText,
 		X,
-		Trash2,
-		RotateCcw,
-		FolderUp,
-		Tag,
 		Building2,
-		Folder as FolderIconOutline,
-		Copy
+		Folder as FolderIconOutline
 	} from '@lucide/svelte';
 
 	type IconComponent = typeof SvelteComponent;
@@ -101,6 +100,8 @@
 	let showDeleteModal = $state(false);
 	let showUploadModal = $state(false);
 	let showEditFileModal = $state(false);
+	let showFileDetailModal = $state(false);
+	let detailModalFile = $state<File | null>(null);
 
 	let showMoveModal = $state(false);
 	let showMoveConfirm = $state(false);
@@ -332,6 +333,20 @@
 		toast.success('Copied to clipboard');
 	}
 
+	function handleBulkCopy() {
+		const selectedIds = Array.from($selectedFileIds);
+		if (selectedIds.length === 0) return;
+
+		clipboard.set({
+			type: 'file',
+			ids: selectedIds
+		});
+		selectedFileIds.set(new Set()); // Clear selection
+		toast.success(
+			`Copied ${selectedIds.length} file${selectedIds.length === 1 ? '' : 's'} to clipboard`
+		);
+	}
+
 	function handleCopyFolder(folderId: string) {
 		clipboard.set({
 			type: 'folder',
@@ -408,6 +423,27 @@
 		}
 
 		performMove(targetWs, targetFolder, ids);
+	}
+
+	function handleBulkDownload() {
+		if ($selectedFileIds.size === 0) return;
+
+		// Phase 1: Mock implementation
+		toast.info(
+			`Batch download of ${$selectedFileIds.size} file${$selectedFileIds.size === 1 ? '' : 's'} coming in Phase 2`,
+			{
+				description: 'Files will be downloaded as a ZIP archive'
+			}
+		);
+
+		// Phase 2 TODO: Implement ZIP download
+		// Option 1: Client-side using JSZip library
+		// Option 2: Server endpoint /api/download/batch with file IDs
+		// const fileIds = Array.from($selectedFileIds);
+		// await fetch('/api/download/batch', {
+		//   method: 'POST',
+		//   body: JSON.stringify({ fileIds })
+		// });
 	}
 
 	function openTagModal() {
@@ -512,7 +548,7 @@
 		showBulkTrashConfirm = false;
 	}
 
-	function navigateToFolder(folder: Folder) {
+	function navigateToFolder(folder: Folder | null) {
 		if (isTrashView) {
 			currentFolder.set(folder);
 			return;
@@ -530,6 +566,22 @@
 
 	const buildFolderPath = (folderId: string | null) =>
 		buildFolderPathUtil(folderId, $workspaceFolders);
+
+	// Build breadcrumb path array from current folder to workspace root
+	function getBreadcrumbPath(): Folder[] {
+		if (!$currentFolder) return [];
+		const path: Folder[] = [];
+		let current = $currentFolder;
+
+		while (current) {
+			path.unshift(current);
+			const parent = $workspaceFolders.find((f) => f.id === current.parentId);
+			if (!parent) break;
+			current = parent;
+		}
+
+		return path;
+	}
 
 	const getWorkspaceName = (id: string | null | undefined) =>
 		getWorkspaceNameUtil(id, availableWorkspaces);
@@ -569,6 +621,19 @@
 
 	function handleStarFile(fileId: string) {
 		toggleFileStar(fileId);
+	}
+
+	function handleOpenFileDetail(file: File) {
+		detailModalFile = file;
+		showFileDetailModal = true;
+	}
+
+	function handleDownloadFile(fileId: string) {
+		const file = files.find((f) => f.id === fileId);
+		if (!file) return;
+
+		downloadFile(file);
+		toast.success(`Downloading: ${file.name}`);
 	}
 
 	function handleStarFolder(folderId: string) {
@@ -784,102 +849,19 @@
 	ondrop={() => (activeFolderDropKey = null)}
 />
 
-{#if $selectedFileIds.size > 0}
-	<div
-		in:fly={{ y: 20, duration: 200 }}
-		out:fly={{ y: 20, duration: 150 }}
-		class="fixed right-6 bottom-6 z-50 flex items-center gap-3 rounded-lg border border-accent bg-accent/95 p-4 shadow-lg backdrop-blur-sm"
-	>
-		<span class="text-sm font-medium text-accent-foreground"
-			>{$selectedFileIds.size} file{$selectedFileIds.size !== 1 ? 's' : ''} selected</span
-		>
-		<div class="flex flex-wrap items-center gap-2">
-			{#if isTrashView}
-				<Button
-					variant="ghost"
-					size="sm"
-					class="h-8 gap-1 px-2 text-accent-foreground hover:bg-accent/80"
-					onclick={handleBulkRestore}
-				>
-					<RotateCcw class="h-4 w-4" />
-					Restore
-				</Button>
-			{:else}
-				<Button
-					variant="ghost"
-					size="sm"
-					class="h-8 gap-1 px-2 text-accent-foreground hover:ring-2 hover:ring-accent hover:ring-offset-2 hover:ring-offset-background"
-					onclick={handleBulkTrash}
-				>
-					<Trash2 class="h-4 w-4" />
-					Trash
-				</Button>
-			{/if}
-			<Button
-				variant="ghost"
-				size="sm"
-				class="h-8 gap-1 px-2 text-accent-foreground hover:ring-2 hover:ring-accent hover:ring-offset-2 hover:ring-offset-background"
-				onclick={() => {
-					const selectedIds = Array.from($selectedFileIds);
-					if (selectedIds.length > 0) {
-						clipboard.set({
-							type: 'file',
-							ids: selectedIds
-						});
-						selectedFileIds.set(new Set()); // Clear selection
-						toast.success(
-							`Copied ${selectedIds.length} file${selectedIds.length === 1 ? '' : 's'} to clipboard`
-						);
-					}
-				}}
-			>
-				<Copy class="h-4 w-4" />
-				Copy
-			</Button>
-			<Button
-				variant="ghost"
-				size="sm"
-				class="h-8 gap-1 px-2 text-accent-foreground hover:ring-2 hover:ring-accent hover:ring-offset-2 hover:ring-offset-background"
-				onclick={openMoveModal}
-			>
-				<FolderUp class="h-4 w-4" />
-				Move
-			</Button>
-			<Button
-				variant="ghost"
-				size="sm"
-				class="h-8 gap-1 px-2 text-accent-foreground hover:ring-2 hover:ring-accent hover:ring-offset-2 hover:ring-offset-background"
-				onclick={openTagModal}
-			>
-				<Tag class="h-4 w-4" />
-				Add Tags
-			</Button>
-			{#if allVisibleSelected}
-				<Button variant="ghost" size="sm" class="h-8 px-2 text-accent-foreground" disabled>
-					All selected
-				</Button>
-			{:else}
-				<Button
-					variant="ghost"
-					size="sm"
-					class="h-8 px-2 text-accent-foreground hover:ring-2 hover:ring-accent hover:ring-offset-2 hover:ring-offset-background"
-					onclick={selectAll}
-				>
-					Select All
-				</Button>
-			{/if}
-			<Button
-				variant="ghost"
-				size="sm"
-				class="h-8 px-2 text-accent-foreground hover:ring-2 hover:ring-accent hover:ring-offset-2 hover:ring-offset-background"
-				onclick={clearSelection}
-			>
-				<X class="h-4 w-4" />
-				Clear
-			</Button>
-		</div>
-	</div>
-{/if}
+<BulkSelectionMenu
+	selectedCount={$selectedFileIds.size}
+	{isTrashView}
+	{allVisibleSelected}
+	onRestore={handleBulkRestore}
+	onTrash={handleBulkTrash}
+	onCopy={handleBulkCopy}
+	onMove={openMoveModal}
+	onTag={openTagModal}
+	onDownload={handleBulkDownload}
+	onSelectAll={selectAll}
+	onClear={clearSelection}
+/>
 
 <Dialog bind:open={showMoveModal}>
 	<DialogContent class="max-w-lg">
@@ -1032,6 +1014,16 @@
 	</DialogContent>
 </Dialog>
 
+<div class="bg-background px-4 py-3 lg:hidden">
+	<BreadcrumbNav
+		currentWorkspace={$currentWorkspace}
+		currentFolder={$currentFolder}
+		folderPath={getBreadcrumbPath()}
+		onNavigate={navigateToFolder}
+		variant="mobile"
+	/>
+</div>
+
 {#if $viewType === 'grid'}
 	<GridView
 		{isTrashView}
@@ -1060,6 +1052,8 @@
 		onOpenRename={openRename}
 		onOpenDelete={openDelete}
 		onOpenUpload={openUpload}
+		onOpenFileDetail={handleOpenFileDetail}
+		onDownloadFile={handleDownloadFile}
 		onHandleStarFile={handleStarFile}
 		onHandleStarFolder={handleStarFolder}
 		onHandleRestoreFile={handleRestoreFile}
@@ -1111,6 +1105,8 @@
 		onOpenRename={openRename}
 		onOpenDelete={openDelete}
 		onOpenUpload={openUpload}
+		onOpenFileDetail={handleOpenFileDetail}
+		onDownloadFile={handleDownloadFile}
 		onHandleStarFile={handleStarFile}
 		onHandleStarFolder={handleStarFolder}
 		onHandleRestoreFile={handleRestoreFile}
@@ -1145,6 +1141,32 @@
 	bind:itemType={deleteType}
 />
 <UploadModal bind:open={showUploadModal} />
+<FileDetailModal
+	bind:file={detailModalFile}
+	bind:open={showFileDetailModal}
+	currentFolder={$currentFolder}
+	onRename={(file) => {
+		detailModalFile = null;
+		showFileDetailModal = false;
+		renameTarget = file;
+		renameType = 'file';
+		showRenameModal = true;
+	}}
+	onMove={(file) => {
+		detailModalFile = null;
+		showFileDetailModal = false;
+		pendingMoveIds = [file.id];
+		showMoveModal = true;
+	}}
+	onTag={(file) => {
+		detailModalFile = null;
+		showFileDetailModal = false;
+		pendingMoveIds = [file.id];
+		bulkSelectedTags = new Set();
+		bulkPendingTagNames = [];
+		showTagModal = true;
+	}}
+/>
 
 <style>
 	:global(.card-footer) {

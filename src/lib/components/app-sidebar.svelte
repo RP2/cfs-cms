@@ -38,27 +38,13 @@
 	import RenameModal from './modals/RenameModal.svelte';
 	import DeleteConfirmModal from './modals/DeleteConfirmModal.svelte';
 	import DeleteWorkspaceModal from './modals/DeleteWorkspaceModal.svelte';
-	import {
-		Briefcase,
-		Star,
-		Tag,
-		Plus,
-		Trash2,
-		Grid3x3,
-		List,
-		User,
-		BookOpen,
-		Glasses,
-		Palette,
-		Zap,
-		Rocket,
-		Target,
-		Trophy,
-		Lightbulb,
-		Archive
-	} from '@lucide/svelte';
+	import { Briefcase, Star, Tag, Plus, Trash2, Grid3x3, List, User } from '@lucide/svelte';
 	import type { ComponentProps } from 'svelte';
-	import IconPickerModal from './modals/IconPickerModal.svelte';
+	import IconPickerModal, {
+		type WorkspaceIcon,
+		workspaceIconMap,
+		getWorkspaceIconComponent
+	} from './modals/IconPickerModal.svelte';
 	import { toast } from 'svelte-sonner';
 	import MenuContent from './context-menus/MenuContent.svelte';
 	import { buildWorkspaceMenu } from './context-menus/menuBuilder';
@@ -68,36 +54,6 @@
 		collapsible = 'icon',
 		...restProps
 	}: ComponentProps<typeof Sidebar.Root> = $props();
-
-	type WorkspaceIcon =
-		| 'briefcase'
-		| 'book'
-		| 'glasses'
-		| 'palette'
-		| 'zap'
-		| 'rocket'
-		| 'target'
-		| 'trophy'
-		| 'lightbulb'
-		| 'archive'
-		| 'star'
-		| 'grid'
-		| 'tag';
-	const workspaceIconMap: Record<WorkspaceIcon, typeof Briefcase> = {
-		briefcase: Briefcase,
-		book: BookOpen,
-		glasses: Glasses,
-		palette: Palette,
-		zap: Zap,
-		rocket: Rocket,
-		target: Target,
-		trophy: Trophy,
-		lightbulb: Lightbulb,
-		archive: Archive,
-		star: Star,
-		grid: Grid3x3,
-		tag: Tag
-	};
 
 	let newFolderModalOpen = $state(false);
 	let newWorkspaceModalOpen = $state(false);
@@ -276,11 +232,6 @@
 				alert((error as Error).message);
 			}
 		}
-	}
-
-	function getWorkspaceIconComponent(workspace: Workspace) {
-		const iconName = (workspace.icon as WorkspaceIcon) ?? 'briefcase';
-		return workspaceIconMap[iconName];
 	}
 
 	function openIconPicker(workspaceId: string) {

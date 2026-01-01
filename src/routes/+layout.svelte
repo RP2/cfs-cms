@@ -2,17 +2,10 @@
 	import './layout.css';
 	import favicon from '$lib/assets/favicon.svg';
 	import AppSidebar from '$lib/components/app-sidebar.svelte';
+	import BreadcrumbNav from '$lib/components/BreadcrumbNav.svelte';
 	import Sonner from '$lib/components/ui/sonner/sonner.svelte';
 	import { Combobox } from '$lib/components/ui/combobox';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import {
-		Breadcrumb,
-		BreadcrumbList,
-		BreadcrumbItem,
-		BreadcrumbLink,
-		BreadcrumbSeparator,
-		BreadcrumbPage
-	} from '$lib/components/ui/breadcrumb';
 	import { Search, Folder as FolderIcon, File as FileIcon } from '@lucide/svelte';
 	import { currentFiles, currentFolder, currentWorkspace, workspaceFolders } from '$lib/stores';
 	import type { Folder } from '$lib/types';
@@ -116,44 +109,23 @@
 		<header
 			class="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between gap-4 border-b bg-background px-4"
 		>
-			<div class="flex min-w-0 flex-1 items-center gap-2">
-				<Sidebar.Trigger class="-ml-1" />
+			<div class="flex min-w-0 flex-0 items-center gap-2 lg:flex-1">
+				<Sidebar.Trigger class="-ml-1 shrink-0 rounded bg-sidebar p-1.5 ring-1 ring-border" />
 
 				<!-- Breadcrumbs (left side) -->
-				<div class="hidden md:block">
-					<Breadcrumb>
-						<BreadcrumbList>
-							<!-- Workspace as root -->
-							{#if $currentWorkspace}
-								<BreadcrumbItem>
-									<BreadcrumbLink href="#" onclick={() => navigateToFolder(null)}>
-										{$currentWorkspace.name}
-									</BreadcrumbLink>
-								</BreadcrumbItem>
-							{/if}
-
-							<!-- Folder path -->
-							{#each getBreadcrumbPath() as folder, index}
-								<BreadcrumbSeparator />
-								<BreadcrumbItem>
-									{#if index === getBreadcrumbPath().length - 1}
-										<!-- Current folder (non-clickable) -->
-										<BreadcrumbPage>{folder.name}</BreadcrumbPage>
-									{:else}
-										<!-- Parent folders (clickable) -->
-										<BreadcrumbLink href="#" onclick={() => navigateToFolder(folder)}>
-											{folder.name}
-										</BreadcrumbLink>
-									{/if}
-								</BreadcrumbItem>
-							{/each}
-						</BreadcrumbList>
-					</Breadcrumb>
+				<div class="hidden min-w-0 lg:block">
+					<BreadcrumbNav
+						currentWorkspace={$currentWorkspace}
+						currentFolder={$currentFolder}
+						folderPath={getBreadcrumbPath()}
+						onNavigate={navigateToFolder}
+						variant="desktop"
+					/>
 				</div>
 			</div>
 
 			<!-- Search (top right) -->
-			<div class="w-10/12 min-w-0 md:max-w-xl">
+			<div class="w-full flex-1 pl-6 lg:w-full lg:max-w-md lg:flex-none">
 				<div class="relative">
 					<Search
 						class="pointer-events-none absolute top-1/2 left-3 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground"

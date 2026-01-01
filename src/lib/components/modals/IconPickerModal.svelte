@@ -1,12 +1,4 @@
-<script lang="ts">
-	import {
-		Dialog,
-		DialogContent,
-		DialogDescription,
-		DialogHeader,
-		DialogTitle
-	} from '$lib/components/ui/dialog';
-	import { Button } from '$lib/components/ui/button';
+<script lang="ts" module>
 	import {
 		Briefcase,
 		BookOpen,
@@ -17,10 +9,29 @@
 		Target,
 		Trophy,
 		Lightbulb,
-		Archive
+		Archive,
+		Star,
+		Grid3x3,
+		Tag
 	} from '@lucide/svelte';
+	import type { Workspace } from '$lib/types';
 
-	const iconMap = {
+	export type WorkspaceIcon =
+		| 'briefcase'
+		| 'book'
+		| 'glasses'
+		| 'palette'
+		| 'zap'
+		| 'rocket'
+		| 'target'
+		| 'trophy'
+		| 'lightbulb'
+		| 'archive'
+		| 'star'
+		| 'grid'
+		| 'tag';
+
+	export const workspaceIconMap: Record<WorkspaceIcon, typeof Briefcase> = {
 		briefcase: Briefcase,
 		book: BookOpen,
 		glasses: Glasses,
@@ -30,8 +41,27 @@
 		target: Target,
 		trophy: Trophy,
 		lightbulb: Lightbulb,
-		archive: Archive
+		archive: Archive,
+		star: Star,
+		grid: Grid3x3,
+		tag: Tag
 	};
+
+	export function getWorkspaceIconComponent(workspace: Workspace) {
+		const iconName = (workspace.icon as WorkspaceIcon) ?? 'briefcase';
+		return workspaceIconMap[iconName];
+	}
+</script>
+
+<script lang="ts">
+	import {
+		Dialog,
+		DialogContent,
+		DialogDescription,
+		DialogHeader,
+		DialogTitle
+	} from '$lib/components/ui/dialog';
+	import { Button } from '$lib/components/ui/button';
 
 	const icons = [
 		{ id: 'briefcase', name: 'Briefcase' },
@@ -43,7 +73,10 @@
 		{ id: 'target', name: 'Target' },
 		{ id: 'trophy', name: 'Trophy' },
 		{ id: 'lightbulb', name: 'Idea' },
-		{ id: 'archive', name: 'Archive' }
+		{ id: 'archive', name: 'Archive' },
+		{ id: 'star', name: 'Star' },
+		{ id: 'grid', name: 'Grid' },
+		{ id: 'tag', name: 'Tag' }
 	];
 
 	let { open = $bindable(false), onSelect = () => {} } = $props();
@@ -62,7 +95,7 @@
 		</DialogHeader>
 		<div class="grid grid-cols-5 gap-3 py-4">
 			{#each icons as icon (icon.id)}
-				{@const IconComponent = iconMap[icon.id as keyof typeof iconMap]}
+				{@const IconComponent = workspaceIconMap[icon.id as WorkspaceIcon]}
 				<Button variant="outline" class="h-16 flex-col gap-2" onclick={() => handleSelect(icon.id)}>
 					<IconComponent class="h-6 w-6" />
 					<span class="text-xs text-muted-foreground">{icon.name}</span>

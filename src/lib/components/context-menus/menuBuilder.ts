@@ -35,6 +35,7 @@ export function buildFileMenu(opts: {
 	onDelete: () => void;
 	onPermanentDelete: () => void;
 	onCopy: () => void;
+	onDownload: () => void;
 	onPaste: (targetFolderId: string | null) => void;
 	targetFolderId: string | null;
 	pasteLabelMode?: 'folder' | 'generic';
@@ -69,6 +70,7 @@ export function buildFileMenu(opts: {
 			icon: undefined
 		});
 	}
+	items.push({ kind: 'item', label: 'Download', action: opts.onDownload });
 	items.push({
 		kind: 'item',
 		label: 'Move to Trash',

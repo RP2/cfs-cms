@@ -72,3 +72,13 @@ export function getTagClass(tagId: string, tagMap: Map<string, Tag>): string {
 	const textColor = tag.color === 'muted' ? 'muted-foreground' : `${tag.color}-foreground`;
 	return `border-transparent bg-${tag.color} text-${textColor}`;
 }
+
+// File download helper (Phase 1: mock download, Phase 2+: real file download)
+export function downloadFile(file: File): void {
+	const a = document.createElement('a');
+	a.href = file.storagePath;
+	a.download = file.name;
+	document.body.appendChild(a);
+	a.click();
+	document.body.removeChild(a);
+}

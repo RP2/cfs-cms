@@ -53,6 +53,8 @@
 		onOpenRename: (item: File | Folder, type: 'file' | 'folder') => void;
 		onOpenDelete: (item: File | Folder, type: 'file' | 'folder') => void;
 		onOpenUpload: () => void;
+		onOpenFileDetail: (file: File) => void;
+		onDownloadFile: (fileId: string) => void;
 		onHandleStarFile: (id: string) => void;
 		onHandleStarFolder: (id: string) => void;
 		onHandleRestoreFile: (id: string) => void;
@@ -101,6 +103,8 @@
 		onOpenRename,
 		onOpenDelete,
 		onOpenUpload,
+		onOpenFileDetail,
+		onDownloadFile,
 		onHandleStarFile,
 		onHandleStarFolder,
 		onHandleRestoreFile,
@@ -143,6 +147,7 @@
 			onPermanentDelete: () => onHandlePermanentDeleteFile(file.id),
 			onCopy: () => onCopyFile(file.id),
 			onPaste: (targetFolderId) => onPaste(targetFolderId),
+			onDownload: () => onDownloadFile(file.id),
 			targetFolderId: file.folderId ?? null,
 			pasteLabelMode: 'generic'
 		});
@@ -351,7 +356,10 @@
 													onCheckedChange={() => onToggleFileSelect(file.id)}
 												/>
 											</div>
-											<CardContent class="h-full p-4">
+											<CardContent
+												class="h-full cursor-pointer p-4"
+												onclick={() => onOpenFileDetail(file)}
+											>
 												<div class="mb-2 flex justify-center">
 													<Icon class="h-12 w-12 text-muted-foreground" />
 												</div>

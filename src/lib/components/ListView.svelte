@@ -52,6 +52,8 @@
 		onOpenRename: (item: File | Folder, type: 'file' | 'folder') => void;
 		onOpenDelete: (item: File | Folder, type: 'file' | 'folder') => void;
 		onOpenUpload: () => void;
+		onOpenFileDetail: (file: File) => void;
+		onDownloadFile: (fileId: string) => void;
 		onHandleStarFile: (id: string) => void;
 		onHandleStarFolder: (id: string) => void;
 		onHandleRestoreFile: (id: string) => void;
@@ -100,6 +102,8 @@
 		onOpenRename,
 		onOpenDelete,
 		onOpenUpload,
+		onOpenFileDetail,
+		onDownloadFile,
 		onHandleStarFile,
 		onHandleStarFolder,
 		onHandleRestoreFile,
@@ -142,6 +146,7 @@
 			onPermanentDelete: () => onHandlePermanentDeleteFile(file.id),
 			onCopy: () => onCopyFile(file.id),
 			onPaste: (targetFolderId) => onPaste(targetFolderId),
+			onDownload: () => onDownloadFile(file.id),
 			targetFolderId: file.folderId ?? null,
 			pasteLabelMode: 'generic'
 		});
@@ -322,11 +327,13 @@
 							<ContextMenu.Root>
 								<ContextMenu.Trigger>
 									<div
-										class="relative flex items-center gap-3 rounded border p-3 hover:bg-muted"
+										class="relative flex cursor-pointer items-center gap-3 rounded border p-3 hover:bg-muted"
 										draggable="true"
 										role="button"
 										tabindex="0"
 										class:animate-pulse={dragArmingId === file.id}
+										onclick={() => onOpenFileDetail(file)}
+										onkeydown={(e) => e.key === 'Enter' && onOpenFileDetail(file)}
 										onpointerdown={(event) => onFilePointerDown(event, file.id)}
 										onpointermove={onFilePointerMove}
 										onpointerup={onFilePointerEnd}
