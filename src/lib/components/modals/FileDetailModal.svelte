@@ -5,8 +5,10 @@
 		DialogContent,
 		DialogHeader,
 		DialogTitle,
-		DialogFooter
+		DialogFooter,
+		DialogDescription
 	} from '$lib/components/ui/dialog';
+	import { ScrollArea } from '$lib/components/ui/scroll-area';
 	import { Separator } from '$lib/components/ui/separator';
 	import { Badge } from '$lib/components/ui/badge';
 	import {
@@ -41,7 +43,7 @@
 		permanentlyDeleteFile,
 		deleteFiles
 	} from '$lib/services/dataService';
-	import { workspaceFolders, workspaceTags } from '$lib/stores';
+	import { workspaceFolders, workspaceTags, currentFiles } from '$lib/stores';
 	import { getFileExtension } from '$lib/utils/fileMetadata';
 
 	interface Props {
@@ -49,20 +51,16 @@
 		open?: boolean;
 		currentFolder?: Folder | null;
 		onOpenChange?: (open: boolean) => void;
-		onRename?: (file: File) => void;
-		onMove?: (file: File) => void;
-		onTag?: (file: File) => void;
 	}
 
 	let {
 		file = $bindable(null),
 		open = $bindable(false),
 		currentFolder,
-		onOpenChange = () => {},
-		onRename = () => {},
-		onMove = () => {},
-		onTag = () => {}
+		onOpenChange = () => {}
 	}: Props = $props();
+
+	let showDeleteConfirm = $state(false);
 
 	// Derived state
 	let metadata = $derived(file ? buildFileMetadata(file) : null);
@@ -70,6 +68,12 @@
 		file && metadata ? extractMetadataDetails(file, metadata.category) : {}
 	);
 	let extension = $derived(file ? getFileExtension(file.name) : '');
+	// Get live starred state from store to ensure reactivity
+	let isStarred = $derived.by(() => {
+		if (!file) return false;
+		const liveFile = $currentFiles.find((f) => f.id === file.id);
+		return liveFile?.starred ?? false;
+	});
 	let fileTags = $derived.by(() => {
 		if (!file?.tagIds || !$workspaceTags) return [];
 		return $workspaceTags.filter((t) => file.tagIds?.includes(t.id));
@@ -108,9 +112,18 @@
 	}
 
 	function handleDelete() {
+		showDeleteConfirm = true;
+	}
+
+	function confirmDelete() {
 		if (!file) return;
 		deleteFiles([file.id]);
 		open = false;
+		showDeleteConfirm = false;
+	}
+
+	function cancelDelete() {
+		showDeleteConfirm = false;
 	}
 
 	function handleDownload() {
@@ -126,51 +139,36 @@
 
 {#if file && metadata}
 	<Dialog bind:open>
-		<DialogContent class="flex max-h-[85vh] max-w-3xl flex-col gap-0 overflow-hidden p-0">
-			<DialogHeader class="border-b px-6 py-4">
-				<div class="flex items-start justify-between">
-					<div class="flex-1">
-						<DialogTitle class="text-lg font-semibold">{file.name}</DialogTitle>
+		<DialogContent class="max-h-[95dvh] overflow-hidden p-4">
+			<!-- Header Section -->
+			<DialogHeader class="border-b py-4">
+				<div class="flex items-start gap-3">
+					<div class="min-w-0 flex-1">
+						<div class="flex justify-center gap-2 sm:justify-start">
+							<DialogTitle class="text-lg font-semibold">{file.name}</DialogTitle>
+							<button
+								onclick={handleStar}
+								class="mt-0.5 transition-opacity hover:opacity-70"
+								title={isStarred ? 'Remove star' : 'Add star'}
+							>
+								<Star
+									class={`h-5 w-5 ${isStarred ? 'fill-accent text-accent' : 'text-muted-foreground'}`}
+								/>
+							</button>
+						</div>
+						<p class="mt-1 text-xs text-muted-foreground">{folderPath}</p>
 						<p class="mt-1 text-xs text-muted-foreground">
 							{extension.toUpperCase()} • {formatFileSize(file.size)}
 						</p>
 					</div>
-					<div class="flex items-center gap-1">
-						<Button
-							variant="ghost"
-							size="sm"
-							onclick={handleStar}
-							class="h-8 w-8"
-							title={file.starred ? 'Remove star' : 'Add star'}
-						>
-							<Star class={`h-4 w-4 ${file.starred ? 'fill-accent text-accent' : ''}`} />
-						</Button>
-					</div>
 				</div>
 			</DialogHeader>
 
-			<!-- Main Content Area -->
-			<div class="flex flex-1 overflow-hidden">
-				<!-- Preview Section -->
-				{#if metadata.isPreviewable}
-					<div class="flex-1 overflow-auto border-r bg-muted/10 p-4">
-						{#if metadata.previewType === 'image'}
-							<PreviewImage {file} />
-						{:else if metadata.previewType === 'media'}
-							<PreviewMedia {file} />
-						{:else if metadata.previewType === 'text'}
-							<PreviewText {file} />
-						{:else}
-							<PreviewGeneric {file} />
-						{/if}
-					</div>
-				{/if}
-
-				<!-- Details Panel -->
-				<div class="flex w-80 flex-col overflow-auto">
+			<ScrollArea class="-mx-4 max-h-[calc(95dvh-8rem)]">
+				<div class="px-4">
 					<!-- Trash Warning -->
 					{#if metadata.isTrashed}
-						<div class="border-b bg-destructive/10 px-4 py-3">
+						<div class="border-b bg-destructive/10 py-3">
 							<div class="flex items-start gap-2">
 								<AlertCircle class="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
 								<div class="space-y-1 text-xs">
@@ -183,40 +181,40 @@
 						</div>
 					{/if}
 
-					<!-- Metadata -->
-					<div class="flex-1 space-y-4 overflow-auto px-4 py-4">
-						<!-- Location -->
-						<div>
-							<p class="mb-1.5 text-xs font-medium text-muted-foreground">Location</p>
-							<p class="text-sm text-foreground">{folderPath}</p>
+					<!-- Preview Section -->
+					{#if metadata.isPreviewable}
+						<div class="bg-muted/10 md:px-2">
+							{#if metadata.previewType === 'image'}
+								<PreviewImage {file} />
+							{:else if metadata.previewType === 'media'}
+								<PreviewMedia {file} />
+							{:else if metadata.previewType === 'text'}
+								<PreviewText {file} />
+							{:else}
+								<PreviewGeneric {file} />
+							{/if}
 						</div>
+					{/if}
 
-						{#if metadata.category !== 'unknown'}
+					<!-- Details Section -->
+					<div class="space-y-4 pt-4 md:px-6">
+						<div class="grid grid-cols-2 gap-4">
 							<div>
-								<p class="mb-1.5 text-xs font-medium text-muted-foreground">Type</p>
-								<p class="text-sm text-foreground capitalize">{metadata.category}</p>
-							</div>
-						{/if}
-
-						<!-- Timestamps -->
-						<div class="space-y-2">
-							<div>
-								<p class="mb-1 text-xs font-medium text-muted-foreground">Created</p>
+								<p class="mb-1 text-xs font-medium text-muted-foreground">Uploaded</p>
 								<p class="text-sm text-foreground">{formatDateShort(file.createdAt)}</p>
 							</div>
 							<div>
-								<p class="mb-1 text-xs font-medium text-muted-foreground">Modified</p>
+								<p class="mb-1 text-xs font-medium text-muted-foreground">Last modified</p>
 								<p class="text-sm text-foreground">{formatDateShort(file.updatedAt)}</p>
 							</div>
 						</div>
-
 						<!-- Tags -->
 						{#if fileTags.length > 0}
-							<div>
+							<div class="min-w-0">
 								<p class="mb-1.5 text-xs font-medium text-muted-foreground">Tags</p>
 								<div class="flex flex-wrap gap-1">
 									{#each fileTags as tag (tag.id)}
-										<Badge variant="secondary" class="text-xs">{tag.name}</Badge>
+										<Badge variant="secondary" class="min-w-0 text-xs">{tag.name}</Badge>
 									{/each}
 								</div>
 							</div>
@@ -224,11 +222,11 @@
 
 						<!-- Metadata Details (Phase 2+) -->
 						{#if Object.keys(metadataDetails).length > 0}
-							<Separator class="my-2" />
-							<div class="space-y-2">
+							<Separator />
+							<div class="grid grid-cols-2 gap-4">
 								{#each Object.entries(metadataDetails) as [key, value] (key)}
 									<div>
-										<p class="mb-0.5 text-xs font-medium text-muted-foreground capitalize">{key}</p>
+										<p class="mb-1 text-xs font-medium text-muted-foreground capitalize">{key}</p>
 										<p class="text-sm text-foreground">{value}</p>
 									</div>
 								{/each}
@@ -237,74 +235,52 @@
 					</div>
 
 					<!-- Action Buttons -->
-					<div class="space-y-2 border-t px-4 py-3">
+					<div class="space-y-2 py-4 md:px-6">
 						{#if !metadata.isTrashed}
-							<div class="grid grid-cols-2 gap-2">
-								<Button
-									variant="secondary"
-									size="sm"
-									onclick={() => onRename(file)}
-									class="h-8 gap-2"
-								>
-									<Edit class="h-3.5 w-3.5" />
-									Rename
-								</Button>
-								<Button
-									variant="secondary"
-									size="sm"
-									onclick={() => onMove(file)}
-									class="h-8 gap-2"
-								>
-									<FileUp class="h-3.5 w-3.5" />
-									Move
-								</Button>
-								<Button variant="secondary" size="sm" onclick={() => onTag(file)} class="h-8 gap-2">
-									<Tag class="h-3.5 w-3.5" />
-									Tag
-								</Button>
-							</div>
-							<Button
-								variant="secondary"
-								size="sm"
-								onclick={handleDownload}
-								class="h-8 w-full gap-2"
-							>
-								<Download class="h-3.5 w-3.5" />
+							<Button variant="secondary" size="sm" onclick={handleDownload} class="w-full gap-2">
+								<Download class="h-4 w-4" />
 								Download
 							</Button>
-							<Button
-								variant="destructive"
-								size="sm"
-								onclick={handleDelete}
-								class="h-8 w-full gap-2"
-							>
-								<Trash2 class="h-3.5 w-3.5" />
-								Delete
+							<Button variant="destructive" size="sm" onclick={handleDelete} class="w-full gap-2">
+								<Trash2 class="h-4 w-4" />
+								Move to Trash
 							</Button>
 						{:else}
-							<!-- Trash Actions -->
-							<Button
-								variant="secondary"
-								size="sm"
-								onclick={handleRestore}
-								class="h-8 w-full gap-2"
-							>
-								<RotateCcw class="h-3.5 w-3.5" />
-								Restore
-							</Button>
-							<Button
-								variant="destructive"
-								size="sm"
-								onclick={handlePermanentDelete}
-								class="h-8 w-full gap-2"
-							>
-								<Trash2 class="h-3.5 w-3.5" />
-								Delete Permanently
-							</Button>
+							<div class="grid grid-cols-2 gap-2">
+								<Button variant="secondary" size="sm" onclick={handleRestore} class="gap-2">
+									<RotateCcw class="h-4 w-4" />
+									Restore
+								</Button>
+								<Button
+									variant="destructive"
+									size="sm"
+									onclick={handlePermanentDelete}
+									class="gap-2"
+								>
+									<Trash2 class="h-4 w-4" />
+									Delete Permanently
+								</Button>
+							</div>
 						{/if}
 					</div>
 				</div>
-			</div>
+			</ScrollArea>
+		</DialogContent>
+	</Dialog>
+
+	<Dialog bind:open={showDeleteConfirm}>
+		<DialogContent class="max-w-md">
+			<DialogHeader>
+				<DialogTitle>Move to Trash?</DialogTitle>
+				<DialogDescription>
+					This will move <span class="font-medium">{file?.name}</span> to trash. You can recover it within
+					30 days.
+				</DialogDescription>
+			</DialogHeader>
+			<DialogFooter>
+				<Button variant="outline" onclick={cancelDelete}>Cancel</Button>
+				<Button variant="destructive" onclick={confirmDelete}>Move to Trash</Button>
+			</DialogFooter>
 		</DialogContent>
 	</Dialog>
 {/if}

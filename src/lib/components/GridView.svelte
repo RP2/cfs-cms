@@ -65,7 +65,7 @@
 		onHandlePermanentDeleteWorkspace: (id: string) => void;
 		onFilePointerDown: (event: PointerEvent, fileId: string) => void;
 		onFilePointerMove: (event: PointerEvent) => void;
-		onFilePointerEnd: () => void;
+		onFilePointerEnd: (fileId: string) => void;
 		onFileDragStart: (event: DragEvent, fileId: string) => void;
 		onFolderPointerDown: (event: PointerEvent, folderId: string) => void;
 		onFolderPointerMove: (event: PointerEvent) => void;
@@ -334,9 +334,9 @@
 											draggable="true"
 											onpointerdown={(event) => onFilePointerDown(event, file.id)}
 											onpointermove={onFilePointerMove}
-											onpointerup={onFilePointerEnd}
-											onpointerleave={onFilePointerEnd}
-											onpointercancel={onFilePointerEnd}
+											onpointerup={() => onFilePointerEnd(file.id)}
+											onpointerleave={() => onFilePointerEnd(file.id)}
+											onpointercancel={() => onFilePointerEnd(file.id)}
 											ondragstart={(event) => onFileDragStart(event, file.id)}
 										>
 											{#if file.starred}
@@ -356,10 +356,7 @@
 													onCheckedChange={() => onToggleFileSelect(file.id)}
 												/>
 											</div>
-											<CardContent
-												class="h-full cursor-pointer p-4"
-												onclick={() => onOpenFileDetail(file)}
-											>
+											<CardContent class="h-full p-4">
 												<div class="mb-2 flex justify-center">
 													<Icon class="h-12 w-12 text-muted-foreground" />
 												</div>
@@ -369,16 +366,15 @@
 												</h3>
 
 												<div
-													class="flex items-center justify-center gap-2 text-xs text-muted-foreground"
+													class="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground"
 												>
-													<div class="flex items-center gap-1">
+													<div class="flex items-center gap-1 whitespace-nowrap">
 														<Package class="h-3 w-3" />
-														{formatFileSize(file.size)}
+														<span class="whitespace-nowrap">{formatFileSize(file.size)}</span>
 													</div>
-													<span>•</span>
-													<div class="flex items-center gap-1">
+													<div class="flex items-center gap-1 whitespace-nowrap">
 														<Calendar class="h-3 w-3" />
-														{formatDate(file.createdAt)}
+														<span class="whitespace-nowrap">{formatDate(file.createdAt)}</span>
 													</div>
 												</div>
 
@@ -508,9 +504,9 @@
 											draggable="true"
 											onpointerdown={(event) => onFilePointerDown(event, file.id)}
 											onpointermove={onFilePointerMove}
-											onpointerup={onFilePointerEnd}
-											onpointerleave={onFilePointerEnd}
-											onpointercancel={onFilePointerEnd}
+											onpointerup={() => onFilePointerEnd(file.id)}
+											onpointerleave={() => onFilePointerEnd(file.id)}
+											onpointercancel={() => onFilePointerEnd(file.id)}
 											ondragstart={(event) => onFileDragStart(event, file.id)}
 										>
 											{#if file.starred}
@@ -541,16 +537,15 @@
 												</h3>
 
 												<div
-													class="flex items-center justify-center gap-2 text-xs text-muted-foreground"
+													class="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground"
 												>
-													<div class="flex items-center gap-1">
+													<div class="flex items-center gap-1 whitespace-nowrap">
 														<Package class="h-3 w-3" />
-														{formatFileSize(file.size)}
+														<span class="whitespace-nowrap">{formatFileSize(file.size)}</span>
 													</div>
-													<span>•</span>
-													<div class="flex items-center gap-1">
+													<div class="flex items-center gap-1 whitespace-nowrap">
 														<Calendar class="h-3 w-3" />
-														{formatDate(file.createdAt)}
+														<span class="whitespace-nowrap">{formatDate(file.createdAt)}</span>
 													</div>
 												</div>
 

@@ -64,7 +64,7 @@
 		onHandlePermanentDeleteWorkspace: (id: string) => void;
 		onFilePointerDown: (event: PointerEvent, fileId: string) => void;
 		onFilePointerMove: (event: PointerEvent) => void;
-		onFilePointerEnd: () => void;
+		onFilePointerEnd: (fileId: string) => void;
 		onFileDragStart: (event: DragEvent, fileId: string) => void;
 		onFolderPointerDown: (event: PointerEvent, folderId: string) => void;
 		onFolderPointerMove: (event: PointerEvent) => void;
@@ -336,9 +336,9 @@
 										onkeydown={(e) => e.key === 'Enter' && onOpenFileDetail(file)}
 										onpointerdown={(event) => onFilePointerDown(event, file.id)}
 										onpointermove={onFilePointerMove}
-										onpointerup={onFilePointerEnd}
-										onpointerleave={onFilePointerEnd}
-										onpointercancel={onFilePointerEnd}
+										onpointerup={() => onFilePointerEnd(file.id)}
+										onpointerleave={() => onFilePointerEnd(file.id)}
+										onpointercancel={() => onFilePointerEnd(file.id)}
 										ondragstart={(event) => onFileDragStart(event, file.id)}
 									>
 										<Checkbox
@@ -457,9 +457,9 @@
 										tabindex="0"
 										onpointerdown={(event) => onFilePointerDown(event, file.id)}
 										onpointermove={onFilePointerMove}
-										onpointerup={onFilePointerEnd}
-										onpointerleave={onFilePointerEnd}
-										onpointercancel={onFilePointerEnd}
+										onpointerup={() => onFilePointerEnd(file.id)}
+										onpointerleave={() => onFilePointerEnd(file.id)}
+										onpointercancel={() => onFilePointerEnd(file.id)}
 										ondragstart={(event) => onFileDragStart(event, file.id)}
 									>
 										<Checkbox

@@ -119,6 +119,8 @@
 	let dragArmingId = $state<string | null>(null);
 	let folderDragArmingId = $state<string | null>(null);
 	let activeFolderDropKey = $state<string | null>(null);
+	let fileDragStarted = $state(false);
+	let clickedFileId = $state<string | null>(null);
 
 	let renameTarget = $state<File | Folder | null>(null);
 	let renameType = $state<'file' | 'folder'>('file');
@@ -705,6 +707,12 @@
 	}
 
 	function handleFilePointerDown(event: PointerEvent, fileId: string) {
+		// Only track clicks for left-button (button 0)
+		const isLeftClick = (event as any).button === 0;
+		fileDragStarted = false;
+		if (isLeftClick) {
+			clickedFileId = fileId;
+		}
 		dragController.pointerDown(fileId, { x: event.clientX, y: event.clientY });
 		dragArmingId = fileId;
 	}
@@ -713,9 +721,20 @@
 		dragController.pointerMove({ x: event.clientX, y: event.clientY });
 	}
 
-	function handleFilePointerEnd() {
+	function handleFilePointerEnd(fileId: string) {
+		const shouldOpenDetail = !fileDragStarted && clickedFileId === fileId;
 		dragController.pointerEnd();
 		dragArmingId = null;
+
+		// Only open detail if this was a click on this specific file, not a drag
+		if (shouldOpenDetail) {
+			const file = files.find((f) => f.id === fileId);
+			if (file) {
+				handleOpenFileDetail(file);
+			}
+		}
+		fileDragStarted = false;
+		clickedFileId = null;
 	}
 
 	function handleFileDragStart(event: DragEvent, fileId: string) {
@@ -724,6 +743,7 @@
 			return;
 		}
 
+		fileDragStarted = true;
 		setDragImageFromTarget(event);
 		const payload = buildDragPayload(fileId, $selectedFileIds, 'file');
 		setDragData(event, payload);
@@ -1145,27 +1165,6 @@
 	bind:file={detailModalFile}
 	bind:open={showFileDetailModal}
 	currentFolder={$currentFolder}
-	onRename={(file) => {
-		detailModalFile = null;
-		showFileDetailModal = false;
-		renameTarget = file;
-		renameType = 'file';
-		showRenameModal = true;
-	}}
-	onMove={(file) => {
-		detailModalFile = null;
-		showFileDetailModal = false;
-		pendingMoveIds = [file.id];
-		showMoveModal = true;
-	}}
-	onTag={(file) => {
-		detailModalFile = null;
-		showFileDetailModal = false;
-		pendingMoveIds = [file.id];
-		bulkSelectedTags = new Set();
-		bulkPendingTagNames = [];
-		showTagModal = true;
-	}}
 />
 
 <style>
