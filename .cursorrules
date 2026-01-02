@@ -1,419 +1,249 @@
-# CFS CMS - AI Context & Instructions
+# CFS CMS - Cursor AI Instructions
 
-This file is for AI assistants working on this project. It provides quick context for picking up work between sessions.
+**CFS CMS** is a Google Drive-like content management system built with SvelteKit + Cloudflare infrastructure. This guide focuses on the patterns and workflows unique to this project.
 
-## Quick Context
+## Essential Reading
 
-**Project**: CFS CMS - Centralized Content Management System  
-**Tech Stack**: SvelteKit + TypeScript + shadcn-svelte + Cloudflare  
-**Current Phase**: Phase 1 - UI/UX First (In Progress)  
-**Last Active**: December 30, 2025
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - Three-layer data flow, Svelte 5 patterns
+- [docs/PHASE1_COMPLETE.md](docs/PHASE1_COMPLETE.md) - Current implementation status
+- [docs/TODO.md](docs/TODO.md) - Active tasks and next steps
 
-**Recent Improvements (December 30, 2025)**:
+## Tech Stack & Key Decisions
 
-- ✅ ViewWrapper pattern: Separated presentation (GridView/ListView) from orchestration
-- ✅ Quick links made workspace-specific (Starred, Tags, Trash per workspace)
-- ✅ Workspace deletion requires empty workspace (permanent delete, no trash)
-- ✅ Tags view fixed to show all tagged files in workspace
-- ✅ Fixed cross-workspace data corruption bug
-- ✅ Established proper data flow architecture (Components → dataService → Stores)
-- ✅ Removed all direct mock data usage from components
-- ✅ Converted functions to `$derived` for hot reloading
-- ✅ Created comprehensive ARCHITECTURE.md documentation
-- ✅ Sidebar, grid, and breadcrumbs now hot reload properly
+- **Framework**: SvelteKit (v2+) with Svelte 5 runes (`$state`, `$derived`, `$props`, `$effect`)
+- **UI**: shadcn-svelte (copy-paste components) + Tailwind CSS 4.1.17 (theme colors ONLY)
+- **Icons**: lucide-svelte (NEVER emojis)
+- **Backend (Phase 2+)**: Cloudflare Workers + D1 (SQLite) + R2 (S3-compatible storage)
+- **Auth (Phase 3)**: Cloudflare Zero Trust (MVP) + optional SvelteKit auth
 
-## How to Use This Project
-
-1. **First Time?** Read these in order:
-   - [README.md](README.md) - Project overview
-   - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - **NEW**: Data flow, Svelte 5 patterns, hot reload guide
-   - [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md) - Architecture & decisions
-   - [docs/ROADMAP.md](docs/ROADMAP.md) - Phase breakdown
-   - [docs/TODO.md](docs/TODO.md) - Current tasks
-
-2. **Returning?** Check:
-   - [TODO.md](TODO.md) - What's in progress/next
-   - [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) - Architecture reference
-   - Git log - Recent changes
-   - VS Code problems panel - Any current issues
-
-3. **Building Features?**
-   - Check `/src/lib/types` for data structures
-   - Reference `PROJECT_CONTEXT.md` for architecture
-   - Follow conventions in `docs/COMPONENT_GUIDE.md` (TBD)
-   - Look at existing components for patterns
-
-## Key Decision Points
-
-### Tech Stack
-
-- **Framework**: SvelteKit (not Next.js or plain React)
-- **UI Library**: shadcn-svelte (Svelte port of shadcn/ui - copy-paste components)
-- **Styling**: Tailwind CSS 4.1.17 (full customization via component files)
-- **Host**: Cloudflare Workers (not traditional Node server)
-- **Database**: D1 SQLite (not PostgreSQL) - Phase 2
-- **Storage**: R2 object storage (not GCS or S3) - Phase 2
-- **Auth**: Cloudflare Zero Trust (MVP) + optional SvelteKit auth (Phase 3)
-- **Why**: Edge computing + integrated ecosystem + learning goal + familiar component patterns
-
-### Architecture
-
-**For complete architecture details, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
-
-**Three-Layer Data Flow (Established December 30, 2025)**:
+## Three-Layer Architecture (Critical)
 
 ```
-UI Components → Data Service → Svelte Stores → Mock Data (Phase 1) / API (Phase 2+)
+UI Components → dataService → Svelte Stores → Mock Data (Phase 1) / API (Phase 2+)
 ```
 
-**Critical Rules**:
+**Key Rules**:
 
-- ✅ Mock data ONLY imported by `src/lib/stores/index.ts`
-- ✅ All CRUD operations use `src/lib/services/dataService.ts`
-- ✅ Components use `$derived` for reactive computed values
-- ✅ Hot reloading works everywhere (sidebar, grid, breadcrumbs)
-- ✅ Backend-ready: only dataService needs changes for Phase 2
+1. **Components**: Import stores, derive reactive data with `$derived`, call dataService functions
+2. **dataService.ts**: All CRUD operations - ONLY file that changes in Phase 2
+3. **Stores**: Hold ALL workspace data (components filter by workspace)
+4. **Mock data**: ONLY imported by `src/lib/stores/index.ts`
 
-**Key Files**:
+**Why**: Enables hot reloading, prevents cross-workspace bugs, makes backend migration trivial (zero component changes).
 
-- **Components**:
-  - `src/lib/components/app-sidebar.svelte` - Sidebar with workspace/folder navigation
-  - `src/lib/components/ViewWrapper.svelte` - File display orchestrator (all state/logic)
-  - `src/lib/components/GridView.svelte` - Card grid UI (pure presentation)
-  - `src/lib/components/ListView.svelte` - Table/list UI (pure presentation)
-  - `src/lib/components/FolderItem.svelte` - Recursive folder tree
-  - `src/lib/components/modals/` - 8 modal components (NewFolder, Rename, Delete, etc.)
-- **Business Logic**: `src/lib/services/dataService.ts` (all CRUD operations)
-- **Types**: `src/lib/types/index.ts` (centralized TypeScript definitions)
-- **Stores**: `src/lib/stores/index.ts` (application state)
-- **Mock Data**: `src/lib/data/mock.ts` (Phase 1 - ONLY imported by stores)
-- **Routes**: `src/routes/+layout.svelte` (app shell), `+page.svelte` (main content)
-- **No**: Direct mock data imports in components; business logic in components
+## Critical Code Patterns
 
-### UI Inspiration & Implementation
-
-- **Google Drive**-like interface - familiar UX for users
-- shadcn-svelte components provide the building blocks
-- Sidebar navigation + main content area
-- Grid/list view toggle
-- Drag & drop folder management
-- Tag-based search/filtering
-- **Key Components**: Button, Card, Dialog, Input, Tabs, Breadcrumb, DropdownMenu, ContextMenu
-
-### Phase 1: UI-First Development Strategy
-
-**Goal**: Build fully interactive Google Drive-like interface with mocked data (no backend yet)
-
-**Architecture** (Implemented December 30, 2025):
-
-- **Mock Data**: Lives in `src/lib/data/mock.ts`, ONLY imported by `src/lib/stores/index.ts`
-- **Data Service**: `src/lib/services/dataService.ts` - All CRUD operations, abstracts store manipulation
-- **State**: Svelte stores in `src/lib/stores/` hold ALL workspace data (UI filters per workspace)
-- **Components**: Use `$derived` for reactive filtered data (no functions for lists)
-- **Hot Reload**: Sidebar, grid, breadcrumbs update immediately on data changes
-- **Demo Page**: `/demo` showcases mocked CMS (public example) - TODO
-- **Production**: When Phase 2 starts, only modify dataService to use API calls
-- **UI Testing**: Local browser testing with no API calls needed
-- **Easy Migration**: Components need ZERO changes for backend integration
-
-### Phase 2: Cloudflare Backend
-
-- Connect D1 database queries
-- R2 file upload integration
-- Search with D1 queries
-- Sessions with D1 storage
-
-## Styling Guidelines
-
-### ✅ DO: Use Theme Colors
-
-**Always use shadcn theme colors from `src/routes/layout.css`**
-
-Available theme CSS variables:
-
-- `primary` / `primary-foreground` - Primary actions
-- `secondary` / `secondary-foreground` - Secondary actions
-- `accent` / `accent-foreground` - Orange highlights (buttons, CTAs)
-- `muted` / `muted-foreground` - Disabled/inactive states
-- `background` / `foreground` - Page background and text
-- `card` - Card backgrounds
-- `border` - Border color
-- `destructive` - Error/delete actions
-- `sidebar-*` - Sidebar variants
-
-**Examples:**
-
-```svelte
-<!-- ✅ CORRECT -->
-<button class="bg-accent text-accent-foreground">Action</button>
-<div class="border-b border-border">Content</div>
-<p class="text-muted-foreground">Disabled</p>
-```
-
-### ❌ DON'T: Use Raw Tailwind Colors
-
-Never hardcode color classes. They break theming:
-
-```svelte
-<!-- ❌ WRONG - Never do this -->
-<button class="bg-blue-500 text-white">Bad</button>
-<div class="border-red-200">Wrong</div>
-<p class="text-gray-600">Bad</p>
-```
-
-### ✅ DO: Use Lucide Icons
-
-**Import ONLY from `@lucide/svelte`**:
-
-```typescript
-import { Plus, Trash2, Edit, Folder, File, Grid3x3, List, Search, Upload, ChevronDown, MoreVertical } from '@lucide/svelte';
-```
-
-Common icon categories:
-
-- **Navigation**: Folder, File, Grid3x3, List, ChevronDown, ChevronUp, ChevronRight
-- **Actions**: Plus, Edit, Trash2, Upload, Download, Copy, Share2
-- **UI**: Search, MoreVertical, MoreHorizontal, X, Check, AlertCircle, Clock
-- **Status**: CheckCircle, AlertCircle, InfoCircle, XCircle
-
-**Usage:**
-
-```svelte
-<script>
-	import { Plus } from '@lucide/svelte';
-</script>
-
-<!-- ✅ CORRECT -->
-<Plus class="h-4 w-4" />
-
-<!-- ❌ NEVER -->
-<span>➕</span>
-```
-
-### ❌ DON'T: Use Emojis
-
-Never use emojis in code:
-
-```svelte
-<!-- ❌ WRONG - Never do this -->
-<div>📁 My Folder</div>
-<button>⬆️ Upload</button>
-<span>❌ Delete</span>
-```
-
-## Svelte 5 Patterns (IMPORTANT)
-
-**For complete patterns, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#svelte-5-patterns)**
-
-### ✅ DO: Use $derived for Reactive Lists
+### ✅ Reactive Lists (MUST Use $derived)
 
 ```svelte
 <script lang="ts">
 	import { workspaceFolders, currentWorkspace } from '$lib/stores';
 
-	// ✅ CORRECT: Updates immediately when data changes
+	// ✅ CORRECT: Auto-updates when data changes
 	let rootFolders = $derived(
 		$workspaceFolders.filter(
 			(f) => f.parentId === null && f.workspaceId === $currentWorkspace?.id && !f.deletedAt
 		)
 	);
-</script>
 
-{#each rootFolders as folder (folder.id)}
-	<Folder {folder} />
-{/each}
-```
-
-### ❌ DON'T: Use Functions for Reactive Lists
-
-```svelte
-<script lang="ts">
-	// ❌ WRONG: Won't update when data changes
+	// ❌ WRONG: Won't update reactively
 	function getRootFolders() {
 		return $workspaceFolders.filter((f) => f.parentId === null);
 	}
 </script>
 
-{#each getRootFolders() as folder}
-	<Folder {folder} />
+{#each rootFolders as folder (folder.id)}
+	<FolderItem {folder} />
 {/each}
 ```
 
-### Component Props with Svelte 5 Runes
+### ✅ ViewWrapper Pattern (Presentation vs Logic)
+
+**ViewWrapper.svelte**: State, handlers, formatters, derived data  
+**GridView.svelte / ListView.svelte**: Pure presentation, receive props
 
 ```svelte
+<!-- ViewWrapper.svelte -->
 <script lang="ts">
-	interface Props {
-		folder: Folder;
-		depth?: number;
-	}
+  import { createFolder } from '$lib/services/dataService';
 
-	let { folder, depth = 0 }: Props = $props();
+  let showModal = $state(false);
+  let folders = $derived.by(() => /* complex filtering */);
 
-	// ✅ Use $derived for computed values
-	let children = $derived($workspaceFolders.filter((f) => f.parentId === folder.id));
+  function handleCreate() {
+    createFolder(parentId, name);
+    showModal = false;
+  }
+
+  function formatFileSize(bytes: number): string { /* ... */ }
 </script>
-```
 
-### Data Service Usage (CRUD Operations)
+{#if $viewType === 'grid'}
+  <GridView {folders} {formatFileSize} onHandleCreate={handleCreate} />
+{:else}
+  <ListView {folders} {formatFileSize} onHandleCreate={handleCreate} />
+{/if}
 
-```svelte
+<!-- GridView.svelte - ONLY presentation -->
 <script lang="ts">
-	import { createFolder, renameFolder, deleteFolder } from '$lib/services/dataService';
-
-	function handleCreate() {
-		createFolder(parentId, folderName); // Component updates automatically
-	}
-
-	function handleRename() {
-		renameFolder(folderId, newName); // Sidebar/grid update immediately
-	}
+  interface Props {
+    folders: Folder[];
+    formatFileSize: (bytes: number) => string;
+    onHandleCreate: () => void;
+  }
+  let { folders, formatFileSize, onHandleCreate }: Props = $props();
 </script>
+
+{#each folders as folder}
+  <Card onclick={onHandleCreate}>{formatFileSize(folder.size)}</Card>
+{/each}
 ```
 
-## File Structure Reference
+### ✅ Data Service (All CRUD Operations)
 
-```
-/
-├── README.md                 ← Project overview
-├── PROJECT_CONTEXT.md        ← Architecture & decisions (READ FIRST)
-├── ROADMAP.md                ← Phase breakdown & timeline
-├── TODO.md                   ← Current tasks & progress
-├── .cursorrules              ← AI context (this file pattern)
-├── src/
-│   ├── routes/               ← Pages & layouts
-│   │   ├── +page.svelte
-│   │   ├── +layout.svelte
-│   │   └── (sections)/       ← Route groups
-│   ├── lib/
-│   │   ├── components/       ← Reusable UI components
-│   │   ├── services/         ← Business logic & API
-│   │   ├── stores/           ← Svelte stores
-│   │   ├── types/            ← TypeScript type definitions
-│   │   ├── utils/            ← Utilities & helpers
-│   │   └── index.ts          ← Barrel export
-│   ├── app.html              ← HTML shell
-│   └── app.d.ts              ← App type definitions
-├── docs/
-│   ├── DATABASE.md           ← Schema & models (TBD)
-│   ├── ARCHITECTURE.md       ← System design (TBD)
-│   ├── CLOUDFLARE_SETUP.md   ← Cloudflare config (TBD)
-│   └── DEVELOPMENT.md        ← Dev environment setup (TBD)
-└── static/
-    └── robots.txt
+```typescript
+// src/lib/services/dataService.ts
+import { workspaceFolders } from '$lib/stores';
+import { get } from 'svelte/store';
+
+export function createFolder(parentId: string | null, name: string): Folder {
+  const folders = get(workspaceFolders);
+  const newFolder = { /* ... */ };
+  workspaceFolders.set([...folders, newFolder]);
+  return newFolder;
+}
+
+// Phase 2: Replace with API call
+export async function createFolder(parentId: string | null, name: string): Promise<Folder> {
+  const response = await fetch('/api/folders', {
+    method: 'POST',
+    body: JSON.stringify({ parentId, name })
+  });
+  const newFolder = await response.json();
+
+  // Update local store for immediate UI feedback
+  const folders = get(workspaceFolders);
+  workspaceFolders.set([...folders, newFolder]);
+  return newFolder;
+}
 ```
 
-## Development Commands
+## Key File Locations
+
+- **Components**: `src/lib/components/` (ViewWrapper, GridView, ListView, FolderItem, app-sidebar)
+- **Modals**: `src/lib/components/modals/` (NewFolder, Rename, Delete, Upload, etc.)
+- **Business Logic**: `src/lib/services/dataService.ts` (ALL CRUD - only file that changes in Phase 2)
+- **State**: `src/lib/stores/index.ts` (Svelte stores)
+- **Types**: `src/lib/types/index.ts` (TypeScript interfaces)
+- **Utils**: `src/lib/utils/` (formatters, drag, fileMetadata)
+- **Mock Data**: `src/lib/data/mock.ts` (Phase 1 only)
+
+## Project-Specific Workflows
+
+### Development
 
 ```bash
-# Install dependencies
-npm install
-
-# Start dev server
-npm run dev
-
-# Build production
-npm run build
-
-# Preview production build
-npm run preview
-
-# Type check
-npm run check
-
-# Lint
-npm run lint
-
-# Format (if configured)
-npm run format
+npm run dev          # Start dev server (http://localhost:5173)
+npm run check        # TypeScript type checking (run before commits)
+npm run lint         # ESLint (strict mode, no warnings)
 ```
 
-## Current Priorities
+### Deletion Behavior (Important)
 
-**Phase 0 (This Week)**:
+- **Files/Folders**: Soft delete with `deletedAt` (30-day trash, workspace-scoped)
+- **Workspaces**: Permanent delete (requires empty workspace, throws error if not)
 
-1. Create core directory structure
-2. Design database schema
-3. Setup Cloudflare integration
-4. Configure TypeScript
+### Copy/Paste Architecture
 
-**Phase 1 (Next)**: Authentication system
+Copied files are **independent database records** sharing the same R2 storage:
 
-## Common Tasks
+- Each copy has unique `id`, `workspaceId`, `folderId`, `name`, `starred`, `tagIds`
+- All copies share `storagePath` (content-addressed by checksum)
+- R2 file only deleted when ALL copies removed (reference counting)
 
-### Adding a Component
+### Drag-Drop System
 
-1. Create file in `/src/lib/components/ComponentName.svelte`
-2. Export in `/src/lib/index.ts` (barrel export)
-3. Create types in `/src/lib/types/Component.ts` if needed
-4. Document props in component comments
+Centralized in `src/lib/utils/drag.ts`:
 
-### Adding a Service
+- `DRAG_ARM_DELAY_MS = 30` - Delay before drag activates
+- `DRAG_MOVE_THRESHOLD_PX = 8` - Movement threshold to start drag
+- ViewWrapper owns drag controller, GridView/ListView use hooks
+- Moves route through `dataService.moveFilesToFolder()` / `moveFilesToWorkspace()`
 
-1. Create file in `/src/lib/services/serviceName.ts`
-2. Export in `/src/lib/index.ts`
-3. Use in components via stores or page logic
-4. Keep business logic out of components
+## Styling Standards
 
-### Adding a Page
+### Theme Colors (Required)
 
-1. Create folder in `/src/routes/pageName/`
-2. Add `+page.svelte` for page content
-3. Add `+layout.svelte` if custom layout needed
-4. Add `+page.server.ts` if backend logic needed
+**NEVER use raw Tailwind classes** (`bg-blue-500`, `text-gray-600`). ONLY use theme colors from `src/routes/layout.css`:
 
-### Database Changes
+```svelte
+<!-- ❌ WRONG -->
+<div class="bg-blue-500 text-gray-600">
 
-1. Update schema in `/docs/DATABASE.md`
-2. Create migration file (format TBD)
-3. Run migration on D1
-4. Update types in `/src/lib/types/`
+<!-- ✅ CORRECT -->
+<div class="bg-accent text-muted-foreground">
+```
 
-## Important Notes
+**Available**: `primary`, `secondary`, `accent`, `muted`, `destructive`, `background`, `foreground`, `card`, `border`, `sidebar-*`
 
-- **SvelteKit is NEW**: Use official docs for reference
-- **Cloudflare Workers**: Watch out for cold starts and memory limits
-- **D1 Limitations**: Concurrent writes limited, design carefully
-- **Learning Goal**: This is intentionally exploring SvelteKit
-- **Open Source Future**: Code should be clean and well-documented
+### Icons (Required)
 
-## Debugging
+**ALWAYS lucide-svelte, NEVER emojis**:
 
-- VS Code debug panel - Run debug config (TBD)
-- Wrangler dev - Local Cloudflare environment
-- Browser DevTools - Client-side debugging
-- Server console - Check terminal output
+```svelte
+<!-- ✅ CORRECT -->
+<script>
+	import { Folder } from 'lucide-svelte';
+</script>
 
-## References
+<!-- ❌ WRONG -->
+<div>📁 Folder</div>
+<Folder class="h-4 w-4" /> <span>Folder</span>
+```
 
-- [SvelteKit Documentation](https://svelte.dev/docs/kit)
-- [Cloudflare Workers](https://developers.cloudflare.com/workers/)
-- [D1 Database](https://developers.cloudflare.com/d1/)
-- [R2 Object Storage](https://developers.cloudflare.com/r2/)
-- [Svelte Components](https://svelte.dev/docs/svelte/what-is-svelte)
+## Common Pitfalls
 
-## Questions to Ask
+❌ **Don't** import mock data in components/modals  
+✅ **Do** import stores and call dataService
 
-When picking up this project, ask:
+❌ **Don't** use functions for reactive lists  
+✅ **Do** use `$derived` for computed values
 
-- What phase are we in?
-- What's the current highest priority task?
-- What blockers exist? (Check TODO.md)
-- What's the most recent architecture decision?
-- Are there any pending design decisions?
+❌ **Don't** filter stores when setting them  
+✅ **Do** store ALL data, filter in UI with `$derived`
 
-## Handoff Checklist
+❌ **Don't** put business logic in ViewWrapper/components  
+✅ **Do** put it in dataService
 
-Before handing off to another AI model:
+❌ **Don't** allow workspace deletion with content  
+✅ **Do** check `isEmpty` first (enforced in dataService)
 
-1. Update TODO.md with current status
-2. Commit all work to git
-3. Write brief summary in PROJECT_CONTEXT.md under "Current Status"
-4. Note any blockers/decisions needed
-5. Provide last 5-10 git commits as reference
+## Phase 2 Backend Migration
+
+**Only `src/lib/services/dataService.ts` needs changes**. All 20+ components remain untouched.
+
+See [docs/BACKEND_MIGRATION.md](docs/BACKEND_MIGRATION.md) for step-by-step guide and [docs/PHASE2_API_CONTRACT.md](docs/PHASE2_API_CONTRACT.md) for API specifications.
+
+**Key Insight**: Three-layer architecture makes backend swap trivial - components already use abstraction layer.
 
 ---
 
-**Created**: December 29, 2025  
-**For**: AI Models (Claude, Copilot, Cursor, etc.)  
-**Questions?**: Check PROJECT_CONTEXT.md or ROADMAP.md
+**Last Updated**: January 1, 2026  
+**Phase**: 1 ✅ Complete → Phase 2 🚀 Ready  
+**Architecture**: Three-layer data flow established & verified
+
+## Handoff Information
+
+When passing to another AI:
+
+- Reference `docs/PROJECT_CONTEXT.md` for architecture
+- Check `docs/TODO.md` for current tasks
+- Review `docs/ROADMAP.md` for phase context
+- Use `.github/copilot-instructions.md` (for GitHub Copilot) as supplement
+
+## Resources
+
+- [SvelteKit Docs](https://svelte.dev/docs/kit)
+- [Cloudflare Workers](https://developers.cloudflare.com/workers/)
+- [D1 Database](https://developers.cloudflare.com/d1/)
+- [R2 Storage](https://developers.cloudflare.com/r2/)
