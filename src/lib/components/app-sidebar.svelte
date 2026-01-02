@@ -28,7 +28,8 @@
 		moveFolderToWorkspace,
 		copyFoldersToFolder,
 		copyFilesToFolder,
-		toggleFolderStar
+		toggleFolderStar,
+		updateWorkspaceIcon
 	} from '$lib/services/dataService';
 	import { allowMoveDrop, parseDragData } from '$lib/utils/drag';
 	import type { Folder, Workspace } from '$lib/types';
@@ -38,7 +39,8 @@
 	import RenameModal from './modals/RenameModal.svelte';
 	import DeleteConfirmModal from './modals/DeleteConfirmModal.svelte';
 	import DeleteWorkspaceModal from './modals/DeleteWorkspaceModal.svelte';
-	import { Briefcase, Star, Tag, Plus, Trash2, Grid3x3, List, User } from '@lucide/svelte';
+	import WorkspaceSettingsModal from './modals/WorkspaceSettingsModal.svelte';
+	import { Briefcase, Star, Tag, Plus, Trash2, Grid3x3, List, Settings } from '@lucide/svelte';
 	import type { ComponentProps } from 'svelte';
 	import IconPickerModal, {
 		type WorkspaceIcon,
@@ -61,6 +63,7 @@
 	let deleteModalOpen = $state(false);
 	let deleteWorkspaceModalOpen = $state(false);
 	let iconPickerModalOpen = $state(false);
+	let workspaceSettingsModalOpen = $state(false);
 	let iconPickerWorkspaceId = $state<string | null>(null);
 	let renameTarget = $state<Folder | null>(null);
 	let deleteTarget = $state<Folder | null>(null);
@@ -143,6 +146,10 @@
 		return buildWorkspaceMenu({
 			clipboard: $clipboard,
 			onChangeIcon: () => openIconPicker(workspace.id),
+			onSettings: () => {
+				selectWorkspace(workspace);
+				workspaceSettingsModalOpen = true;
+			},
 			onPaste: () => handlePasteToWorkspace(workspace),
 			onDeleteWorkspace: () => handleDeleteWorkspace(workspace)
 		});
@@ -241,13 +248,8 @@
 
 	function handleIconSelect(iconId: string) {
 		if (iconPickerWorkspaceId) {
-			const updated = $workspaces.map((ws) =>
-				ws.id === iconPickerWorkspaceId ? { ...ws, icon: iconId } : ws
-			);
-			workspaces.set(updated);
-			if ($currentWorkspace?.id === iconPickerWorkspaceId) {
-				currentWorkspace.set(updated.find((ws) => ws.id === iconPickerWorkspaceId) ?? null);
-			}
+			updateWorkspaceIcon(iconPickerWorkspaceId, iconId);
+			toast.success('Workspace icon updated');
 		}
 	}
 
@@ -431,6 +433,8 @@
 		</Sidebar.Group>
 	</Sidebar.Content>
 
+	<Sidebar.Separator />
+
 	<!-- Footer with View Toggle & User -->
 	<Sidebar.Footer>
 		<!-- View Toggle -->
@@ -451,24 +455,20 @@
 			</Sidebar.MenuItem>
 		</Sidebar.Menu>
 
-		<Sidebar.Separator />
-
-		<!-- User Menu -->
-		<Sidebar.Menu>
-			<Sidebar.MenuItem>
-				<Sidebar.MenuButton size="lg">
-					<Avatar class="h-8 w-8 rounded-lg">
-						<AvatarFallback class="rounded-lg">
-							<User class="h-4 w-4" />
-						</AvatarFallback>
-					</Avatar>
-					<div class="grid flex-1 text-start text-sm leading-tight">
-						<span class="truncate font-semibold">User Account</span>
-						<span class="truncate text-xs">user@example.com</span>
-					</div>
-				</Sidebar.MenuButton>
-			</Sidebar.MenuItem>
-		</Sidebar.Menu>
+		<!-- Settings Button -->
+		{#if $currentWorkspace}
+			<Sidebar.Menu>
+				<Sidebar.MenuItem>
+					<Sidebar.MenuButton
+						onclick={() => (workspaceSettingsModalOpen = true)}
+						title="Workspace Settings"
+					>
+						<Settings class="h-4 w-4" />
+						<span>Workspace Settings</span>
+					</Sidebar.MenuButton>
+				</Sidebar.MenuItem>
+			</Sidebar.Menu>
+		{/if}
 	</Sidebar.Footer>
 
 	<NewFolderModal bind:open={newFolderModalOpen} />
@@ -480,6 +480,7 @@
 		bind:workspace={deleteWorkspaceTarget}
 	/>
 	<IconPickerModal bind:open={iconPickerModalOpen} onSelect={handleIconSelect} />
+	<WorkspaceSettingsModal bind:open={workspaceSettingsModalOpen} />
 
 	<Sidebar.Rail />
 </Sidebar.Root>

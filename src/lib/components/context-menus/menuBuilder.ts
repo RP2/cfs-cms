@@ -166,10 +166,12 @@ export function buildBackgroundMenu(opts: {
 export function buildWorkspaceMenu(opts: {
 	clipboard: ClipboardItem | null;
 	onChangeIcon: () => void;
+	onSettings: () => void;
 	onPaste: () => void;
 	onDeleteWorkspace: () => void;
 }): MenuItem[] {
 	const items: MenuItem[] = [];
+	items.push({ kind: 'item', label: 'Settings', action: opts.onSettings });
 	items.push({ kind: 'item', label: 'Change icon', action: opts.onChangeIcon });
 	if (opts.clipboard) {
 		items.push({ kind: 'item', label: 'Paste', action: opts.onPaste });

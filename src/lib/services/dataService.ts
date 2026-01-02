@@ -166,6 +166,54 @@ export function restoreWorkspace(workspaceId: string): void {
 	// TODO: Replace with Cloudflare backend call (PATCH /api/workspaces/:id)
 }
 
+export function renameWorkspace(workspaceId: string, newName: string): void {
+	const currentWorkspacesList = get(workspaces);
+	const now = new Date();
+	const updated = currentWorkspacesList.map((ws) =>
+		ws.id === workspaceId ? { ...ws, name: newName.trim(), updatedAt: now } : ws
+	);
+	workspaces.set(updated);
+
+	// Update current workspace if it's the one being renamed
+	const currentWs = get(currentWorkspace);
+	if (currentWs?.id === workspaceId) {
+		currentWorkspace.set({ ...currentWs, name: newName.trim(), updatedAt: now });
+	}
+	// TODO: Replace with Cloudflare backend call (PATCH /api/workspaces/:id)
+}
+
+export function updateWorkspaceDescription(workspaceId: string, newDescription: string): void {
+	const currentWorkspacesList = get(workspaces);
+	const now = new Date();
+	const updated = currentWorkspacesList.map((ws) =>
+		ws.id === workspaceId ? { ...ws, description: newDescription.trim(), updatedAt: now } : ws
+	);
+	workspaces.set(updated);
+
+	// Update current workspace if it's the one being updated
+	const currentWs = get(currentWorkspace);
+	if (currentWs?.id === workspaceId) {
+		currentWorkspace.set({ ...currentWs, description: newDescription.trim(), updatedAt: now });
+	}
+	// TODO: Replace with Cloudflare backend call (PATCH /api/workspaces/:id)
+}
+
+export function updateWorkspaceIcon(workspaceId: string, newIcon: string): void {
+	const currentWorkspacesList = get(workspaces);
+	const now = new Date();
+	const updated = currentWorkspacesList.map((ws) =>
+		ws.id === workspaceId ? { ...ws, icon: newIcon, updatedAt: now } : ws
+	);
+	workspaces.set(updated);
+
+	// Update current workspace if it's the one being updated
+	const currentWs = get(currentWorkspace);
+	if (currentWs?.id === workspaceId) {
+		currentWorkspace.set({ ...currentWs, icon: newIcon, updatedAt: now });
+	}
+	// TODO: Replace with Cloudflare backend call (PATCH /api/workspaces/:id)
+}
+
 export function createFolder(parentId: string | null, name: string): Folder {
 	const currentWs = get(currentWorkspace);
 	if (!currentWs) throw new Error('No workspace selected');
