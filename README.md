@@ -12,29 +12,23 @@ npm run dev
 
 ## 📚 Documentation
 
-All project documentation is in the [`/docs`](./docs) folder:
+Start here: **[docs/INDEX.md](./docs/INDEX.md)** ⭐ - Quick navigation guide
 
-### Getting Started
+### Essential Documentation
 
-- **[docs/START_HERE.md](./docs/START_HERE.md)** - Full guide with quick paths and overview
-- **[docs/PROJECT_CONTEXT.md](./docs/PROJECT_CONTEXT.md)** - Architecture, decisions, tech stack
+- **[docs/PHASE1_COMPLETE.md](./docs/PHASE1_COMPLETE.md)** - Phase 1 implementation review
+- **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - Technical architecture & patterns
+- **[docs/TODO.md](./docs/TODO.md)** - Tasks, progress, and how to start Phase 2
+- **[docs/PHASE2_API_CONTRACT.md](./docs/PHASE2_API_CONTRACT.md)** - API specifications (for Phase 2)
+- **[docs/BACKEND_MIGRATION.md](./docs/BACKEND_MIGRATION.md)** - Backend integration guide (for Phase 2)
 
-### Planning & Management
+### Reference
 
-- **[docs/ROADMAP.md](./docs/ROADMAP.md)** - 8-phase development plan with timeline
-- **[docs/TODO.md](./docs/TODO.md)** - Current tasks and priorities
-
-### Technical Guides
-
-- **[docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md)** - Local dev setup & running
 - **[docs/DATABASE.md](./docs/DATABASE.md)** - D1 schema design (11 tables)
-- **[docs/CLOUDFLARE_SETUP.md](./docs/CLOUDFLARE_SETUP.md)** - Infrastructure setup
-
-### System Documentation
-
-- **[docs/PROJECT_PLANNING.md](./docs/PROJECT_PLANNING.md)** - How to use this documentation system
-- **[docs/DOCUMENTATION_MAP.md](./docs/DOCUMENTATION_MAP.md)** - Visual guide to all files
-- **[docs/SETUP_COMPLETE.md](./docs/SETUP_COMPLETE.md)** - Summary of what was created
+- **[docs/PROJECT_CONTEXT.md](./docs/PROJECT_CONTEXT.md)** - Architecture, decisions, tech stack
+- **[docs/ROADMAP.md](./docs/ROADMAP.md)** - 8-phase development plan
+- **[docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md)** - Local dev setup & commands
+- **[docs/COMPONENTS.md](./docs/COMPONENTS.md)** - UI component inventory
 
 ## 🎯 What This Project Is
 
@@ -64,69 +58,109 @@ npm run check
 npm run lint
 ```
 
-### For AI Assistants
+### For Phase 2 Backend Developers
 
-Read in order:
+1. Read [docs/INDEX.md](./docs/INDEX.md) - Navigation guide (2 min)
+2. Study [docs/PHASE1_COMPLETE.md](./docs/PHASE1_COMPLETE.md) - Phase 1 status (20 min)
+3. Review [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) - How it works (15 min)
+4. Learn [docs/PHASE2_API_CONTRACT.md](./docs/PHASE2_API_CONTRACT.md) - What to build (30 min)
+5. Follow [docs/BACKEND_MIGRATION.md](./docs/BACKEND_MIGRATION.md) - How to build (step-by-step)
 
-1. [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) - **START HERE** for technical context
-2. [docs/TODO.md](./docs/TODO.md) - Current tasks
-3. [docs/PHASE1_PROGRESS.md](./docs/PHASE1_PROGRESS.md) - What's been built
+**Key Insight**: Only `src/lib/services/dataService.ts` changes. All 20+ components remain untouched.
 
-## 📍 Current Status (December 30, 2025)
+### For AI Assistants (Claude, Copilot, etc.)
 
-**Phase**: 1 - UI/UX First (In Progress)  
-**Architecture**: Three-layer data flow (Components → dataService → Stores → Mock Data)  
-**Recent**: ViewWrapper pattern, workspace-scoped quick links, empty workspace deletion
+1. Read [.github/copilot-instructions.md](./.github/copilot-instructions.md) - Context & patterns
+2. Study [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) - Technical details
+3. Review [docs/PHASE2_API_CONTRACT.md](./docs/PHASE2_API_CONTRACT.md) - Requirements
+4. Reference [docs/BACKEND_MIGRATION.md](./docs/BACKEND_MIGRATION.md) - Code examples
 
-### Key Components Built
+## 📍 Current Status (January 1, 2026)
 
-- ✅ **app-sidebar.svelte** - Collapsible sidebar with workspace/folder navigation
-- ✅ **ViewWrapper.svelte** - File/folder display orchestrator (state management)
-- ✅ **GridView.svelte** - Card grid presentation layer
-- ✅ **ListView.svelte** - Table/list presentation layer
-- ✅ **FolderItem.svelte** - Recursive folder tree (unlimited depth)
-- ✅ **8 Modal Components** - NewFolder, NewWorkspace, Rename, Delete, Upload, etc.
-- ✅ **dataService.ts** - Complete CRUD API for all entities
-- ✅ **Stores** - Reactive state management with Svelte 5 runes
+**Phase**: 1 ✅ Complete → Phase 2 🚀 Ready  
+**Architecture**: Three-layer data flow (Components → dataService → Stores → Mock Data/API)  
+**Last Updated**: January 1, 2026
 
-### Architecture Highlights
+### Phase 1 - 100% Complete ✅
 
-- **Mock Data**: Phase 1 uses `src/lib/data/mock.ts` (ONLY imported by stores)
-- **Data Service**: All CRUD operations through `src/lib/services/dataService.ts`
-- **Reactive UI**: Svelte 5 `$derived` for hot reloading (sidebar, grid, breadcrumbs)
-- **ViewWrapper Pattern**: Zero code duplication between grid/list views
-- **Workspace Scoped**: Quick links (Starred, Tags, Trash) filter per workspace
-- **Deletion Rules**: Files/folders soft delete (30-day trash), workspaces permanent delete (must be empty)
+All UI/UX and interactivity implemented:
 
-## 🎯 What's Next
+**What's Built**:
 
-See [docs/TODO.md](./docs/TODO.md) for current priorities. Phase 1 focus is completing UI/UX with full interactivity before backend integration.
+- ✅ 30+ CRUD operations (all implemented)
+- ✅ 20+ UI components (all working)
+- ✅ Google Drive-like interface
+- ✅ Grid and list view modes
+- ✅ Drag-drop file/folder moves
+- ✅ Multi-select bulk operations
+- ✅ Tag-based filtering
+- ✅ Soft delete with 30-day trash
+- ✅ Copy/paste with independence guarantee
+- ✅ Context menus and keyboard shortcuts
+- ✅ Breadcrumb navigation
+- ✅ Responsive mobile design
+
+**Key Architecture**:
+
+- **Mock Data**: `src/lib/data/mock.ts` (ONLY imported by stores)
+- **Data Service**: All CRUD through `src/lib/services/dataService.ts`
+- **Reactive UI**: Svelte 5 `$derived` for hot reloading
+- **ViewWrapper Pattern**: Zero code duplication between views
+- **TypeScript**: Strict mode, no errors
+
+### Phase 2 - Ready to Start 🚀
+
+**Preparation Complete**:
+
+- ✅ API contract defined (20+ endpoints)
+- ✅ Migration guide written (step-by-step)
+- ✅ Database schema ready
+- ✅ Only `dataService.ts` changes - components untouched
+
+**Estimated Duration**: 20-30 hours of backend development
+
+See [docs/PHASE1_COMPLETE.md](./docs/PHASE1_COMPLETE.md) for full review.
+
+## 🎯 Next Steps
+
+**Starting Phase 2?** Follow [docs/BACKEND_MIGRATION.md](./docs/BACKEND_MIGRATION.md)
+
+**Need context?** Read [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
+
+**Want full specs?** See [docs/PHASE2_API_CONTRACT.md](./docs/PHASE2_API_CONTRACT.md)
+
+See [docs/TODO.md](./docs/TODO.md) for detailed task list.
 
 ---
 
 ## 📚 Full Documentation
 
-**New to the project?**  
-→ Start with [docs/START_HERE.md](./docs/START_HERE.md)
+**Just getting started?**  
+→ Start with [docs/INDEX.md](./docs/INDEX.md) for quick navigation
 
-**Want to understand architecture?**  
-→ Read [docs/PROJECT_CONTEXT.md](./docs/PROJECT_CONTEXT.md)
+**Want to understand how it works?**  
+→ Read [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 
-**Ready to develop locally?**  
-→ Follow [docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md)
+**Building Phase 2 backend?**  
+→ Follow [docs/BACKEND_MIGRATION.md](./docs/BACKEND_MIGRATION.md)
 
-**Need the full vision?**  
+**Need API specifications?**  
+→ See [docs/PHASE2_API_CONTRACT.md](./docs/PHASE2_API_CONTRACT.md)
+
+**Full project vision?**  
 → Review [docs/ROADMAP.md](./docs/ROADMAP.md)
 
 ## 🤖 For AI Assistance
 
-Share these with Claude, Copilot, or Cursor:
+Use these files as context when working with Claude, Copilot, or Cursor:
 
-- [`docs/PROJECT_CONTEXT.md`](./docs/PROJECT_CONTEXT.md) - Full context
-- [`docs/TODO.md`](./docs/TODO.md) - Specific task
-- Relevant guide from `/docs` - Technical details
+- [.github/copilot-instructions.md](./.github/copilot-instructions.md) - Full AI instructions
+- [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) - Technical patterns & examples
+- [docs/PHASE2_API_CONTRACT.md](./docs/PHASE2_API_CONTRACT.md) - API spec for reference
+- [docs/BACKEND_MIGRATION.md](./docs/BACKEND_MIGRATION.md) - Code migration examples
+- [docs/TODO.md](./docs/TODO.md) - Current tasks
 
-The `.cursorrules` file auto-loads in Cursor IDE.
+The `.cursorrules` file auto-loads in Cursor IDE for automatic context.
 
 ## Tech Stack
 
@@ -139,11 +173,14 @@ The `.cursorrules` file auto-loads in Cursor IDE.
 ## Project Status
 
 **Phase 0 - Foundation**: ✅ COMPLETE  
-**Phase 1 - UI/UX First (IN PROGRESS)**
+**Phase 1 - UI/UX First**: ✅ COMPLETE (100% - all CRUD, components, interactivity)  
+**Phase 2 - Backend Integration**: 🚀 READY (API contract defined, migration guide prepared)
 
-Database schema designed, architecture planned. Currently building the user interface with shadcn-svelte components, mocked data, and Google Drive-like interaction patterns. Cloudflare backend integration happens after UI is solid.
+**Current Focus**: Phase 2 backend integration (see [docs/BACKEND_MIGRATION.md](./docs/BACKEND_MIGRATION.md))
 
-See [docs/ROADMAP.md](./docs/ROADMAP.md) for detailed phase breakdown.
+**Architecture Ready**: Only `src/lib/services/dataService.ts` changes for Phase 2. All 20+ components remain untouched.
+
+See [docs/ROADMAP.md](./docs/ROADMAP.md) for full phase breakdown through Phase 8.
 
 ## License
 
