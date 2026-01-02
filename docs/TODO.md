@@ -1,8 +1,28 @@
-# CFS CMS - Active TODO List
+# CFS CMS - TODO List & Project Tracking
 
-## Current Phase: Phase 1 - UI/UX First (MVP)
+## Current Phase: Phase 1 COMPLETE → Phase 2 Preparation
 
-**Strategy**: Build functional Google Drive-like UI with mocked data first. Backend integration with Cloudflare comes after UI is solid. Auth deferred until Phase 2 (using Cloudflare Zero Trust for MVP protection).
+**Status**: Phase 1 UI/UX fully implemented and tested. Ready to begin Phase 2 backend integration.
+
+**Phase 1 Complete (January 1, 2026)** ✅
+
+All UI/UX components, CRUD operations, and interactivity implemented. See [PHASE1_COMPLETE.md](PHASE1_COMPLETE.md) for detailed review.
+
+**Phase 2 Ready (January 1, 2026)** 🚀
+
+API contract defined, migration guide prepared, only `dataService.ts` needs updates. See:
+
+- [PHASE2_API_CONTRACT.md](PHASE2_API_CONTRACT.md) - All endpoint specifications
+- [BACKEND_MIGRATION.md](BACKEND_MIGRATION.md) - Step-by-step integration guide
+
+**Recent Improvements (January 1, 2025)** ✅
+
+- ✅ Created comprehensive Phase 1 completion review ([PHASE1_COMPLETE.md](PHASE1_COMPLETE.md))
+- ✅ Documented all 30+ CRUD operations with implementation details
+- ✅ Created Phase 2 API contract with all endpoint specifications
+- ✅ Created backend migration guide with examples
+- ✅ Updated documentation for AI model handoff
+- ✅ Verified no components need changes for Phase 2
 
 **Recent Improvements (December 31, 2025)**:
 
@@ -24,99 +44,164 @@
 - ✅ Created ARCHITECTURE.md documentation
 - ✅ Sidebar, grid, and breadcrumbs now hot reload properly
 
-### High Priority - Week 1 (UI Foundation)
+---
 
-#### Install & Setup shadcn-svelte
+## Phase 1 - COMPLETE ✅ (January 1, 2026)
 
-- [x] Install shadcn-svelte CLI and components
-- [x] Add Button, Card, Dialog, Input, Separator, Tabs components
-- [x] Add Sidebar (sidebar-07 variant), Breadcrumb, Toggle-group
-- [x] Add Checkbox, Badge, Avatar, Context-menu, Dropdown-menu
-- [x] Add Scroll-area, Tooltip, Alert, Skeleton
-- [x] Verify Tailwind integration working with shadcn components
-- [x] Commit initial component setup
+### Architecture & Data Flow ✅
 
-#### Core Component Structure
+- [x] Established three-layer architecture (Components → dataService → Stores)
+- [x] Fixed cross-workspace data corruption
+- [x] Implemented hot reloading with Svelte 5 runes
+- [x] Documentation: ARCHITECTURE.md (comprehensive guide)
+- [x] No direct mock data imports in components
 
-- [x] Create `app-sidebar.svelte` - Workspace switcher, folder navigation (shadcn sidebar-07)
-- [x] Create `FolderItem.svelte` - Recursive folder tree component (unlimited depth)
-- [x] Create `ViewWrapper.svelte` - Grid/list display orchestrator for files/folders
-- [x] Implement breadcrumb navigation in layout
-- [ ] Create `FileListItem.svelte` - Individual file/folder card component (optional extraction)
+### Data & State Management ✅
 
-#### Main Layout Pages
+- [x] Mock data structure (3 workspaces, 6 folders, 8 files, 5 tags)
+- [x] TypeScript types (User, Workspace, Folder, File, Tag)
+- [x] Svelte stores (workspaces, folders, files, tags, selected, view preferences)
+- [x] Data service abstraction (30+ CRUD operations)
 
-- [x] Update `src/routes/+layout.svelte` - Main app shell with sidebar + breadcrumbs
-- [x] Create `src/routes/+page.svelte` - Workspace selector / welcome
-- [ ] Create `src/routes/workspace/[id]/+page.svelte` - Main dashboard (folder view)
+### UI Components ✅
 
-### High Priority - Week 2 (Interaction & State)
+- [x] Sidebar with workspace switcher and folder tree
+- [x] ViewWrapper pattern (orchestrator + GridView + ListView)
+- [x] Breadcrumb navigation (click-through support)
+- [x] File grid view (cards with icons, metadata, tags)
+- [x] File list view (table with sortable headers)
+- [x] Grid/List toggle (persisted to localStorage)
+- [x] All modal dialogs (create, rename, delete, upload, etc.)
+- [x] Context menus (right-click on files/folders)
+- [x] Bulk selection toolbar
 
-#### Recent Architecture Changes (December 30, 2025)
+### CRUD Operations ✅
 
-- ✅ Quick Links (Starred, Tags, Trash) are workspace-scoped
-- ✅ Tags view shows all tagged files in current workspace
-- ✅ Workspace deletion requires empty workspace (no files/folders)
-- ✅ Workspace deletion is permanent (no trash for workspaces)
-- ✅ ViewWrapper pattern implemented (orchestrator + presentation views)
+**Workspaces**: Create, Delete, Switch
+**Folders**: Create, Rename, Delete, Move, Star/Unstar
+**Files**: Rename, Delete, Upload, Move, Star/Unstar
+**Tags**: Create, Add to files, Remove from workspace
+**Trash**: Soft delete, Restore, Permanent delete
+**Copy/Paste**: Copy files, Copy folders (with independent metadata)
+**Drag-Drop**: Move files/folders with cross-workspace confirmation
 
-#### Svelte Stores (State Management)
+### Interactive Features ✅
 
-- [x] Create `src/lib/stores/workspace.ts` - Current workspace state
-- [x] Create `src/lib/stores/folders.ts` - Folder navigation, current folder
-- [x] Create `src/lib/stores/files.ts` - File list, sorting, filtering
-- [x] Create `src/lib/stores/tags.ts` - Available tags state
-- [x] Create `src/lib/stores/selection.ts` - Selected files/folders (for actions)
+- [x] Drag-drop file moves
+- [x] Context menus with proper paste targeting
+- [x] Multi-select with Ctrl/Cmd+A
+- [x] Bulk operations (tag, move, delete)
+- [x] Keyboard shortcuts (copy, paste, delete)
+- [x] Toast notifications for feedback
+- [x] Search and filtering
+- [x] Tag-based filtering
+- [x] Breadcrumb navigation
+- [x] Hot reload on all changes
 
-#### Mock Data Seeding
+### Known Working ✅
 
-- [x] Create `src/lib/data/mock.ts` - Sample workspaces, folders, files, tags
-- [x] Add `PUBLIC_USE_MOCK_DATA` env var check for seeding
-- [x] Create realistic sample data (3 workspaces, hierarchical folders, files with metadata)
-- [ ] Add `src/routes/demo` page showcasing mock data
-- [x] Ensure mock data easily disableable in production
+- [x] Workspace switching
+- [x] Folder tree navigation (unlimited depth)
+- [x] File grid/list toggle
+- [x] Create/rename/delete workspaces
+- [x] Create/rename/delete folders
+- [x] File tagging and filtering
+- [x] Soft delete with 30-day trash
+- [x] Restore from trash
+- [x] Permanent deletion
+- [x] Copy files/folders with independence
+- [x] Star/unstar files/folders
+- [x] TypeScript strict mode (no errors)
+- [x] Responsive design
+- [x] Mobile support
 
-#### Modals & Dialogs
+---
 
-- [x] Create folder creation modal (NewFolderModal.svelte)
-- [x] Create file upload modal (UploadModal.svelte - no actual upload yet, just UI)
-- [x] Create rename dialog (RenameModal.svelte)
-- [x] Create delete confirmation modal (DeleteConfirmModal.svelte)
-- [ ] Wire modals to stores (optimistic updates)
-- [ ] Connect modal triggers to buttons in sidebar/ViewWrapper
+## Phase 2 - Backend Integration 🚀 (Starting Soon)
 
-#### Additional Pages
+### Preparation (DONE) ✅
 
-- [ ] Create `src/routes/workspace/[id]/search` - Search results mockup
-- [ ] Create `src/routes/workspace/[id]/tags` - Tag browsing interface
-- [ ] Create `src/routes/workspace/[id]/settings` - Workspace settings mockup
+- [x] API contract defined ([PHASE2_API_CONTRACT.md](PHASE2_API_CONTRACT.md))
+- [x] Migration guide created ([BACKEND_MIGRATION.md](BACKEND_MIGRATION.md))
+- [x] Database schema ready ([DATABASE.md](DATABASE.md))
+- [x] All CRUD operations documented in dataService
 
-### Medium Priority - Week 3 (Refinement)
+### Setup & Configuration
 
-#### Interactions & UX Polish
+- [ ] Initialize Cloudflare project (`wrangler init`)
+- [ ] Create `wrangler.toml` with D1, R2, KV bindings
+- [ ] Setup D1 database (`wrangler d1 create`)
+- [ ] Apply database schema from `docs/DATABASE.md`
+- [ ] Create R2 bucket (`wrangler r2 bucket create`)
+- [ ] Create KV namespace (`wrangler kv:namespace create`)
+- [ ] Configure environment variables
 
-- [x] Drag/drop file moves (ViewWrapper + dataService, cross-workspace confirm)
-- [x] File/folder context menu (right-click)
-- [ ] Keyboard shortcuts (Ctrl+A select, Delete, etc.)
-- [ ] Loading states and animations
-- [ ] Empty state UI (new workspace, no files)
-- [ ] Responsive mobile layout
+### API Route Implementation
 
-#### Search & Filtering
+- [ ] Create route handlers in `src/routes/api/`
+  - [ ] `/api/workspaces` (POST, GET, DELETE)
+  - [ ] `/api/folders` (POST, PATCH, DELETE)
+  - [ ] `/api/files` (POST, PATCH, DELETE, bulk operations)
+  - [ ] `/api/tags` (POST, DELETE)
+  - [ ] `/api/trash` (GET, empty)
+  - [ ] `/api/search` (GET)
+  - [ ] `/api/files/move` (POST)
+  - [ ] `/api/files/copy` (POST)
+  - [ ] `/api/folders/copy` (POST)
+- [ ] Add proper error handling
+- [ ] Add authentication checks (Cloudflare Zero Trust)
+- [ ] Add logging and monitoring
 
-- [ ] Local search implementation (filters mock data)
-- [ ] File type filtering
-- [ ] Sort options (name, date, size)
-- [ ] Tag filtering
+### dataService Migration
 
-### Low Priority (Before Cloudflare Integration)
+- [ ] Update all functions to call API endpoints
+- [ ] Add `async`/`await` to all operations
+- [ ] Keep optimistic UI updates
+- [ ] Add error handling with toast notifications
+- [ ] Test with mock data first (Phase 2a)
+- [ ] Test with real database (Phase 2b)
 
-- [ ] Dark mode toggle (Tailwind dark mode)
-- [ ] Accessibility audit (keyboard nav, ARIA labels)
-- [ ] Visual refinements based on Google Drive design patterns
-- [ ] Performance optimization (virtualization for large lists)
-- [ ] Unit tests for store logic
-- [ ] Copy/paste backend contract: reuse `storagePath` on copies, reference-count R2 objects, and ensure API endpoints duplicate metadata only (no extra uploads)
+### Integration & Testing
+
+- [ ] Wire up all API endpoints
+- [ ] Run local tests with `wrangler dev`
+- [ ] Test all CRUD operations
+- [ ] Test cross-workspace operations
+- [ ] Test error scenarios
+- [ ] Performance testing (load testing)
+- [ ] Security audit (auth, permissions)
+
+### Deployment
+
+- [ ] Deploy to Cloudflare Workers
+- [ ] Verify all endpoints working
+- [ ] Monitor performance and errors
+- [ ] Backup strategy documented
+- [ ] Rollback plan ready
+
+---
+
+## Phase 3 - Authentication & Sharing (Future)
+
+- [ ] Implement Cloudflare Zero Trust auth
+- [ ] Add SvelteKit auth session management
+- [ ] Implement file sharing endpoints
+- [ ] Add permission system
+- [ ] Implement audit logging
+
+---
+
+## Beyond Phase 3 (Future)
+
+- [ ] Real-time collaboration (WebSocket)
+- [ ] File versioning (R2 versioning API)
+- [ ] Advanced search (full-text indexing)
+- [ ] Dark mode toggle
+- [ ] Accessibility audit
+- [ ] Performance optimization (virtualization)
+- [ ] Mobile app (Svelte Native or React Native)
+- [ ] Desktop app (Tauri)
+- [ ] CLI tool
 
 ---
 
@@ -166,6 +251,42 @@
 
 ---
 
-**Last Updated**: December 29, 2025  
-**Current Phase**: Phase 1 (UI/UX First)  
+**Last Updated**: January 1, 2026  
+**Current Phase**: Phase 1 Complete ✅ → Phase 2 Starting 🚀  
 **Owner**: Riley
+
+**References**:
+
+- [PHASE1_COMPLETE.md](PHASE1_COMPLETE.md) - Phase 1 review + progress + next steps
+- [PHASE2_API_CONTRACT.md](PHASE2_API_CONTRACT.md) - API endpoint specifications
+- [BACKEND_MIGRATION.md](BACKEND_MIGRATION.md) - Step-by-step integration guide
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Technical architecture & patterns
+- [DATABASE.md](DATABASE.md) - D1 schema design
+
+---
+
+## How to Start Phase 2
+
+### If You're the Next Developer
+
+1. **Understand what exists**:
+   - Read [PHASE1_COMPLETE.md](PHASE1_COMPLETE.md) (20 min)
+   - Review [ARCHITECTURE.md](ARCHITECTURE.md) (15 min)
+
+2. **Know what to build**:
+   - Study [PHASE2_API_CONTRACT.md](PHASE2_API_CONTRACT.md) (30 min)
+   - It defines all 20+ endpoints you need
+
+3. **Integrate the backend**:
+   - Follow [BACKEND_MIGRATION.md](BACKEND_MIGRATION.md) (step-by-step)
+   - Estimated time: 20-30 hours
+
+4. **Key insight**: Only `src/lib/services/dataService.ts` changes. Components don't.
+
+### If You're an AI Model
+
+1. Read `.github/copilot-instructions.md` - Context & patterns
+2. Review [ARCHITECTURE.md](ARCHITECTURE.md) - How it works
+3. Study [PHASE2_API_CONTRACT.md](PHASE2_API_CONTRACT.md) - What to build
+4. Follow [BACKEND_MIGRATION.md](BACKEND_MIGRATION.md) - Examples
+5. Only modify dataService.ts - components untouched
