@@ -147,58 +147,57 @@ src/routes/api/
 
 ```typescript
 export function createFolder(parentId: string | null, name: string): Folder {
-  const currentWs = get(currentWorkspace);
-  if (!currentWs) throw new Error('No workspace selected');
+	const currentWs = get(currentWorkspace);
+	if (!currentWs) throw new Error('No workspace selected');
 
-  // Validation...
-  const newFolder: Folder = { /* ... */ };
+	// Validation...
+	const newFolder: Folder = {
+		/* ... */
+	};
 
-  const currentFoldersList = get(workspaceFolders);
-  currentFoldersList.push(newFolder);
-  workspaceFolders.set([...currentFoldersList]);
+	const currentFoldersList = get(workspaceFolders);
+	currentFoldersList.push(newFolder);
+	workspaceFolders.set([...currentFoldersList]);
 
-  return newFolder;
+	return newFolder;
 }
 ```
 
 **After** (Phase 2 - Cloudflare):
 
 ```typescript
-export async function createFolder(
-  parentId: string | null,
-  name: string
-): Promise<Folder> {
-  const currentWs = get(currentWorkspace);
-  if (!currentWs) throw new Error('No workspace selected');
+export async function createFolder(parentId: string | null, name: string): Promise<Folder> {
+	const currentWs = get(currentWorkspace);
+	if (!currentWs) throw new Error('No workspace selected');
 
-  try {
-    // Call API endpoint
-    const response = await fetch('/api/folders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        workspaceId: currentWs.id,
-        parentId,
-        name
-      })
-    });
+	try {
+		// Call API endpoint
+		const response = await fetch('/api/folders', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				workspaceId: currentWs.id,
+				parentId,
+				name
+			})
+		});
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to create folder');
-    }
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to create folder');
+		}
 
-    const newFolder: Folder = await response.json();
+		const newFolder: Folder = await response.json();
 
-    // Update local store for optimistic UI
-    const currentFoldersList = get(workspaceFolders);
-    workspaceFolders.set([...currentFoldersList, newFolder]);
+		// Update local store for optimistic UI
+		const currentFoldersList = get(workspaceFolders);
+		workspaceFolders.set([...currentFoldersList, newFolder]);
 
-    return newFolder;
-  } catch (error) {
-    toast.error(`Failed to create folder: ${error.message}`);
-    throw error;
-  }
+		return newFolder;
+	} catch (error) {
+		toast.error(`Failed to create folder: ${error.message}`);
+		throw error;
+	}
 }
 ```
 
@@ -219,20 +218,20 @@ export async function createFolder(
 
 ```typescript
 export function deleteFiles(fileIds: string[]): void {
-  if (fileIds.length === 0) return;
+	if (fileIds.length === 0) return;
 
-  const currentFilesList = get(currentFiles);
-  const now = utcNow();
-  const idSet = new Set(fileIds);
+	const currentFilesList = get(currentFiles);
+	const now = utcNow();
+	const idSet = new Set(fileIds);
 
-  currentFilesList.forEach((file) => {
-    if (!idSet.has(file.id)) return;
-    file.deletedAt = now;
-    file.trashedUntil = computeTrashedUntil(now);
-    file.updatedAt = now;
-  });
+	currentFilesList.forEach((file) => {
+		if (!idSet.has(file.id)) return;
+		file.deletedAt = now;
+		file.trashedUntil = computeTrashedUntil(now);
+		file.updatedAt = now;
+	});
 
-  currentFiles.set([...currentFilesList]);
+	currentFiles.set([...currentFilesList]);
 }
 ```
 
@@ -240,42 +239,42 @@ export function deleteFiles(fileIds: string[]): void {
 
 ```typescript
 export async function deleteFiles(fileIds: string[]): Promise<void> {
-  if (fileIds.length === 0) return;
+	if (fileIds.length === 0) return;
 
-  try {
-    const response = await fetch('/api/files/bulk-delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileIds })
-    });
+	try {
+		const response = await fetch('/api/files/bulk-delete', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ fileIds })
+		});
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to delete files');
-    }
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to delete files');
+		}
 
-    const result = await response.json();
+		const result = await response.json();
 
-    // Update local store with deleted status
-    const currentFilesList = get(currentFiles);
-    const idSet = new Set(fileIds);
-    const now = new Date();
+		// Update local store with deleted status
+		const currentFilesList = get(currentFiles);
+		const idSet = new Set(fileIds);
+		const now = new Date();
 
-    currentFilesList.forEach((file) => {
-      if (!idSet.has(file.id)) return;
-      file.deletedAt = now;
-      file.trashedUntil = result.trashedUntil
-        ? new Date(result.trashedUntil)
-        : computeTrashedUntil(now);
-      file.updatedAt = now;
-    });
+		currentFilesList.forEach((file) => {
+			if (!idSet.has(file.id)) return;
+			file.deletedAt = now;
+			file.trashedUntil = result.trashedUntil
+				? new Date(result.trashedUntil)
+				: computeTrashedUntil(now);
+			file.updatedAt = now;
+		});
 
-    currentFiles.set([...currentFilesList]);
-    toast.success(`${result.deletedCount} files moved to trash`);
-  } catch (error) {
-    toast.error(`Failed to delete files: ${error.message}`);
-    throw error;
-  }
+		currentFiles.set([...currentFilesList]);
+		toast.success(`${result.deletedCount} files moved to trash`);
+	} catch (error) {
+		toast.error(`Failed to delete files: ${error.message}`);
+		throw error;
+	}
 }
 ```
 
@@ -287,35 +286,35 @@ export async function deleteFiles(fileIds: string[]): Promise<void> {
 
 ```typescript
 export function uploadFiles(files: FileList): void {
-  const currentWs = get(currentWorkspace);
-  const currentFolder_ = get(currentFolder);
+	const currentWs = get(currentWorkspace);
+	const currentFolder_ = get(currentFolder);
 
-  if (!currentWs || !currentFolder_) return;
+	if (!currentWs || !currentFolder_) return;
 
-  const currentFilesList = get(currentFiles);
+	const currentFilesList = get(currentFiles);
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    const newFile: File = {
-      id: `file_${Date.now()}_${i}`,
-      workspaceId: currentWs.id,
-      folderId: currentFolder_.id,
-      name: file.name,
-      size: file.size,
-      mimeType: file.type || 'application/octet-stream',
-      storagePath: URL.createObjectURL(file),
-      uploadedBy: 'user_1',
-      starred: false,
-      tagIds: [],
-      trashedUntil: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      deletedAt: null
-    };
-    currentFilesList.push(newFile);
-  }
+	for (let i = 0; i < files.length; i++) {
+		const file = files[i];
+		const newFile: File = {
+			id: `file_${Date.now()}_${i}`,
+			workspaceId: currentWs.id,
+			folderId: currentFolder_.id,
+			name: file.name,
+			size: file.size,
+			mimeType: file.type || 'application/octet-stream',
+			storagePath: URL.createObjectURL(file),
+			uploadedBy: 'user_1',
+			starred: false,
+			tagIds: [],
+			trashedUntil: null,
+			createdAt: new Date(),
+			updatedAt: new Date(),
+			deletedAt: null
+		};
+		currentFilesList.push(newFile);
+	}
 
-  currentFiles.set([...currentFilesList]);
+	currentFiles.set([...currentFilesList]);
 }
 ```
 
@@ -323,43 +322,43 @@ export function uploadFiles(files: FileList): void {
 
 ```typescript
 export async function uploadFiles(files: FileList): Promise<void> {
-  const currentWs = get(currentWorkspace);
-  const currentFolder_ = get(currentFolder);
+	const currentWs = get(currentWorkspace);
+	const currentFolder_ = get(currentFolder);
 
-  if (!currentWs || !currentFolder_) return;
+	if (!currentWs || !currentFolder_) return;
 
-  try {
-    const currentFilesList = get(currentFiles);
-    const uploadedFiles: File[] = [];
+	try {
+		const currentFilesList = get(currentFiles);
+		const uploadedFiles: File[] = [];
 
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('workspaceId', currentWs.id);
-      formData.append('folderId', currentFolder_.id);
-      formData.append('name', file.name);
+		for (let i = 0; i < files.length; i++) {
+			const file = files[i];
+			const formData = new FormData();
+			formData.append('file', file);
+			formData.append('workspaceId', currentWs.id);
+			formData.append('folderId', currentFolder_.id);
+			formData.append('name', file.name);
 
-      const response = await fetch('/api/files', {
-        method: 'POST',
-        body: formData
-      });
+			const response = await fetch('/api/files', {
+				method: 'POST',
+				body: formData
+			});
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(`Upload failed: ${error.error}`);
-      }
+			if (!response.ok) {
+				const error = await response.json();
+				throw new Error(`Upload failed: ${error.error}`);
+			}
 
-      const newFile: File = await response.json();
-      uploadedFiles.push(newFile);
-    }
+			const newFile: File = await response.json();
+			uploadedFiles.push(newFile);
+		}
 
-    currentFiles.set([...currentFilesList, ...uploadedFiles]);
-    toast.success(`${uploadedFiles.length} file(s) uploaded`);
-  } catch (error) {
-    toast.error(`Upload failed: ${error.message}`);
-    throw error;
-  }
+		currentFiles.set([...currentFilesList, ...uploadedFiles]);
+		toast.success(`${uploadedFiles.length} file(s) uploaded`);
+	} catch (error) {
+		toast.error(`Upload failed: ${error.message}`);
+		throw error;
+	}
 }
 ```
 
@@ -371,19 +370,17 @@ export async function uploadFiles(files: FileList): Promise<void> {
 
 ```typescript
 export function moveFilesToWorkspace(
-  fileIds: string[],
-  targetWorkspaceId: string,
-  targetFolderId: string | null = null
+	fileIds: string[],
+	targetWorkspaceId: string,
+	targetFolderId: string | null = null
 ): void {
-  const targetWorkspace = get(workspaces).find(
-    (w) => w.id === targetWorkspaceId && !w.deletedAt
-  );
-  if (!targetWorkspace) {
-    throw new Error('Target workspace not found.');
-  }
+	const targetWorkspace = get(workspaces).find((w) => w.id === targetWorkspaceId && !w.deletedAt);
+	if (!targetWorkspace) {
+		throw new Error('Target workspace not found.');
+	}
 
-  // Validate folder...
-  moveFilesToFolder(fileIds, targetFolderId, { targetWorkspaceId });
+	// Validate folder...
+	moveFilesToFolder(fileIds, targetFolderId, { targetWorkspaceId });
 }
 ```
 
@@ -391,46 +388,46 @@ export function moveFilesToWorkspace(
 
 ```typescript
 export async function moveFilesToWorkspace(
-  fileIds: string[],
-  targetWorkspaceId: string,
-  targetFolderId: string | null = null
+	fileIds: string[],
+	targetWorkspaceId: string,
+	targetFolderId: string | null = null
 ): Promise<void> {
-  try {
-    const response = await fetch('/api/files/move', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fileIds,
-        targetWorkspaceId,
-        targetFolderId
-      })
-    });
+	try {
+		const response = await fetch('/api/files/move', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				fileIds,
+				targetWorkspaceId,
+				targetFolderId
+			})
+		});
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to move files');
-    }
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to move files');
+		}
 
-    const result = await response.json();
+		const result = await response.json();
 
-    // Update store
-    const files = get(currentFiles);
-    const idSet = new Set(fileIds);
-    const now = new Date();
+		// Update store
+		const files = get(currentFiles);
+		const idSet = new Set(fileIds);
+		const now = new Date();
 
-    files.forEach((file) => {
-      if (!idSet.has(file.id)) return;
-      file.workspaceId = targetWorkspaceId;
-      file.folderId = targetFolderId;
-      file.updatedAt = now;
-    });
+		files.forEach((file) => {
+			if (!idSet.has(file.id)) return;
+			file.workspaceId = targetWorkspaceId;
+			file.folderId = targetFolderId;
+			file.updatedAt = now;
+		});
 
-    currentFiles.set([...files]);
-    toast.success(`${result.movedCount} file(s) moved`);
-  } catch (error) {
-    toast.error(`Failed to move files: ${error.message}`);
-    throw error;
-  }
+		currentFiles.set([...files]);
+		toast.success(`${result.movedCount} file(s) moved`);
+	} catch (error) {
+		toast.error(`Failed to move files: ${error.message}`);
+		throw error;
+	}
 }
 ```
 
@@ -447,95 +444,93 @@ import { json, error as httpError } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
 
 export const POST: RequestHandler = async ({ request, platform }) => {
-  try {
-    const { workspaceId, parentId, name } = await request.json();
+	try {
+		const { workspaceId, parentId, name } = await request.json();
 
-    // Validate inputs
-    if (!workspaceId || !name?.trim()) {
-      return httpError(400, {
-        error: 'workspaceId and name are required',
-        code: 'INVALID_INPUT'
-      });
-    }
+		// Validate inputs
+		if (!workspaceId || !name?.trim()) {
+			return httpError(400, {
+				error: 'workspaceId and name are required',
+				code: 'INVALID_INPUT'
+			});
+		}
 
-    // Verify workspace exists
-    const workspace = await platform.env.DB.prepare(
-      'SELECT * FROM workspaces WHERE id = ? AND deleted_at IS NULL'
-    )
-      .bind(workspaceId)
-      .first();
+		// Verify workspace exists
+		const workspace = await platform.env.DB.prepare(
+			'SELECT * FROM workspaces WHERE id = ? AND deleted_at IS NULL'
+		)
+			.bind(workspaceId)
+			.first();
 
-    if (!workspace) {
-      return httpError(404, {
-        error: 'Workspace not found',
-        code: 'WORKSPACE_NOT_FOUND'
-      });
-    }
+		if (!workspace) {
+			return httpError(404, {
+				error: 'Workspace not found',
+				code: 'WORKSPACE_NOT_FOUND'
+			});
+		}
 
-    // Verify parent folder (if provided) exists in same workspace
-    if (parentId) {
-      const parent = await platform.env.DB.prepare(
-        'SELECT * FROM folders WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL'
-      )
-        .bind(parentId, workspaceId)
-        .first();
+		// Verify parent folder (if provided) exists in same workspace
+		if (parentId) {
+			const parent = await platform.env.DB.prepare(
+				'SELECT * FROM folders WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL'
+			)
+				.bind(parentId, workspaceId)
+				.first();
 
-      if (!parent) {
-        return httpError(404, {
-          error: 'Parent folder not found in this workspace',
-          code: 'FOLDER_NOT_FOUND'
-        });
-      }
-    }
+			if (!parent) {
+				return httpError(404, {
+					error: 'Parent folder not found in this workspace',
+					code: 'FOLDER_NOT_FOUND'
+				});
+			}
+		}
 
-    // Check for duplicate name at same level
-    const existing = await platform.env.DB.prepare(
-      'SELECT * FROM folders WHERE workspace_id = ? AND parent_id = ? AND name = ? AND deleted_at IS NULL'
-    )
-      .bind(workspaceId, parentId || null, name.trim())
-      .first();
+		// Check for duplicate name at same level
+		const existing = await platform.env.DB.prepare(
+			'SELECT * FROM folders WHERE workspace_id = ? AND parent_id = ? AND name = ? AND deleted_at IS NULL'
+		)
+			.bind(workspaceId, parentId || null, name.trim())
+			.first();
 
-    if (existing) {
-      return httpError(409, {
-        error: 'A folder with this name already exists at this level',
-        code: 'DUPLICATE_NAME'
-      });
-    }
+		if (existing) {
+			return httpError(409, {
+				error: 'A folder with this name already exists at this level',
+				code: 'DUPLICATE_NAME'
+			});
+		}
 
-    // Create folder
-    const now = new Date().toISOString();
-    const newId = `folder_${Date.now()}`;
+		// Create folder
+		const now = new Date().toISOString();
+		const newId = `folder_${Date.now()}`;
 
-    await platform.env.DB.prepare(
-      `INSERT INTO folders
+		await platform.env.DB.prepare(
+			`INSERT INTO folders
        (id, workspace_id, parent_id, name, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?)`
-    )
-      .bind(newId, workspaceId, parentId || null, name.trim(), now, now)
-      .run();
+		)
+			.bind(newId, workspaceId, parentId || null, name.trim(), now, now)
+			.run();
 
-    // Fetch created folder
-    const newFolder = await platform.env.DB.prepare(
-      'SELECT * FROM folders WHERE id = ?'
-    )
-      .bind(newId)
-      .first();
+		// Fetch created folder
+		const newFolder = await platform.env.DB.prepare('SELECT * FROM folders WHERE id = ?')
+			.bind(newId)
+			.first();
 
-    // Cache in KV
-    await platform.env.KV.put(
-      `folder:${newId}`,
-      JSON.stringify(newFolder),
-      { expirationTtl: 600 } // 10 minute TTL
-    );
+		// Cache in KV
+		await platform.env.KV.put(
+			`folder:${newId}`,
+			JSON.stringify(newFolder),
+			{ expirationTtl: 600 } // 10 minute TTL
+		);
 
-    return json(newFolder, { status: 201 });
-  } catch (err) {
-    console.error('Create folder error:', err);
-    return httpError(500, {
-      error: 'Internal server error',
-      code: 'INTERNAL_ERROR'
-    });
-  }
+		return json(newFolder, { status: 201 });
+	} catch (err) {
+		console.error('Create folder error:', err);
+		return httpError(500, {
+			error: 'Internal server error',
+			code: 'INTERNAL_ERROR'
+		});
+	}
 };
 ```
 
@@ -547,26 +542,26 @@ Create `src/lib/types/api.ts`:
 
 ```typescript
 export interface ApiResponse<T> {
-  data?: T;
-  error?: string;
-  code?: string;
-  statusCode: number;
+	data?: T;
+	error?: string;
+	code?: string;
+	statusCode: number;
 }
 
 export interface BulkDeleteRequest {
-  fileIds: string[];
+	fileIds: string[];
 }
 
 export interface MoveFilesRequest {
-  fileIds: string[];
-  targetFolderId?: string | null;
-  targetWorkspaceId?: string;
+	fileIds: string[];
+	targetFolderId?: string | null;
+	targetWorkspaceId?: string;
 }
 
 export interface CopyFilesRequest {
-  fileIds: string[];
-  targetFolderId?: string | null;
-  targetWorkspaceId?: string;
+	fileIds: string[];
+	targetFolderId?: string | null;
+	targetWorkspaceId?: string;
 }
 ```
 
@@ -617,28 +612,28 @@ All API errors should follow this format:
 
 ```typescript
 try {
-  const response = await fetch('/api/endpoint', { /* ... */ });
+	const response = await fetch('/api/endpoint', {
+		/* ... */
+	});
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(
-      `API Error [${errorData.code}]: ${errorData.error}`
-    );
-  }
+	if (!response.ok) {
+		const errorData = await response.json();
+		throw new Error(`API Error [${errorData.code}]: ${errorData.error}`);
+	}
 
-  return await response.json();
+	return await response.json();
 } catch (error) {
-  // Log error
-  console.error('Operation failed:', error);
+	// Log error
+	console.error('Operation failed:', error);
 
-  // Show user-friendly toast
-  if (error instanceof TypeError) {
-    toast.error('Network error. Please check your connection.');
-  } else {
-    toast.error(error.message || 'Operation failed');
-  }
+	// Show user-friendly toast
+	if (error instanceof TypeError) {
+		toast.error('Network error. Please check your connection.');
+	} else {
+		toast.error(error.message || 'Operation failed');
+	}
 
-  throw error;
+	throw error;
 }
 ```
 
@@ -651,9 +646,9 @@ try {
 ```typescript
 // After creating/updating folder
 await platform.env.KV.put(
-  `workspace:${workspaceId}:folders`,
-  JSON.stringify(updatedFolders),
-  { expirationTtl: 600 } // 10 minutes
+	`workspace:${workspaceId}:folders`,
+	JSON.stringify(updatedFolders),
+	{ expirationTtl: 600 } // 10 minutes
 );
 ```
 
@@ -704,18 +699,18 @@ const response = await platform.env.DB.prepare(
 
 ```typescript
 // Delete D1 record
-await platform.env.DB.prepare(
-  'DELETE FROM files WHERE id = ?'
-).bind(fileId).run();
+await platform.env.DB.prepare('DELETE FROM files WHERE id = ?').bind(fileId).run();
 
 // Count remaining files with same storage_path
 const refCount = await platform.env.DB.prepare(
-  'SELECT COUNT(*) as count FROM files WHERE storage_path = ?'
-).bind(storagePath).first();
+	'SELECT COUNT(*) as count FROM files WHERE storage_path = ?'
+)
+	.bind(storagePath)
+	.first();
 
 // Only delete from R2 if no copies remain
 if (refCount.count === 0) {
-  await platform.env.R2.delete(storagePath);
+	await platform.env.R2.delete(storagePath);
 }
 ```
 

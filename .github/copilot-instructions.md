@@ -107,24 +107,26 @@ import { workspaceFolders } from '$lib/stores';
 import { get } from 'svelte/store';
 
 export function createFolder(parentId: string | null, name: string): Folder {
-  const folders = get(workspaceFolders);
-  const newFolder = { /* ... */ };
-  workspaceFolders.set([...folders, newFolder]);
-  return newFolder;
+	const folders = get(workspaceFolders);
+	const newFolder = {
+		/* ... */
+	};
+	workspaceFolders.set([...folders, newFolder]);
+	return newFolder;
 }
 
 // Phase 2: Replace with API call
 export async function createFolder(parentId: string | null, name: string): Promise<Folder> {
-  const response = await fetch('/api/folders', {
-    method: 'POST',
-    body: JSON.stringify({ parentId, name })
-  });
-  const newFolder = await response.json();
+	const response = await fetch('/api/folders', {
+		method: 'POST',
+		body: JSON.stringify({ parentId, name })
+	});
+	const newFolder = await response.json();
 
-  // Update local store for immediate UI feedback
-  const folders = get(workspaceFolders);
-  workspaceFolders.set([...folders, newFolder]);
-  return newFolder;
+	// Update local store for immediate UI feedback
+	const folders = get(workspaceFolders);
+	workspaceFolders.set([...folders, newFolder]);
+	return newFolder;
 }
 ```
 

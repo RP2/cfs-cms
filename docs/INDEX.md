@@ -8,7 +8,9 @@
 ## Essential Documents (Start Here)
 
 ### 1. PHASE1_COMPLETE.md
+
 **Complete Phase 1 review with all details**
+
 - Implementation status (100% complete)
 - All 30+ CRUD operations documented
 - Component architecture explained
@@ -19,7 +21,9 @@
 **Read time**: 20 minutes
 
 ### 2. PHASE2_API_CONTRACT.md
+
 **Complete API specification for backend**
+
 - All 20+ endpoint definitions
 - Request/response examples
 - Error handling patterns
@@ -30,7 +34,9 @@
 **For**: Backend developers building Phase 2
 
 ### 3. BACKEND_MIGRATION.md
+
 **Step-by-step integration guide**
+
 - Cloudflare setup (wrangler, D1, R2, KV)
 - File structure for API routes
 - 4 code migration patterns
@@ -41,7 +47,9 @@
 **For**: Developers integrating backend
 
 ### 4. ARCHITECTURE.md
+
 **Technical architecture & patterns**
+
 - Three-layer data flow
 - Svelte 5 rune patterns
 - Component reactivity
@@ -52,7 +60,9 @@
 **For**: Understanding how it works
 
 ### 5. TODO.md
+
 **Tasks & next steps**
+
 - Phase 1 completion checklist
 - Phase 2 tasks (setup, API, migration, testing)
 - Phase 3+ roadmap

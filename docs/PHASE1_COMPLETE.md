@@ -497,8 +497,8 @@ CFS CMS Phase 1 is **fully complete and production-ready** for UI/UX testing. Th
 
 ```typescript
 interface DeletableItem {
-  deletedAt: Date | null;
-  trashedUntil: Date | null;
+	deletedAt: Date | null;
+	trashedUntil: Date | null;
 }
 ```
 
@@ -654,23 +654,25 @@ Only `src/lib/services/dataService.ts` functions need updates:
 ```typescript
 // Before (Phase 1):
 export function createFolder(parentId: string | null, name: string): Folder {
-  // ... validation ...
-  const newFolder = { /* ... */ };
-  workspaceFolders.set([...folders, newFolder]);
-  return newFolder;
+	// ... validation ...
+	const newFolder = {
+		/* ... */
+	};
+	workspaceFolders.set([...folders, newFolder]);
+	return newFolder;
 }
 
 // After (Phase 2):
 export async function createFolder(parentId: string | null, name: string): Promise<Folder> {
-  const response = await fetch('/api/folders', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ parentId, name })
-  });
-  const newFolder = await response.json();
-  // Update local store for optimistic UI
-  workspaceFolders.set([...folders, newFolder]);
-  return newFolder;
+	const response = await fetch('/api/folders', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ parentId, name })
+	});
+	const newFolder = await response.json();
+	// Update local store for optimistic UI
+	workspaceFolders.set([...folders, newFolder]);
+	return newFolder;
 }
 ```
 
