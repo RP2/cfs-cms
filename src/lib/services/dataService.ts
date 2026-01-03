@@ -209,7 +209,14 @@ export function restoreWorkspace(workspaceId: string): void {
 		ws.id === workspaceId ? { ...ws, deletedAt: null } : ws
 	);
 	workspaces.set(updated);
-	// TODO: Replace with Cloudflare backend call (PATCH /api/workspaces/:id)
+
+	// Phase 2: Fire API call in background
+	fetch(`/api/workspaces/${workspaceId}/restore`, {
+		method: 'POST'
+	}).catch((err) => {
+		console.error('Failed to restore workspace:', err);
+		// TODO: Implement rollback on error
+	});
 }
 
 export function renameWorkspace(workspaceId: string, newName: string): void {
@@ -590,52 +597,42 @@ export function setFileTags(fileId: string, tagIds: string[]): void {
 
 	if (!file) return;
 
+	// Optimistic update
 	file.tagIds = [...new Set(tagIds)];
 	file.updatedAt = utcNow();
-
 	currentFiles.set([...currentFilesList]);
+
+	// Phase 2: Fire API call in background
+	fetch(`/api/files/${fileId}/tags`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ tagIds })
+	}).catch((err) => {
+		console.error('Failed to update file tags:', err);
+		// TODO: Implement rollback on error
+	});
 }
 
-export async function deleteFile(fileId: string): Promise<void> {
-	if (USE_MOCK_DATA) {
-		// Mock mode: Soft delete locally
-		const currentFilesList = get(currentFiles);
-		const file = currentFilesList.find((f) => f.id === fileId);
+export function deleteFile(fileId: string): void {
+	const currentFilesList = get(currentFiles);
+	const file = currentFilesList.find((f) => f.id === fileId);
 
-		if (!file) return;
+	if (!file) return;
 
-		file.deletedAt = utcNow();
-		file.trashedUntil = computeTrashedUntil(file.deletedAt);
-		file.updatedAt = file.deletedAt;
+	// Optimistic update: Soft delete immediately
+	file.deletedAt = utcNow();
+	file.trashedUntil = computeTrashedUntil(file.deletedAt);
+	file.updatedAt = file.deletedAt;
+	currentFiles.set([...currentFilesList]);
 
-		currentFiles.set([...currentFilesList]);
-	} else {
-		// Backend mode: Optimistic update + async API call
-		const currentFilesList = get(currentFiles);
-		const file = currentFilesList.find((f) => f.id === fileId);
-
-		if (!file) return;
-
-		// Optimistic update
-		file.deletedAt = utcNow();
-		file.trashedUntil = computeTrashedUntil(file.deletedAt);
-		file.updatedAt = file.deletedAt;
-		currentFiles.set([...currentFilesList]);
-
-		// Fire API call in background
-		(async () => {
-			try {
-				const response = await fetch(`/api/files/${fileId}`, {
-					method: 'DELETE'
-				});
-
-				if (!response.ok) {
-					console.error('Failed to delete file');
-				}
-			} catch (err) {
-				console.error('Delete file error:', err);
-			}
-		})();
+	if (!USE_MOCK_DATA) {
+		// Phase 2: Fire API call in background
+		fetch(`/api/files/${fileId}`, {
+			method: 'DELETE'
+		}).catch((err) => {
+			console.error('Failed to delete file:', err);
+			// TODO: Implement rollback on error
+		});
 	}
 }
 
@@ -1064,47 +1061,28 @@ export function moveFolderToWorkspace(
 
 // ==================== STAR/UNSTAR OPERATIONS ====================
 
-export async function toggleFileStar(fileId: string): Promise<void> {
-	if (USE_MOCK_DATA) {
-		// Mock mode: Toggle locally
-		const currentFilesList = get(currentFiles);
-		const file = currentFilesList.find((f) => f.id === fileId);
+export function toggleFileStar(fileId: string): void {
+	const currentFilesList = get(currentFiles);
+	const file = currentFilesList.find((f) => f.id === fileId);
 
-		if (!file) return;
+	if (!file) return;
 
-		file.starred = !file.starred;
-		file.updatedAt = new Date();
+	// Optimistic update: Toggle immediately
+	const newStarred = !file.starred;
+	file.starred = newStarred;
+	file.updatedAt = new Date();
+	currentFiles.set([...currentFilesList]);
 
-		currentFiles.set([...currentFilesList]);
-	} else {
-		// Backend mode: Optimistic update + async API call
-		const currentFilesList = get(currentFiles);
-		const file = currentFilesList.find((f) => f.id === fileId);
-		if (!file) return;
-
-		const newStarred = !file.starred;
-
-		// Optimistic update
-		file.starred = newStarred;
-		file.updatedAt = new Date();
-		currentFiles.set([...currentFilesList]);
-
-		// Fire API call in background
-		(async () => {
-			try {
-				const response = await fetch(`/api/files/${fileId}`, {
-					method: 'PATCH',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ starred: newStarred })
-				});
-
-				if (!response.ok) {
-					console.error('Failed to update file');
-				}
-			} catch (err) {
-				console.error('Toggle star error:', err);
-			}
-		})();
+	if (!USE_MOCK_DATA) {
+		// Phase 2: Fire API call in background
+		fetch(`/api/files/${fileId}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ starred: newStarred })
+		}).catch((err) => {
+			console.error('Failed to toggle file star:', err);
+			// TODO: Implement rollback on error
+		});
 	}
 }
 
@@ -1150,46 +1128,26 @@ export async function toggleFolderStar(folderId: string): Promise<void> {
 
 // ==================== TRASH OPERATIONS ====================
 
-export async function restoreFile(fileId: string): Promise<void> {
-	if (USE_MOCK_DATA) {
-		// Mock mode: Restore locally
-		const currentFilesList = get(currentFiles);
-		const file = currentFilesList.find((f) => f.id === fileId);
+export function restoreFile(fileId: string): void {
+	const currentFilesList = get(currentFiles);
+	const file = currentFilesList.find((f) => f.id === fileId);
 
-		if (!file) return;
+	if (!file) return;
 
-		file.deletedAt = null;
-		file.trashedUntil = null;
-		file.updatedAt = new Date();
+	// Optimistic update: Restore immediately
+	file.deletedAt = null;
+	file.trashedUntil = null;
+	file.updatedAt = new Date();
+	currentFiles.set([...currentFilesList]);
 
-		currentFiles.set([...currentFilesList]);
-	} else {
-		// Backend mode: Optimistic update + async API call
-		const currentFilesList = get(currentFiles);
-		const file = currentFilesList.find((f) => f.id === fileId);
-
-		if (!file) return;
-
-		// Optimistic update
-		file.deletedAt = null;
-		file.trashedUntil = null;
-		file.updatedAt = new Date();
-		currentFiles.set([...currentFilesList]);
-
-		// Fire API call in background
-		(async () => {
-			try {
-				const response = await fetch(`/api/files/${fileId}/restore`, {
-					method: 'POST'
-				});
-
-				if (!response.ok) {
-					console.error('Failed to restore file');
-				}
-			} catch (err) {
-				console.error('Restore file error:', err);
-			}
-		})();
+	if (!USE_MOCK_DATA) {
+		// Phase 2: Fire API call in background
+		fetch(`/api/files/${fileId}/restore`, {
+			method: 'POST'
+		}).catch((err) => {
+			console.error('Failed to restore file:', err);
+			// TODO: Implement rollback on error
+		});
 	}
 }
 
@@ -1693,46 +1651,33 @@ export function getFileCopyCount(fileId: string): number {
  * Permanently delete a file from the system
  * Returns the count of remaining copies that share the same storagePath
  * @returns Number of remaining copies (for UI feedback)
+ *
+ * Phase 2: Optimistic update - updates UI immediately, fires API in background
  */
-export async function permanentlyDeleteFile(fileId: string): Promise<number> {
+export function permanentlyDeleteFile(fileId: string): number {
 	const currentFilesList = get(currentFiles);
 	const file = currentFilesList.find((f) => f.id === fileId);
 
-	if (USE_MOCK_DATA) {
-		// Mock mode: Delete locally with reference counting
-		const totalCopies = file ? getFileCopyCount(fileId) : 0;
-		const remainingCopies = totalCopies - 1;
+	// Calculate remaining copies before deletion
+	const totalCopies = file ? getFileCopyCount(fileId) : 0;
+	const remainingCopies = totalCopies - 1;
 
-		const filtered = currentFilesList.filter((f) => f.id !== fileId);
-		currentFiles.set(filtered);
+	// Optimistic update: Remove from UI immediately
+	const filtered = currentFilesList.filter((f) => f.id !== fileId);
+	currentFiles.set(filtered);
 
-		return remainingCopies;
-	} else {
-		// Backend mode: Optimistic delete + async API call
-		const totalCopies = file ? getFileCopyCount(fileId) : 0;
-		const remainingCopies = totalCopies - 1;
-
-		// Optimistic update
-		const filtered = currentFilesList.filter((f) => f.id !== fileId);
-		currentFiles.set(filtered);
-
-		// Fire API call in background (handles R2 reference counting)
-		(async () => {
-			try {
-				const response = await fetch(`/api/files/${fileId}?permanent=true`, {
-					method: 'DELETE'
-				});
-
-				if (!response.ok) {
-					console.error('Failed to permanently delete file');
-				}
-			} catch (err) {
-				console.error('Permanently delete file error:', err);
-			}
-		})();
-
-		return remainingCopies;
+	if (!USE_MOCK_DATA) {
+		// Phase 2: Fire API call in background (don't wait)
+		// Backend handles R2 reference counting
+		fetch(`/api/files/${fileId}?permanent=true`, {
+			method: 'DELETE'
+		}).catch((err) => {
+			console.error('Failed to permanently delete file:', err);
+			// TODO: Implement rollback on error
+		});
 	}
+
+	return remainingCopies;
 }
 
 export function permanentlyDeleteFolder(folderId: string): void {

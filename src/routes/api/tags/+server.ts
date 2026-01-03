@@ -106,4 +106,6 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		return json(snakeToCamel(newTag), { status: 201 });
 	} catch (err) {
 		console.error('Create/find tag error:', err);
-			return json({ error: 'Internal server error', code: 'INTERNAL_ERROR' }, { status: 500 });
+		return json({ error: 'Internal server error', code: 'INTERNAL_ERROR' }, { status: 500 });
+	}
+};

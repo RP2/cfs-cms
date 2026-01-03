@@ -95,9 +95,9 @@
 
 ```typescript
 if (USE_MOCK_DATA) {
-  // Local in-memory operations
-  // Store updates immediately
-  // No API calls
+	// Local in-memory operations
+	// Store updates immediately
+	// No API calls
 }
 ```
 
