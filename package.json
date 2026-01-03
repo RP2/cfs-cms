@@ -4,6 +4,8 @@
 	"version": "0.0.1",
 	"type": "module",
 	"scripts": {
+		"cf:deploy": "wrangler deploy",
+		"cf:dev": "wrangler dev --persist-to=.wrangler/state",
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
@@ -19,6 +21,7 @@
 		"@internationalized/date": "^3.10.1",
 		"@lucide/svelte": "^0.561.0",
 		"@sveltejs/adapter-auto": "^7.0.0",
+		"@sveltejs/adapter-cloudflare": "^7.2.4",
 		"@sveltejs/kit": "^2.49.1",
 		"@sveltejs/vite-plugin-svelte": "^6.2.1",
 		"@tailwindcss/forms": "^0.5.10",
@@ -44,6 +47,7 @@
 		"typescript": "^5.9.3",
 		"typescript-eslint": "^8.48.1",
 		"vaul-svelte": "^1.0.0-next.7",
-		"vite": "^7.2.6"
+		"vite": "^7.2.6",
+		"wrangler": "^4.54.0"
 	}
 }

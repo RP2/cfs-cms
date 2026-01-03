@@ -76,14 +76,6 @@
 		toast.info('API key generation coming in Phase 2');
 	}
 
-	function handleCancel() {
-		if ($currentWorkspace) {
-			editName = $currentWorkspace.name;
-			editDescription = $currentWorkspace.description || '';
-		}
-		open = false;
-	}
-
 	function handleSave() {
 		if (!$currentWorkspace) return;
 

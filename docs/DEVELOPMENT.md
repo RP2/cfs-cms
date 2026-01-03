@@ -52,28 +52,23 @@ Components are copied to `src/lib/components/ui/` - fully customizable via Tailw
 
 ### 4. Environment Variables
 
-Create `.env.local` in the root directory:
+Create `.env.local` in the root directory (for local dev only):
 
 ```bash
 # Mock Data (Phase 1: UI development)
+# Set to true to use mock data, false to call real API
 PUBLIC_USE_MOCK_DATA=true
 
-# Database
-DATABASE_URL=file:./dev.db
-
-# Cloudflare (get these from Cloudflare dashboard)
-CLOUDFLARE_ACCOUNT_ID=your_account_id
-CLOUDFLARE_API_TOKEN=your_api_token
-CLOUDFLARE_KV_NAMESPACE_ID=your_kv_id
-CLOUDFLARE_R2_BUCKET_NAME=cfs-cms-dev
-CLOUDFLARE_D1_DATABASE_ID=your_d1_id
+# Optional: API base URL for local backend testing
+# Only needed if running wrangler dev separately
+VITE_API_BASE=http://127.0.0.1:8787
 
 # Application
 APP_URL=http://localhost:5173
 NODE_ENV=development
 ```
 
-**Note**: During Phase 1, `PUBLIC_USE_MOCK_DATA=true` seeds the app with sample data for local testing. This env var is unset in production.
+**Note**: `.env.local` is ignored by git (see `.gitignore`). For deployed builds (Cloudflare Pages), environment variables are set in the Pages dashboard, not in this file.
 
 ## Development Server
 
@@ -94,35 +89,84 @@ This command:
 
 Open http://localhost:5173 in your browser.
 
-## Database Setup
+## Local Backend Testing (Optional)
 
-### Cloudflare D1 Local Development
+### Testing with Cloudflare Bindings Locally
 
-Install Wrangler (if not already):
+If you want to test the full backend with D1/R2/KV locally (instead of mock data):
+
+1. **Create local `wrangler.toml`** (ignored by git):
+
+   ```bash
+   cp wrangler.toml.example wrangler.toml
+   # Fill in YOUR_ACCOUNT_ID, YOUR_DATABASE_ID, YOUR_BUCKET_NAME, YOUR_KV_ID
+   # Get these from your Cloudflare dashboard
+   ```
+
+2. **Provision Cloudflare resources** (one-time setup):
+
+   ```bash
+   npx wrangler d1 create cfs_cms
+   npx wrangler d1 execute cfs_cms --file docs/database.sql
+   npx wrangler r2 bucket create cfs-cms-files
+   npx wrangler kv:namespace create cfs_cms
+   ```
+
+3. **Run Cloudflare dev server** (in one terminal):
+
+   ```bash
+   npm run cf:dev
+   ```
+
+   This emulates D1/R2/KV bindings locally at `http://127.0.0.1:8787`.
+
+4. **Run SvelteKit app** (in another terminal):
+   ```bash
+   npm run dev
+   ```
+   Set `PUBLIC_USE_MOCK_DATA=false` in `.env.local` to hit the API instead of mock data.
+
+**Note**: Most contributors can skip this and use `PUBLIC_USE_MOCK_DATA=true` (mock data). Local backend testing is optional for Phase 2 development.
+
+## Building & Deployment
+
+### Production Build
 
 ```bash
-npm install -g wrangler@latest
+npm run build
 ```
 
-Initialize D1 database locally:
+Creates optimized production build in `.svelte-kit/cloudflare/` (Cloudflare adapter output).
+
+### Preview Production Build Locally
 
 ```bash
-wrangler d1 create cfs-cms-dev --local
+npm run preview
 ```
 
-This creates `.wrangler/state/d1` directory with local SQLite database.
+Previews the SvelteKit app locally (useful before deployment).
 
-### Create Tables
+### Deploy to Cloudflare Pages
 
-(Documentation coming in DATABASE.md after schema is finalized)
+This project uses SvelteKit with the Cloudflare adapter, which automatically compiles to Cloudflare Workers.
 
-Run migrations:
+**Git-based deployment** (recommended for open source):
 
-```bash
-wrangler migrations apply
-```
+1. Connect GitHub repo to Cloudflare Pages dashboard
+2. Set build settings:
+   - Framework: SvelteKit
+   - Build command: `npm run build`
+   - Build output: `.svelte-kit/cloudflare`
+3. Set environment variables in **Pages dashboard** (Production and Preview):
+   - `PUBLIC_USE_MOCK_DATA=false` (enables real API, uses D1/R2/KV bindings)
+   - `ENVIRONMENT=production` (or `preview`)
+4. Set bindings in **Pages dashboard** (under D1/R2/KV sections):
+   - D1 binding: `DB`
+   - R2 binding: `R2`
+   - KV binding: `KV`
+5. Push to GitHub; Pages auto-builds and deploys
 
-## Code Quality Tools
+**Note**: No secrets go in the repo. All credentials/IDs are stored in the Cloudflare Pages dashboard. When `PUBLIC_USE_MOCK_DATA=false`, the app uses the real bindings configured in Pages.
 
 ### Type Checking
 
@@ -147,24 +191,6 @@ npm run format
 ```
 
 Formats code using Prettier.
-
-## Building
-
-### Production Build
-
-```bash
-npm run build
-```
-
-Creates optimized production build in `./build/`.
-
-### Preview Production Build
-
-```bash
-npm run preview
-```
-
-Previews the production build locally (useful before deployment).
 
 ## Debugging
 
@@ -259,11 +285,11 @@ Fix any TypeScript errors before committing.
 ## Next Steps
 
 1. ✅ Install dependencies (`npm install`)
-2. ✅ Create `.env.local` file
-3. ✅ Setup local D1 database
-4. Run `npm run dev` to start development
-5. Read [PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) for architecture
-6. Check [TODO.md](../TODO.md) for current tasks
+2. ✅ Create `.env.local` with `PUBLIC_USE_MOCK_DATA=true` (use mock data locally)
+3. Run `npm run dev` to start development
+4. Read [PROJECT_CONTEXT.md](../PROJECT_CONTEXT.md) for architecture
+5. Check [TODO.md](../TODO.md) for current tasks
+6. **Optional**: Follow "Local Backend Testing" to test API with real Cloudflare bindings
 
 ## Resources
 
@@ -274,5 +300,5 @@ Fix any TypeScript errors before committing.
 
 ---
 
-**Last Updated**: December 29, 2025  
-**Questions?** Check PROJECT_CONTEXT.md or existing docs
+**Last Updated**: January 2, 2026  
+**Questions?** Check PROJECT_CONTEXT.md or ARCHITECTURE.md for context

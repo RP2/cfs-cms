@@ -2,11 +2,21 @@ import { writable } from 'svelte/store';
 import type { Workspace, Folder, File, Tag, ViewMode, ViewScope } from '$lib/types';
 import { mockWorkspaces, mockFolders, mockFiles, mockTags } from '$lib/data/mock';
 
-// All workspaces
-export const workspaces = writable<Workspace[]>(mockWorkspaces.filter((w) => !w.deletedAt));
+/**
+ * Check if we should use mock data or real backend
+ * This is evaluated at module load time, so no repeated checks
+ */
+const USE_MOCK_DATA = import.meta.env.PUBLIC_USE_MOCK_DATA === 'true';
 
-// Current workspace
-export const currentWorkspace = writable<Workspace | null>(mockWorkspaces[0]);
+// All workspaces - empty if backend mode, seeded with mock if mock mode
+export const workspaces = writable<Workspace[]>(
+	USE_MOCK_DATA ? mockWorkspaces.filter((w) => !w.deletedAt) : []
+);
+
+// Current workspace - null if backend mode (will be set by app), or mock if mock mode
+export const currentWorkspace = writable<Workspace | null>(
+	USE_MOCK_DATA ? mockWorkspaces[0] : null
+);
 
 // Current folder being viewed (null = workspace root, null when in quick link views)
 export const currentFolder = writable<Folder | null>(null);
@@ -17,14 +27,14 @@ export const currentView = writable<ViewMode>('normal');
 // Current scope (workspace-scoped vs global quick links)
 export const viewScope = writable<ViewScope>('workspace');
 
-// All folders for current workspace
-export const workspaceFolders = writable<Folder[]>(mockFolders);
+// All folders for current workspace - empty if backend mode, seeded with mock if mock mode
+export const workspaceFolders = writable<Folder[]>(USE_MOCK_DATA ? mockFolders : []);
 
-// All files for current folder
-export const currentFiles = writable<File[]>(mockFiles);
+// All files for current folder - empty if backend mode, seeded with mock if mock mode
+export const currentFiles = writable<File[]>(USE_MOCK_DATA ? mockFiles : []);
 
-// All tags (global)
-export const workspaceTags = writable<Tag[]>(mockTags);
+// All tags (global) - empty if backend mode, seeded with mock if mock mode
+export const workspaceTags = writable<Tag[]>(USE_MOCK_DATA ? mockTags : []);
 
 // Selected files (for bulk operations)
 export const selectedFileIds = writable<Set<string>>(new Set());

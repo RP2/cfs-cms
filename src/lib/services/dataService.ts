@@ -84,76 +84,122 @@ function computeTrashedUntil(deletedAt: Date): Date {
 }
 
 /**
+ * Environment check: Use mock data or real API calls
+ * Set PUBLIC_USE_MOCK_DATA=false to enable Cloudflare backend
+ */
+const USE_MOCK_DATA = import.meta.env.PUBLIC_USE_MOCK_DATA === 'true';
+
+/**
  * Data Service Layer
  *
- * Abstracts all data operations. Currently uses in-memory stores (mock data).
- * When Cloudflare backend is ready, replace these functions with API calls.
+ * Dual-mode operation:
+ * - Mock Mode (PUBLIC_USE_MOCK_DATA=true): In-memory store manipulation
+ * - Backend Mode (PUBLIC_USE_MOCK_DATA=false): API calls to Cloudflare D1/R2/KV
  *
- * Example future implementation:
- *   const response = await fetch('/api/workspaces', {
- *     method: 'POST',
- *     body: JSON.stringify({ name, description })
- *   });
- *   return response.json();
+ * All functions check USE_MOCK_DATA and route accordingly.
+ * Components remain unchanged regardless of mode.
  */
 
 // ==================== WORKSPACE OPERATIONS ====================
 
 /**
  * Create a new workspace
- * TODO: Replace with Cloudflare backend call when ready
  */
-export function createWorkspace(name: string, description: string): Workspace {
-	const newWorkspace: Workspace = {
-		id: `workspace_${Date.now()}`,
-		name: name.trim(),
-		description: description.trim(),
-		ownerId: 'user_1', // Placeholder until auth is implemented
-		createdAt: new Date(),
-		updatedAt: new Date(),
-		deletedAt: null
-	};
+export async function createWorkspace(name: string, description: string): Promise<Workspace> {
+	if (USE_MOCK_DATA) {
+		// Mock mode: In-memory manipulation
+		const newWorkspace: Workspace = {
+			id: `workspace_${Date.now()}`,
+			name: name.trim(),
+			description: description.trim(),
+			ownerId: 'user_1',
+			createdAt: new Date(),
+			updatedAt: new Date(),
+			deletedAt: null
+		};
 
-	// Add to store
-	const currentWorkspaces = get(workspaces);
-	workspaces.set([...currentWorkspaces, newWorkspace]);
-	currentWorkspace.set(newWorkspace);
+		const currentWorkspaces = get(workspaces);
+		workspaces.set([...currentWorkspaces, newWorkspace]);
+		currentWorkspace.set(newWorkspace);
 
-	return newWorkspace;
+		return newWorkspace;
+	} else {
+		// Backend mode: API call
+		const response = await fetch('/api/workspaces', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ name, description })
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to create workspace');
+		}
+
+		const newWorkspace = await response.json();
+
+		// Update store for UI consistency
+		const currentWorkspaces = get(workspaces);
+		workspaces.set([...currentWorkspaces, newWorkspace]);
+		currentWorkspace.set(newWorkspace);
+
+		return newWorkspace;
+	}
 }
 
-export function deleteWorkspace(workspaceId: string): void {
-	const currentWorkspacesList = get(workspaces);
-	const workspace = currentWorkspacesList.find((w) => w.id === workspaceId);
+export async function deleteWorkspace(workspaceId: string): Promise<void> {
+	if (USE_MOCK_DATA) {
+		// Mock mode: Check and delete locally
+		const currentWorkspacesList = get(workspaces);
+		const workspace = currentWorkspacesList.find((w) => w.id === workspaceId);
 
-	if (!workspace) return;
+		if (!workspace) return;
 
-	// Check if workspace is empty (no non-deleted folders or files)
-	const currentFoldersList = get(workspaceFolders);
-	const currentFilesList = get(currentFiles);
+		const currentFoldersList = get(workspaceFolders);
+		const currentFilesList = get(currentFiles);
 
-	const hasFolders = currentFoldersList.some((f) => f.workspaceId === workspaceId && !f.deletedAt);
-	const hasFiles = currentFilesList.some((f) => f.workspaceId === workspaceId && !f.deletedAt);
-
-	if (hasFolders || hasFiles) {
-		throw new Error(
-			'Cannot delete workspace with content. Please delete or move all files and folders first.'
+		const hasFolders = currentFoldersList.some(
+			(f) => f.workspaceId === workspaceId && !f.deletedAt
 		);
-	}
+		const hasFiles = currentFilesList.some((f) => f.workspaceId === workspaceId && !f.deletedAt);
 
-	// TODO: Replace with Cloudflare backend call (DELETE /api/workspaces/:id)
-	// Backend should handle permanent deletion
+		if (hasFolders || hasFiles) {
+			throw new Error(
+				'Cannot delete workspace with content. Please delete or move all files and folders first.'
+			);
+		}
 
-	// Permanently delete workspace (remove from array)
-	const updatedWorkspaces = currentWorkspacesList.filter((w) => w.id !== workspaceId);
-	workspaces.set(updatedWorkspaces);
+		const updatedWorkspaces = currentWorkspacesList.filter((w) => w.id !== workspaceId);
+		workspaces.set(updatedWorkspaces);
 
-	// If we just deleted the current workspace, switch to another
-	const currentWs = get(currentWorkspace);
-	if (currentWs?.id === workspaceId) {
-		const nextWorkspace = updatedWorkspaces[0] || null;
-		currentWorkspace.set(nextWorkspace);
-		currentFolder.set(null);
+		const currentWs = get(currentWorkspace);
+		if (currentWs?.id === workspaceId) {
+			const nextWorkspace = updatedWorkspaces[0] || null;
+			currentWorkspace.set(nextWorkspace);
+			currentFolder.set(null);
+		}
+	} else {
+		// Backend mode: API call
+		const response = await fetch(`/api/workspaces/${workspaceId}`, {
+			method: 'DELETE'
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to delete workspace');
+		}
+
+		// Update store
+		const currentWorkspacesList = get(workspaces);
+		const updatedWorkspaces = currentWorkspacesList.filter((w) => w.id !== workspaceId);
+		workspaces.set(updatedWorkspaces);
+
+		const currentWs = get(currentWorkspace);
+		if (currentWs?.id === workspaceId) {
+			const nextWorkspace = updatedWorkspaces[0] || null;
+			currentWorkspace.set(nextWorkspace);
+			currentFolder.set(null);
+		}
 	}
 }
 
@@ -167,140 +213,375 @@ export function restoreWorkspace(workspaceId: string): void {
 }
 
 export function renameWorkspace(workspaceId: string, newName: string): void {
-	const currentWorkspacesList = get(workspaces);
-	const now = new Date();
-	const updated = currentWorkspacesList.map((ws) =>
-		ws.id === workspaceId ? { ...ws, name: newName.trim(), updatedAt: now } : ws
-	);
-	workspaces.set(updated);
+	if (!newName.trim()) throw new Error('Name is required');
 
-	// Update current workspace if it's the one being renamed
-	const currentWs = get(currentWorkspace);
-	if (currentWs?.id === workspaceId) {
-		currentWorkspace.set({ ...currentWs, name: newName.trim(), updatedAt: now });
+	if (USE_MOCK_DATA) {
+		// Mock mode: Update locally
+		const currentWorkspacesList = get(workspaces);
+		const now = new Date();
+		const updated = currentWorkspacesList.map((ws) =>
+			ws.id === workspaceId ? { ...ws, name: newName.trim(), updatedAt: now } : ws
+		);
+		workspaces.set(updated);
+
+		// Update current workspace if it's the one being renamed
+		const currentWs = get(currentWorkspace);
+		if (currentWs?.id === workspaceId) {
+			currentWorkspace.set({ ...currentWs, name: newName.trim(), updatedAt: now });
+		}
+	} else {
+		// Backend mode: Fire async API call in background, don't wait
+		(async () => {
+			try {
+				const response = await fetch(`/api/workspaces/${workspaceId}`, {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ name: newName })
+				});
+
+				if (!response.ok) {
+					console.error('Failed to rename workspace');
+					return;
+				}
+
+				const updated = await response.json();
+
+				// Update store
+				const currentWorkspacesList = get(workspaces);
+				const index = currentWorkspacesList.findIndex((w) => w.id === workspaceId);
+				if (index !== -1) {
+					currentWorkspacesList[index] = updated;
+					workspaces.set([...currentWorkspacesList]);
+				}
+
+				// Update current workspace if it's the one being updated
+				const currentWs = get(currentWorkspace);
+				if (currentWs?.id === workspaceId) {
+					currentWorkspace.set(updated);
+				}
+			} catch (err) {
+				console.error('Rename workspace error:', err);
+			}
+		})();
 	}
-	// TODO: Replace with Cloudflare backend call (PATCH /api/workspaces/:id)
 }
 
 export function updateWorkspaceDescription(workspaceId: string, newDescription: string): void {
-	const currentWorkspacesList = get(workspaces);
-	const now = new Date();
-	const updated = currentWorkspacesList.map((ws) =>
-		ws.id === workspaceId ? { ...ws, description: newDescription.trim(), updatedAt: now } : ws
-	);
-	workspaces.set(updated);
+	if (USE_MOCK_DATA) {
+		// Mock mode: Update locally
+		const currentWorkspacesList = get(workspaces);
+		const now = new Date();
+		const updated = currentWorkspacesList.map((ws) =>
+			ws.id === workspaceId ? { ...ws, description: newDescription.trim(), updatedAt: now } : ws
+		);
+		workspaces.set(updated);
 
-	// Update current workspace if it's the one being updated
-	const currentWs = get(currentWorkspace);
-	if (currentWs?.id === workspaceId) {
-		currentWorkspace.set({ ...currentWs, description: newDescription.trim(), updatedAt: now });
+		// Update current workspace if it's the one being updated
+		const currentWs = get(currentWorkspace);
+		if (currentWs?.id === workspaceId) {
+			currentWorkspace.set({ ...currentWs, description: newDescription.trim(), updatedAt: now });
+		}
+	} else {
+		// Backend mode: Fire async API call in background
+		(async () => {
+			try {
+				const response = await fetch(`/api/workspaces/${workspaceId}`, {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ description: newDescription })
+				});
+
+				if (!response.ok) {
+					console.error('Failed to update workspace');
+					return;
+				}
+
+				const updated = await response.json();
+
+				// Update store
+				const currentWorkspacesList = get(workspaces);
+				const index = currentWorkspacesList.findIndex((w) => w.id === workspaceId);
+				if (index !== -1) {
+					currentWorkspacesList[index] = updated;
+					workspaces.set([...currentWorkspacesList]);
+				}
+
+				// Update current workspace if it's the one being updated
+				const currentWs = get(currentWorkspace);
+				if (currentWs?.id === workspaceId) {
+					currentWorkspace.set(updated);
+				}
+			} catch (err) {
+				console.error('Update workspace description error:', err);
+			}
+		})();
 	}
-	// TODO: Replace with Cloudflare backend call (PATCH /api/workspaces/:id)
 }
 
 export function updateWorkspaceIcon(workspaceId: string, newIcon: string): void {
-	const currentWorkspacesList = get(workspaces);
-	const now = new Date();
-	const updated = currentWorkspacesList.map((ws) =>
-		ws.id === workspaceId ? { ...ws, icon: newIcon, updatedAt: now } : ws
-	);
-	workspaces.set(updated);
+	if (USE_MOCK_DATA) {
+		// Mock mode: Update locally
+		const currentWorkspacesList = get(workspaces);
+		const now = new Date();
+		const updated = currentWorkspacesList.map((ws) =>
+			ws.id === workspaceId ? { ...ws, icon: newIcon, updatedAt: now } : ws
+		);
+		workspaces.set(updated);
 
-	// Update current workspace if it's the one being updated
-	const currentWs = get(currentWorkspace);
-	if (currentWs?.id === workspaceId) {
-		currentWorkspace.set({ ...currentWs, icon: newIcon, updatedAt: now });
+		// Update current workspace if it's the one being updated
+		const currentWs = get(currentWorkspace);
+		if (currentWs?.id === workspaceId) {
+			currentWorkspace.set({ ...currentWs, icon: newIcon, updatedAt: now });
+		}
+	} else {
+		// Backend mode: Fire async API call in background
+		(async () => {
+			try {
+				const response = await fetch(`/api/workspaces/${workspaceId}`, {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ icon: newIcon })
+				});
+
+				if (!response.ok) {
+					console.error('Failed to update workspace');
+					return;
+				}
+
+				const updated = await response.json();
+
+				// Update store
+				const currentWorkspacesList = get(workspaces);
+				const index = currentWorkspacesList.findIndex((w) => w.id === workspaceId);
+				if (index !== -1) {
+					currentWorkspacesList[index] = updated;
+					workspaces.set([...currentWorkspacesList]);
+				}
+
+				// Update current workspace if it's the one being updated
+				const currentWs = get(currentWorkspace);
+				if (currentWs?.id === workspaceId) {
+					currentWorkspace.set(updated);
+				}
+			} catch (err) {
+				console.error('Update workspace icon error:', err);
+			}
+		})();
 	}
-	// TODO: Replace with Cloudflare backend call (PATCH /api/workspaces/:id)
 }
 
-export function createFolder(parentId: string | null, name: string): Folder {
+export async function createFolder(parentId: string | null, name: string): Promise<Folder> {
 	const currentWs = get(currentWorkspace);
 	if (!currentWs) throw new Error('No workspace selected');
 
-	// Check if folder name already exists at this level
-	const currentFoldersList = get(workspaceFolders);
-	const exists = currentFoldersList.some(
-		(f) => f.workspaceId === currentWs.id && f.parentId === parentId && f.name === name.trim()
-	);
+	if (USE_MOCK_DATA) {
+		// Mock mode: Check duplicates and create locally
+		const currentFoldersList = get(workspaceFolders);
+		const exists = currentFoldersList.some(
+			(f) => f.workspaceId === currentWs.id && f.parentId === parentId && f.name === name.trim()
+		);
 
-	if (exists) throw new Error('A folder with this name already exists');
+		if (exists) throw new Error('A folder with this name already exists');
 
-	const newFolder: Folder = {
-		id: `folder_${Date.now()}`,
-		workspaceId: currentWs.id,
-		parentId,
-		name: name.trim(),
-		starred: false,
-		createdAt: new Date(),
-		updatedAt: new Date(),
-		deletedAt: null,
-		trashedUntil: null
-	};
+		const newFolder: Folder = {
+			id: `folder_${Date.now()}`,
+			workspaceId: currentWs.id,
+			parentId,
+			name: name.trim(),
+			starred: false,
+			createdAt: new Date(),
+			updatedAt: new Date(),
+			deletedAt: null,
+			trashedUntil: null
+		};
 
-	// Add to store
-	currentFoldersList.push(newFolder);
-	workspaceFolders.set([...currentFoldersList]);
+		currentFoldersList.push(newFolder);
+		workspaceFolders.set([...currentFoldersList]);
 
-	return newFolder;
+		return newFolder;
+	} else {
+		// Backend mode: API call
+		const response = await fetch('/api/folders', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ workspaceId: currentWs.id, parentId, name })
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to create folder');
+		}
+
+		const newFolder = await response.json();
+
+		// Update store
+		const currentFoldersList = get(workspaceFolders);
+		workspaceFolders.set([...currentFoldersList, newFolder]);
+
+		return newFolder;
+	}
 }
 
-export function renameFolder(folderId: string, newName: string): void {
+export async function renameFolder(folderId: string, newName: string): Promise<void> {
 	if (!newName.trim()) throw new Error('Name is required');
 
-	const currentFoldersList = get(workspaceFolders);
-	const folder = currentFoldersList.find((f) => f.id === folderId);
+	if (USE_MOCK_DATA) {
+		// Mock mode: Update locally
+		const currentFoldersList = get(workspaceFolders);
+		const folder = currentFoldersList.find((f) => f.id === folderId);
 
-	if (!folder) return;
-	if (newName === folder.name) return;
+		if (!folder) return;
+		if (newName === folder.name) return;
 
-	folder.name = newName.trim();
-	folder.updatedAt = new Date();
+		folder.name = newName.trim();
+		folder.updatedAt = new Date();
 
-	workspaceFolders.set([...currentFoldersList]);
+		workspaceFolders.set([...currentFoldersList]);
+	} else {
+		// Backend mode: Optimistic update + async API call
+		const currentFoldersList = get(workspaceFolders);
+		const folder = currentFoldersList.find((f) => f.id === folderId);
+
+		if (!folder) return;
+		if (newName === folder.name) return;
+
+		// Optimistic update
+		folder.name = newName.trim();
+		folder.updatedAt = new Date();
+		workspaceFolders.set([...currentFoldersList]);
+
+		// Fire API call in background
+		(async () => {
+			try {
+				const response = await fetch(`/api/folders/${folderId}`, {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ name: newName })
+				});
+
+				if (!response.ok) {
+					console.error('Failed to rename folder');
+				}
+			} catch (err) {
+				console.error('Rename folder error:', err);
+			}
+		})();
+	}
 }
 
-export function deleteFolder(folderId: string): void {
-	const currentFoldersList = get(workspaceFolders);
-	const folder = currentFoldersList.find((f) => f.id === folderId);
+export async function deleteFolder(folderId: string): Promise<void> {
+	if (USE_MOCK_DATA) {
+		// Mock mode: Soft delete locally
+		const currentFoldersList = get(workspaceFolders);
+		const folder = currentFoldersList.find((f) => f.id === folderId);
 
-	if (!folder) return;
+		if (!folder) return;
 
-	// Soft delete folder
-	const deletedAt = new Date();
-	folder.deletedAt = deletedAt;
-	folder.updatedAt = deletedAt;
-	folder.trashedUntil = computeTrashedUntil(deletedAt);
+		const deletedAt = new Date();
+		folder.deletedAt = deletedAt;
+		folder.updatedAt = deletedAt;
+		folder.trashedUntil = computeTrashedUntil(deletedAt);
 
-	// Also soft delete all files in this folder
-	const currentFilesList = get(currentFiles);
-	currentFilesList.forEach((file) => {
-		if (file.folderId === folderId) {
-			file.deletedAt = deletedAt;
-			file.trashedUntil = computeTrashedUntil(deletedAt);
-			file.updatedAt = deletedAt;
-		}
-	});
+		const currentFilesList = get(currentFiles);
+		currentFilesList.forEach((file) => {
+			if (file.folderId === folderId) {
+				file.deletedAt = deletedAt;
+				file.trashedUntil = computeTrashedUntil(deletedAt);
+				file.updatedAt = deletedAt;
+			}
+		});
 
-	workspaceFolders.set([...currentFoldersList]);
-	currentFiles.set([...currentFilesList]);
+		workspaceFolders.set([...currentFoldersList]);
+		currentFiles.set([...currentFilesList]);
+	} else {
+		// Backend mode: Optimistic update + async API call
+		const currentFoldersList = get(workspaceFolders);
+		const folder = currentFoldersList.find((f) => f.id === folderId);
+
+		if (!folder) return;
+
+		const deletedAt = new Date();
+
+		// Optimistic update
+		folder.deletedAt = deletedAt;
+		folder.updatedAt = deletedAt;
+		folder.trashedUntil = computeTrashedUntil(deletedAt);
+
+		const currentFilesList = get(currentFiles);
+		currentFilesList.forEach((file) => {
+			if (file.folderId === folderId) {
+				file.deletedAt = deletedAt;
+				file.trashedUntil = computeTrashedUntil(deletedAt);
+				file.updatedAt = deletedAt;
+			}
+		});
+
+		workspaceFolders.set([...currentFoldersList]);
+		currentFiles.set([...currentFilesList]);
+
+		// Fire API call in background
+		(async () => {
+			try {
+				const response = await fetch(`/api/folders/${folderId}`, {
+					method: 'DELETE'
+				});
+
+				if (!response.ok) {
+					console.error('Failed to delete folder');
+				}
+			} catch (err) {
+				console.error('Delete folder error:', err);
+			}
+		})();
+	}
 }
 
 // ==================== FILE OPERATIONS ====================
 
-export function renameFile(fileId: string, newName: string): void {
+export async function renameFile(fileId: string, newName: string): Promise<void> {
 	if (!newName.trim()) throw new Error('Name is required');
 
-	const currentFilesList = get(currentFiles);
-	const file = currentFilesList.find((f) => f.id === fileId);
+	if (USE_MOCK_DATA) {
+		// Mock mode: Update locally
+		const currentFilesList = get(currentFiles);
+		const file = currentFilesList.find((f) => f.id === fileId);
 
-	if (!file) return;
-	if (newName === file.name) return;
+		if (!file) return;
+		if (newName === file.name) return;
 
-	file.name = newName.trim();
-	file.updatedAt = new Date();
+		file.name = newName.trim();
+		file.updatedAt = new Date();
 
-	currentFiles.set([...currentFilesList]);
+		currentFiles.set([...currentFilesList]);
+	} else {
+		// Backend mode: Optimistic update + async API call
+		const currentFilesList = get(currentFiles);
+		const file = currentFilesList.find((f) => f.id === fileId);
+		if (!file) return;
+		if (newName === file.name) return;
+
+		// Optimistic update
+		file.name = newName.trim();
+		file.updatedAt = new Date();
+		currentFiles.set([...currentFilesList]);
+
+		// Fire API call in background
+		(async () => {
+			try {
+				const response = await fetch(`/api/files/${fileId}`, {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ name: newName })
+				});
+
+				if (!response.ok) {
+					console.error('Failed to rename file');
+				}
+			} catch (err) {
+				console.error('Rename file error:', err);
+			}
+		})();
+	}
 }
 
 export function setFileTags(fileId: string, tagIds: string[]): void {
@@ -315,35 +596,96 @@ export function setFileTags(fileId: string, tagIds: string[]): void {
 	currentFiles.set([...currentFilesList]);
 }
 
-export function deleteFile(fileId: string): void {
-	const currentFilesList = get(currentFiles);
-	const file = currentFilesList.find((f) => f.id === fileId);
+export async function deleteFile(fileId: string): Promise<void> {
+	if (USE_MOCK_DATA) {
+		// Mock mode: Soft delete locally
+		const currentFilesList = get(currentFiles);
+		const file = currentFilesList.find((f) => f.id === fileId);
 
-	if (!file) return;
+		if (!file) return;
 
-	// Soft delete file
-	file.deletedAt = utcNow();
-	file.trashedUntil = computeTrashedUntil(file.deletedAt);
-	file.updatedAt = file.deletedAt;
+		file.deletedAt = utcNow();
+		file.trashedUntil = computeTrashedUntil(file.deletedAt);
+		file.updatedAt = file.deletedAt;
 
-	currentFiles.set([...currentFilesList]);
+		currentFiles.set([...currentFilesList]);
+	} else {
+		// Backend mode: Optimistic update + async API call
+		const currentFilesList = get(currentFiles);
+		const file = currentFilesList.find((f) => f.id === fileId);
+
+		if (!file) return;
+
+		// Optimistic update
+		file.deletedAt = utcNow();
+		file.trashedUntil = computeTrashedUntil(file.deletedAt);
+		file.updatedAt = file.deletedAt;
+		currentFiles.set([...currentFilesList]);
+
+		// Fire API call in background
+		(async () => {
+			try {
+				const response = await fetch(`/api/files/${fileId}`, {
+					method: 'DELETE'
+				});
+
+				if (!response.ok) {
+					console.error('Failed to delete file');
+				}
+			} catch (err) {
+				console.error('Delete file error:', err);
+			}
+		})();
+	}
 }
 
-export function deleteFiles(fileIds: string[]): void {
+export async function deleteFiles(fileIds: string[]): Promise<void> {
 	if (fileIds.length === 0) return;
 
-	const currentFilesList = get(currentFiles);
-	const now = utcNow();
-	const idSet = new Set(fileIds);
+	if (USE_MOCK_DATA) {
+		// Mock mode: Bulk soft delete locally
+		const currentFilesList = get(currentFiles);
+		const now = utcNow();
+		const idSet = new Set(fileIds);
 
-	currentFilesList.forEach((file) => {
-		if (!idSet.has(file.id)) return;
-		file.deletedAt = now;
-		file.trashedUntil = computeTrashedUntil(now);
-		file.updatedAt = now;
-	});
+		currentFilesList.forEach((file) => {
+			if (!idSet.has(file.id)) return;
+			file.deletedAt = now;
+			file.trashedUntil = computeTrashedUntil(now);
+			file.updatedAt = now;
+		});
 
-	currentFiles.set([...currentFilesList]);
+		currentFiles.set([...currentFilesList]);
+	} else {
+		// Backend mode: API call
+		const response = await fetch('/api/files/bulk-delete', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ fileIds })
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to delete files');
+		}
+
+		const result = await response.json();
+
+		// Update store
+		const currentFilesList = get(currentFiles);
+		const idSet = new Set(fileIds);
+		const trashedUntil = new Date(result.trashedUntil);
+		const deletedAt = new Date();
+
+		currentFilesList.forEach((file) => {
+			if (!idSet.has(file.id)) return;
+			file.deletedAt = deletedAt;
+			file.trashedUntil = trashedUntil;
+			file.updatedAt = deletedAt;
+		});
+
+		currentFiles.set([...currentFilesList]);
+	}
 }
 
 export function uploadFiles(files: FileList): void {
@@ -354,29 +696,58 @@ export function uploadFiles(files: FileList): void {
 
 	const currentFilesList = get(currentFiles);
 
-	// Add mock files to store
-	for (let i = 0; i < files.length; i++) {
-		const file = files[i];
-		const newFile: File = {
-			id: `file_${Date.now()}_${i}`,
-			workspaceId: currentWs.id,
-			folderId: currentFolder_.id,
-			name: file.name,
-			size: file.size,
-			mimeType: file.type || 'application/octet-stream',
-			storagePath: URL.createObjectURL(file), // Mock storage path
-			uploadedBy: 'user_1',
-			starred: false,
-			tagIds: [],
-			trashedUntil: null,
-			createdAt: new Date(),
-			updatedAt: new Date(),
-			deletedAt: null
-		};
-		currentFilesList.push(newFile);
-	}
+	if (USE_MOCK_DATA) {
+		// Mock mode: Add mock files to store
+		for (let i = 0; i < files.length; i++) {
+			const file = files[i];
+			const newFile: File = {
+				id: `file_${Date.now()}_${i}`,
+				workspaceId: currentWs.id,
+				folderId: currentFolder_.id,
+				name: file.name,
+				size: file.size,
+				mimeType: file.type || 'application/octet-stream',
+				storagePath: URL.createObjectURL(file), // Mock storage path
+				uploadedBy: 'user_1',
+				starred: false,
+				tagIds: [],
+				trashedUntil: null,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+				deletedAt: null
+			};
+			currentFilesList.push(newFile);
+		}
 
-	currentFiles.set([...currentFilesList]);
+		currentFiles.set([...currentFilesList]);
+	} else {
+		// Backend mode: Fire async API call in background
+		(async () => {
+			try {
+				for (let i = 0; i < files.length; i++) {
+					const file = files[i];
+					const formData = new FormData();
+					formData.append('file', file);
+					formData.append('workspaceId', currentWs.id);
+					formData.append('folderId', currentFolder_.id);
+					formData.append('name', file.name);
+
+					const response = await fetch('/api/files', {
+						method: 'POST',
+						body: formData
+					});
+
+					if (response.ok) {
+						const newFile = await response.json();
+						const updated = get(currentFiles);
+						currentFiles.set([...updated, newFile]);
+					}
+				}
+			} catch (err) {
+				console.error('Upload files error:', err);
+			}
+		})();
+	}
 }
 
 // ==================== MOVE OPERATIONS ====================
@@ -388,35 +759,85 @@ export function moveFilesToFolder(
 ): void {
 	if (fileIds.length === 0) return;
 
-	const folders = get(workspaceFolders);
-	const files = get(currentFiles);
-	const targetFolder = targetFolderId
-		? folders.find((f) => f.id === targetFolderId && !f.deletedAt)
-		: null;
+	if (USE_MOCK_DATA) {
+		// Mock mode: Update locally
+		const folders = get(workspaceFolders);
+		const files = get(currentFiles);
+		const targetFolder = targetFolderId
+			? folders.find((f) => f.id === targetFolderId && !f.deletedAt)
+			: null;
 
-	const targetWorkspaceId = targetFolder
-		? targetFolder.workspaceId
-		: (opts?.targetWorkspaceId ?? get(currentWorkspace)?.id);
+		const targetWorkspaceId = targetFolder
+			? targetFolder.workspaceId
+			: (opts?.targetWorkspaceId ?? get(currentWorkspace)?.id);
 
-	if (!targetWorkspaceId) {
-		throw new Error('A target workspace is required to move files.');
+		if (!targetWorkspaceId) {
+			throw new Error('A target workspace is required to move files.');
+		}
+
+		if (targetFolder && targetFolder.workspaceId !== targetWorkspaceId) {
+			throw new Error('Target folder is not in the specified workspace.');
+		}
+
+		const now = new Date();
+		const idSet = new Set(fileIds);
+
+		files.forEach((file) => {
+			if (!idSet.has(file.id)) return;
+			file.workspaceId = targetWorkspaceId;
+			file.folderId = targetFolderId;
+			file.updatedAt = now;
+		});
+
+		currentFiles.set([...files]);
+	} else {
+		// Backend mode: Fire async API call in background
+		(async () => {
+			try {
+				const folders = get(workspaceFolders);
+				const targetFolder = targetFolderId
+					? folders.find((f) => f.id === targetFolderId && !f.deletedAt)
+					: null;
+
+				const targetWorkspaceId = targetFolder
+					? targetFolder.workspaceId
+					: (opts?.targetWorkspaceId ?? get(currentWorkspace)?.id);
+
+				if (!targetWorkspaceId) return;
+
+				const response = await fetch('/api/files/move', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						fileIds,
+						targetFolderId,
+						targetWorkspaceId
+					})
+				});
+
+				if (!response.ok) {
+					console.error('Failed to move files');
+					return;
+				}
+
+				// Update store optimistically (already done above in mock logic)
+				const files = get(currentFiles);
+				const now = new Date();
+				const idSet = new Set(fileIds);
+
+				files.forEach((file) => {
+					if (!idSet.has(file.id)) return;
+					file.workspaceId = targetWorkspaceId;
+					file.folderId = targetFolderId;
+					file.updatedAt = now;
+				});
+
+				currentFiles.set([...files]);
+			} catch (err) {
+				console.error('Move files error:', err);
+			}
+		})();
 	}
-
-	if (targetFolder && targetFolder.workspaceId !== targetWorkspaceId) {
-		throw new Error('Target folder is not in the specified workspace.');
-	}
-
-	const now = new Date();
-	const idSet = new Set(fileIds);
-
-	files.forEach((file) => {
-		if (!idSet.has(file.id)) return;
-		file.workspaceId = targetWorkspaceId;
-		file.folderId = targetFolderId;
-		file.updatedAt = now;
-	});
-
-	currentFiles.set([...files]);
 }
 
 export function moveFilesToWorkspace(
@@ -424,45 +845,118 @@ export function moveFilesToWorkspace(
 	targetWorkspaceId: string,
 	targetFolderId: string | null = null
 ): void {
-	const targetWorkspace = get(workspaces).find((w) => w.id === targetWorkspaceId && !w.deletedAt);
-	if (!targetWorkspace) {
-		throw new Error('Target workspace not found.');
-	}
-
-	if (targetFolderId) {
-		const folders = get(workspaceFolders);
-		const targetFolder = folders.find(
-			(f) => f.id === targetFolderId && f.workspaceId === targetWorkspaceId && !f.deletedAt
-		);
-		if (!targetFolder) {
-			throw new Error('Target folder is not available in the destination workspace.');
+	if (USE_MOCK_DATA) {
+		// Mock mode: Validate and move
+		const targetWorkspace = get(workspaces).find((w) => w.id === targetWorkspaceId && !w.deletedAt);
+		if (!targetWorkspace) {
+			throw new Error('Target workspace not found.');
 		}
-	}
 
-	moveFilesToFolder(fileIds, targetFolderId, { targetWorkspaceId });
+		if (targetFolderId) {
+			const folders = get(workspaceFolders);
+			const targetFolder = folders.find(
+				(f) => f.id === targetFolderId && f.workspaceId === targetWorkspaceId && !f.deletedAt
+			);
+			if (!targetFolder) {
+				throw new Error('Target folder is not available in the destination workspace.');
+			}
+		}
+
+		moveFilesToFolder(fileIds, targetFolderId, { targetWorkspaceId });
+	} else {
+		// Backend mode: Fire async API call in background
+		(async () => {
+			try {
+				const response = await fetch('/api/files/move', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						fileIds,
+						targetFolderId,
+						targetWorkspaceId
+					})
+				});
+
+				if (!response.ok) {
+					console.error('Failed to move files to workspace');
+					return;
+				}
+
+				// Update store
+				const files = get(currentFiles);
+				const now = new Date();
+				const idSet = new Set(fileIds);
+
+				files.forEach((file) => {
+					if (!idSet.has(file.id)) return;
+					file.workspaceId = targetWorkspaceId;
+					file.folderId = targetFolderId;
+					file.updatedAt = now;
+				});
+
+				currentFiles.set([...files]);
+			} catch (err) {
+				console.error('Move files to workspace error:', err);
+			}
+		})();
+	}
 }
 
 export function moveFolder(folderId: string, targetParentId: string | null): void {
-	const folders = get(workspaceFolders);
-	const folder = folders.find((f) => f.id === folderId && !f.deletedAt);
-	if (!folder) return;
+	if (USE_MOCK_DATA) {
+		// Mock mode: Move locally
+		const folders = get(workspaceFolders);
+		const folder = folders.find((f) => f.id === folderId && !f.deletedAt);
+		if (!folder) return;
 
-	const targetParent = targetParentId
-		? folders.find((f) => f.id === targetParentId && !f.deletedAt)
-		: null;
+		const targetParent = targetParentId
+			? folders.find((f) => f.id === targetParentId && !f.deletedAt)
+			: null;
 
-	if (targetParent && targetParent.workspaceId !== folder.workspaceId) {
-		throw new Error('Cannot move folder into a different workspace without confirmation.');
+		if (targetParent && targetParent.workspaceId !== folder.workspaceId) {
+			throw new Error('Cannot move folder into a different workspace without confirmation.');
+		}
+
+		const descendants = getDescendantFolderIds(folders, folderId);
+		if (targetParentId && descendants.has(targetParentId)) {
+			throw new Error('Cannot move a folder into its own descendant.');
+		}
+
+		folder.parentId = targetParentId;
+		folder.updatedAt = new Date();
+		workspaceFolders.set([...folders]);
+	} else {
+		// Backend mode: Fire async API call in background
+		(async () => {
+			try {
+				const folders = get(workspaceFolders);
+				const folder = folders.find((f) => f.id === folderId && !f.deletedAt);
+				if (!folder) return;
+
+				const response = await fetch('/api/folders/move', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						folderId,
+						targetParentId,
+						targetWorkspaceId: folder.workspaceId
+					})
+				});
+
+				if (!response.ok) {
+					console.error('Failed to move folder');
+					return;
+				}
+
+				// Update store
+				folder.parentId = targetParentId;
+				folder.updatedAt = new Date();
+				workspaceFolders.set([...folders]);
+			} catch (err) {
+				console.error('Move folder error:', err);
+			}
+		})();
 	}
-
-	const descendants = getDescendantFolderIds(folders, folderId);
-	if (targetParentId && descendants.has(targetParentId)) {
-		throw new Error('Cannot move a folder into its own descendant.');
-	}
-
-	folder.parentId = targetParentId;
-	folder.updatedAt = new Date();
-	workspaceFolders.set([...folders]);
 }
 
 export function moveFolderToWorkspace(
@@ -470,138 +964,383 @@ export function moveFolderToWorkspace(
 	targetWorkspaceId: string,
 	targetParentId: string | null = null
 ): void {
-	const folders = get(workspaceFolders);
-	const files = get(currentFiles);
-	const folder = folders.find((f) => f.id === folderId && !f.deletedAt);
-	if (!folder) return;
+	if (USE_MOCK_DATA) {
+		// Mock mode: Validate and move
+		const folders = get(workspaceFolders);
+		const files = get(currentFiles);
+		const folder = folders.find((f) => f.id === folderId && !f.deletedAt);
+		if (!folder) return;
 
-	const targetWorkspace = get(workspaces).find((w) => w.id === targetWorkspaceId && !w.deletedAt);
-	if (!targetWorkspace) {
-		throw new Error('Target workspace not found.');
-	}
-
-	const targetParent = targetParentId
-		? folders.find(
-				(f) => f.id === targetParentId && f.workspaceId === targetWorkspaceId && !f.deletedAt
-			)
-		: null;
-
-	const descendants = getDescendantFolderIds(folders, folderId);
-	if (targetParentId && descendants.has(targetParentId)) {
-		throw new Error('Cannot move a folder into its own descendant.');
-	}
-
-	const allAffectedFolderIds = new Set([folderId, ...Array.from(descendants)]);
-	const now = new Date();
-
-	folders.forEach((f) => {
-		if (!allAffectedFolderIds.has(f.id)) return;
-		f.workspaceId = targetWorkspaceId;
-		// Preserve hierarchy; only the root moved folder changes parent if specified
-		if (f.id === folderId) {
-			f.parentId = targetParentId;
+		const targetWorkspace = get(workspaces).find((w) => w.id === targetWorkspaceId && !w.deletedAt);
+		if (!targetWorkspace) {
+			throw new Error('Target workspace not found.');
 		}
-		f.updatedAt = now;
-	});
 
-	files.forEach((file) => {
-		const folderId = file.folderId;
-		if (!folderId || !allAffectedFolderIds.has(folderId)) return;
-		file.workspaceId = targetWorkspaceId;
-		file.updatedAt = now;
-	});
+		const targetParent = targetParentId
+			? folders.find(
+					(f) => f.id === targetParentId && f.workspaceId === targetWorkspaceId && !f.deletedAt
+				)
+			: null;
 
-	workspaceFolders.set([...folders]);
-	currentFiles.set([...files]);
+		const descendants = getDescendantFolderIds(folders, folderId);
+		if (targetParentId && descendants.has(targetParentId)) {
+			throw new Error('Cannot move a folder into its own descendant.');
+		}
+
+		const allAffectedFolderIds = new Set([folderId, ...Array.from(descendants)]);
+		const now = new Date();
+
+		folders.forEach((f) => {
+			if (!allAffectedFolderIds.has(f.id)) return;
+			f.workspaceId = targetWorkspaceId;
+			if (f.id === folderId) {
+				f.parentId = targetParentId;
+			}
+			f.updatedAt = now;
+		});
+
+		files.forEach((file) => {
+			const folderId = file.folderId;
+			if (!folderId || !allAffectedFolderIds.has(folderId)) return;
+			file.workspaceId = targetWorkspaceId;
+			file.updatedAt = now;
+		});
+
+		workspaceFolders.set([...folders]);
+		currentFiles.set([...files]);
+	} else {
+		// Backend mode: Fire async API call in background
+		(async () => {
+			try {
+				const folders = get(workspaceFolders);
+				const files = get(currentFiles);
+				const folder = folders.find((f) => f.id === folderId && !f.deletedAt);
+				if (!folder) return;
+
+				const response = await fetch('/api/folders/move', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						folderId,
+						targetParentId,
+						targetWorkspaceId
+					})
+				});
+
+				if (!response.ok) {
+					console.error('Failed to move folder to workspace');
+					return;
+				}
+
+				// Update store
+				const descendants = getDescendantFolderIds(folders, folderId);
+				const allAffectedFolderIds = new Set([folderId, ...Array.from(descendants)]);
+				const now = new Date();
+
+				folders.forEach((f) => {
+					if (!allAffectedFolderIds.has(f.id)) return;
+					f.workspaceId = targetWorkspaceId;
+					if (f.id === folderId) {
+						f.parentId = targetParentId;
+					}
+					f.updatedAt = now;
+				});
+
+				files.forEach((file) => {
+					const folderId = file.folderId;
+					if (!folderId || !allAffectedFolderIds.has(folderId)) return;
+					file.workspaceId = targetWorkspaceId;
+					file.updatedAt = now;
+				});
+
+				workspaceFolders.set([...folders]);
+				currentFiles.set([...files]);
+			} catch (err) {
+				console.error('Move folder to workspace error:', err);
+			}
+		})();
+	}
 }
 
 // ==================== STAR/UNSTAR OPERATIONS ====================
 
-export function toggleFileStar(fileId: string): void {
-	const currentFilesList = get(currentFiles);
-	const file = currentFilesList.find((f) => f.id === fileId);
+export async function toggleFileStar(fileId: string): Promise<void> {
+	if (USE_MOCK_DATA) {
+		// Mock mode: Toggle locally
+		const currentFilesList = get(currentFiles);
+		const file = currentFilesList.find((f) => f.id === fileId);
 
-	if (!file) return;
+		if (!file) return;
 
-	file.starred = !file.starred;
-	file.updatedAt = new Date();
+		file.starred = !file.starred;
+		file.updatedAt = new Date();
 
-	currentFiles.set([...currentFilesList]);
+		currentFiles.set([...currentFilesList]);
+	} else {
+		// Backend mode: Optimistic update + async API call
+		const currentFilesList = get(currentFiles);
+		const file = currentFilesList.find((f) => f.id === fileId);
+		if (!file) return;
+
+		const newStarred = !file.starred;
+
+		// Optimistic update
+		file.starred = newStarred;
+		file.updatedAt = new Date();
+		currentFiles.set([...currentFilesList]);
+
+		// Fire API call in background
+		(async () => {
+			try {
+				const response = await fetch(`/api/files/${fileId}`, {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ starred: newStarred })
+				});
+
+				if (!response.ok) {
+					console.error('Failed to update file');
+				}
+			} catch (err) {
+				console.error('Toggle star error:', err);
+			}
+		})();
+	}
 }
 
-export function toggleFolderStar(folderId: string): void {
-	const currentFoldersList = get(workspaceFolders);
-	const folder = currentFoldersList.find((f) => f.id === folderId);
+export async function toggleFolderStar(folderId: string): Promise<void> {
+	if (USE_MOCK_DATA) {
+		// Mock mode: Toggle locally
+		const currentFoldersList = get(workspaceFolders);
+		const folder = currentFoldersList.find((f) => f.id === folderId);
 
-	if (!folder) return;
+		if (!folder) return;
 
-	folder.starred = !folder.starred;
-	folder.updatedAt = new Date();
+		folder.starred = !folder.starred;
+		folder.updatedAt = new Date();
 
-	workspaceFolders.set([...currentFoldersList]);
+		workspaceFolders.set([...currentFoldersList]);
+	} else {
+		// Backend mode: API call
+		const currentFoldersList = get(workspaceFolders);
+		const folder = currentFoldersList.find((f) => f.id === folderId);
+		if (!folder) return;
+
+		const response = await fetch(`/api/folders/${folderId}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ starred: !folder.starred })
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to update folder');
+		}
+
+		const updated = await response.json();
+
+		// Update store
+		const index = currentFoldersList.findIndex((f) => f.id === folderId);
+		if (index !== -1) {
+			currentFoldersList[index] = updated;
+			workspaceFolders.set([...currentFoldersList]);
+		}
+	}
 }
 
 // ==================== TRASH OPERATIONS ====================
 
-export function restoreFile(fileId: string): void {
-	const currentFilesList = get(currentFiles);
-	const file = currentFilesList.find((f) => f.id === fileId);
+export async function restoreFile(fileId: string): Promise<void> {
+	if (USE_MOCK_DATA) {
+		// Mock mode: Restore locally
+		const currentFilesList = get(currentFiles);
+		const file = currentFilesList.find((f) => f.id === fileId);
 
-	if (!file) return;
+		if (!file) return;
 
-	file.deletedAt = null;
-	file.trashedUntil = null;
-	file.updatedAt = new Date();
+		file.deletedAt = null;
+		file.trashedUntil = null;
+		file.updatedAt = new Date();
 
-	currentFiles.set([...currentFilesList]);
+		currentFiles.set([...currentFilesList]);
+	} else {
+		// Backend mode: Optimistic update + async API call
+		const currentFilesList = get(currentFiles);
+		const file = currentFilesList.find((f) => f.id === fileId);
+
+		if (!file) return;
+
+		// Optimistic update
+		file.deletedAt = null;
+		file.trashedUntil = null;
+		file.updatedAt = new Date();
+		currentFiles.set([...currentFilesList]);
+
+		// Fire API call in background
+		(async () => {
+			try {
+				const response = await fetch(`/api/files/${fileId}/restore`, {
+					method: 'POST'
+				});
+
+				if (!response.ok) {
+					console.error('Failed to restore file');
+				}
+			} catch (err) {
+				console.error('Restore file error:', err);
+			}
+		})();
+	}
 }
 
 // ==================== TAG OPERATIONS ====================
 
 export function upsertTag(workspaceId: string, name: string, color = 'accent'): Tag {
-	const normalized = normalizeTagName(name);
-	if (!normalized) throw new Error('Tag name is required');
+	if (USE_MOCK_DATA) {
+		// Mock mode: Create or find tag locally
+		const normalized = normalizeTagName(name);
+		if (!normalized) throw new Error('Tag name is required');
 
-	const currentTags = get(workspaceTags);
-	const existing = currentTags.find((t) => normalizeTagName(t.name) === normalized);
+		const currentTags = get(workspaceTags);
+		const existing = currentTags.find((t) => normalizeTagName(t.name) === normalized);
 
-	if (existing) {
-		if (existing.deletedAt) {
-			const revived = { ...existing, deletedAt: null, updatedAt: new Date() };
-			workspaceTags.set(currentTags.map((t) => (t.id === existing.id ? revived : t)));
-			return revived;
+		if (existing) {
+			if (existing.deletedAt) {
+				const revived = { ...existing, deletedAt: null, updatedAt: new Date() };
+				workspaceTags.set(currentTags.map((t) => (t.id === existing.id ? revived : t)));
+				return revived;
+			}
+			return existing;
 		}
-		return existing;
+
+		const now = new Date();
+		const newTag: Tag = {
+			id: `tag_${Date.now()}`,
+			workspaceId,
+			name: name.trim(),
+			color,
+			createdAt: now,
+			updatedAt: now,
+			deletedAt: null
+		};
+
+		workspaceTags.set([...currentTags, newTag]);
+		return newTag;
+	} else {
+		// Backend mode: Fire async API call, return mock tag locally
+		const normalized = normalizeTagName(name);
+		if (!normalized) throw new Error('Tag name is required');
+
+		const currentTags = get(workspaceTags);
+		const existing = currentTags.find((t) => normalizeTagName(t.name) === normalized);
+
+		if (existing) {
+			// Fire API call to restore if needed
+			if (existing.deletedAt) {
+				(async () => {
+					try {
+						const response = await fetch(`/api/tags`, {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ workspaceId, name: name.trim(), color })
+						});
+
+						if (response.ok) {
+							const restored = await response.json();
+							const tags = get(workspaceTags);
+							workspaceTags.set(tags.map((t) => (t.id === existing.id ? restored : t)));
+						}
+					} catch (err) {
+						console.error('Restore tag error:', err);
+					}
+				})();
+
+				const revived = { ...existing, deletedAt: null, updatedAt: new Date() };
+				workspaceTags.set(currentTags.map((t) => (t.id === existing.id ? revived : t)));
+				return revived;
+			}
+			return existing;
+		}
+
+		// Create locally and fire API call
+		const now = new Date();
+		const newTag: Tag = {
+			id: `tag_${Date.now()}`,
+			workspaceId,
+			name: name.trim(),
+			color,
+			createdAt: now,
+			updatedAt: now,
+			deletedAt: null
+		};
+
+		workspaceTags.set([...currentTags, newTag]);
+
+		(async () => {
+			try {
+				await fetch('/api/tags', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ workspaceId, name: name.trim(), color })
+				});
+			} catch (err) {
+				console.error('Create tag error:', err);
+			}
+		})();
+
+		return newTag;
 	}
-
-	const now = new Date();
-	const newTag: Tag = {
-		id: `tag_${Date.now()}`,
-		workspaceId,
-		name: name.trim(),
-		color,
-		createdAt: now,
-		updatedAt: now,
-		deletedAt: null
-	};
-
-	workspaceTags.set([...currentTags, newTag]);
-	return newTag;
 }
 
 export function removeTagFromWorkspace(tagId: string): void {
-	const tags = get(workspaceTags);
-	const tag = tags.find((t) => t.id === tagId);
-	if (!tag) return;
+	if (USE_MOCK_DATA) {
+		// Mock mode: Soft delete tag locally
+		const tags = get(workspaceTags);
+		const tag = tags.find((t) => t.id === tagId);
+		if (!tag) return;
 
-	const updatedTags = tags.map((t) => (t.id === tagId ? { ...t, deletedAt: new Date() } : t));
-	workspaceTags.set(updatedTags);
+		const updatedTags = tags.map((t) => (t.id === tagId ? { ...t, deletedAt: new Date() } : t));
+		workspaceTags.set(updatedTags);
 
-	const files = get(currentFiles).map((f) => {
-		if (!f.tagIds?.includes(tagId)) return f;
-		return { ...f, tagIds: f.tagIds.filter((id) => id !== tagId), updatedAt: new Date() };
-	});
-	currentFiles.set(files);
+		const files = get(currentFiles).map((f) => {
+			if (!f.tagIds?.includes(tagId)) return f;
+			return { ...f, tagIds: f.tagIds.filter((id) => id !== tagId), updatedAt: new Date() };
+		});
+		currentFiles.set(files);
+	} else {
+		// Backend mode: Fire async API call in background
+		(async () => {
+			try {
+				const response = await fetch(`/api/tags/${tagId}`, {
+					method: 'DELETE',
+					headers: { 'Content-Type': 'application/json' }
+				});
+
+				if (!response.ok) {
+					console.error('Failed to remove tag');
+					return;
+				}
+
+				// Update store
+				const tags = get(workspaceTags);
+				const tag = tags.find((t) => t.id === tagId);
+				if (tag) {
+					const updatedTags = tags.map((t) =>
+						t.id === tagId ? { ...t, deletedAt: new Date() } : t
+					);
+					workspaceTags.set(updatedTags);
+
+					const files = get(currentFiles).map((f) => {
+						if (!f.tagIds?.includes(tagId)) return f;
+						return { ...f, tagIds: f.tagIds.filter((id) => id !== tagId), updatedAt: new Date() };
+					});
+					currentFiles.set(files);
+				}
+			} catch (err) {
+				console.error('Remove tag error:', err);
+			}
+		})();
+	}
 }
 
 export function addTagsToFile(
@@ -610,29 +1349,75 @@ export function addTagsToFile(
 	names: string[],
 	opts?: { color?: string }
 ): { tags: Tag[]; file?: File } {
-	const files = get(currentFiles);
-	const targetIndex = files.findIndex((f) => f.id === fileId);
-	if (targetIndex === -1) {
-		return { tags: [] };
+	if (USE_MOCK_DATA) {
+		// Mock mode: Add tags locally
+		const files = get(currentFiles);
+		const targetIndex = files.findIndex((f) => f.id === fileId);
+		if (targetIndex === -1) {
+			return { tags: [] };
+		}
+
+		const createdOrFoundTags = names
+			.map((n) => upsertTag(workspaceId, n, opts?.color))
+			.filter(Boolean) as Tag[];
+
+		const existingTagIds = files[targetIndex].tagIds || [];
+		const mergedTagIds = Array.from(
+			new Set([...existingTagIds, ...createdOrFoundTags.map((t) => t.id)])
+		);
+
+		files[targetIndex] = {
+			...files[targetIndex],
+			tagIds: mergedTagIds,
+			updatedAt: new Date()
+		};
+
+		currentFiles.set([...files]);
+		return { tags: createdOrFoundTags, file: files[targetIndex] };
+	} else {
+		// Backend mode: Fire async API call in background
+		const files = get(currentFiles);
+		const targetIndex = files.findIndex((f) => f.id === fileId);
+		if (targetIndex === -1) {
+			return { tags: [] };
+		}
+
+		// Create tags locally
+		const createdOrFoundTags = names
+			.map((n) => upsertTag(workspaceId, n, opts?.color))
+			.filter(Boolean) as Tag[];
+
+		const existingTagIds = files[targetIndex].tagIds || [];
+		const mergedTagIds = Array.from(
+			new Set([...existingTagIds, ...createdOrFoundTags.map((t) => t.id)])
+		);
+
+		files[targetIndex] = {
+			...files[targetIndex],
+			tagIds: mergedTagIds,
+			updatedAt: new Date()
+		};
+
+		currentFiles.set([...files]);
+
+		// Fire API call in background
+		(async () => {
+			try {
+				await fetch(`/api/files/${fileId}/tags`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						workspaceId,
+						tagNames: names.map((n) => n.trim())
+					})
+				});
+			} catch (err) {
+				console.error('Add tags to file error:', err);
+			}
+		})();
+
+		return { tags: createdOrFoundTags, file: files[targetIndex] };
 	}
-
-	const createdOrFoundTags = names
-		.map((n) => upsertTag(workspaceId, n, opts?.color))
-		.filter(Boolean) as Tag[];
-
-	const existingTagIds = files[targetIndex].tagIds || [];
-	const mergedTagIds = Array.from(
-		new Set([...existingTagIds, ...createdOrFoundTags.map((t) => t.id)])
-	);
-
-	files[targetIndex] = {
-		...files[targetIndex],
-		tagIds: mergedTagIds,
-		updatedAt: new Date()
-	};
-
-	currentFiles.set([...files]);
-	return { tags: createdOrFoundTags, file: files[targetIndex] };
 }
 
 export function addTagsToFiles(
@@ -641,43 +1426,105 @@ export function addTagsToFiles(
 	names: string[],
 	opts?: { color?: string }
 ): { tags: Tag[]; updatedFiles: File[] } {
-	if (fileIds.length === 0) return { tags: [], updatedFiles: [] };
+	if (USE_MOCK_DATA) {
+		// Mock mode: Add tags locally
+		if (fileIds.length === 0) return { tags: [], updatedFiles: [] };
 
-	const files = get(currentFiles);
-	const idSet = new Set(fileIds);
+		const files = get(currentFiles);
+		const idSet = new Set(fileIds);
 
-	const normalizedNames = names
-		.map((n) => n.trim())
-		.filter(Boolean)
-		.map((n) => normalizeTagName(n));
+		const normalizedNames = names
+			.map((n) => n.trim())
+			.filter(Boolean)
+			.map((n) => normalizeTagName(n));
 
-	const uniqueNormalized = Array.from(new Set(normalizedNames));
-	const nameByNormalized = new Map<string, string>();
-	for (const rawName of names.map((n) => n.trim()).filter(Boolean)) {
-		const norm = normalizeTagName(rawName);
-		if (norm && !nameByNormalized.has(norm)) {
-			nameByNormalized.set(norm, rawName);
+		const uniqueNormalized = Array.from(new Set(normalizedNames));
+		const nameByNormalized = new Map<string, string>();
+		for (const rawName of names.map((n) => n.trim()).filter(Boolean)) {
+			const norm = normalizeTagName(rawName);
+			if (norm && !nameByNormalized.has(norm)) {
+				nameByNormalized.set(norm, rawName);
+			}
 		}
+
+		const resolvedTags = uniqueNormalized
+			.map((norm) => {
+				const displayName = nameByNormalized.get(norm) ?? norm;
+				return upsertTag(workspaceId, displayName, opts?.color);
+			})
+			.filter(Boolean) as Tag[];
+
+		const newTagIds = resolvedTags.map((t) => t.id);
+		const now = new Date();
+
+		const updatedFiles = files.map((file) => {
+			if (!idSet.has(file.id)) return file;
+			const merged = Array.from(new Set([...(file.tagIds || []), ...newTagIds]));
+			return { ...file, tagIds: merged, updatedAt: now };
+		});
+
+		currentFiles.set(updatedFiles);
+		return { tags: resolvedTags, updatedFiles: updatedFiles.filter((f) => idSet.has(f.id)) };
+	} else {
+		// Backend mode: Fire async API calls in background for each file
+		if (fileIds.length === 0) return { tags: [], updatedFiles: [] };
+
+		const files = get(currentFiles);
+		const idSet = new Set(fileIds);
+
+		// Create tags locally
+		const normalizedNames = names
+			.map((n) => n.trim())
+			.filter(Boolean)
+			.map((n) => normalizeTagName(n));
+
+		const uniqueNormalized = Array.from(new Set(normalizedNames));
+		const nameByNormalized = new Map<string, string>();
+		for (const rawName of names.map((n) => n.trim()).filter(Boolean)) {
+			const norm = normalizeTagName(rawName);
+			if (norm && !nameByNormalized.has(norm)) {
+				nameByNormalized.set(norm, rawName);
+			}
+		}
+
+		const resolvedTags = uniqueNormalized
+			.map((norm) => {
+				const displayName = nameByNormalized.get(norm) ?? norm;
+				return upsertTag(workspaceId, displayName, opts?.color);
+			})
+			.filter(Boolean) as Tag[];
+
+		const newTagIds = resolvedTags.map((t) => t.id);
+		const now = new Date();
+
+		const updatedFiles = files.map((file) => {
+			if (!idSet.has(file.id)) return file;
+			const merged = Array.from(new Set([...(file.tagIds || []), ...newTagIds]));
+			return { ...file, tagIds: merged, updatedAt: now };
+		});
+
+		currentFiles.set(updatedFiles);
+
+		// Fire API calls in background
+		(async () => {
+			try {
+				for (const fileId of fileIds) {
+					await fetch(`/api/files/${fileId}/tags`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							workspaceId,
+							tagNames: names.map((n) => n.trim())
+						})
+					});
+				}
+			} catch (err) {
+				console.error('Add tags to files error:', err);
+			}
+		})();
+
+		return { tags: resolvedTags, updatedFiles: updatedFiles.filter((f) => idSet.has(f.id)) };
 	}
-
-	const resolvedTags = uniqueNormalized
-		.map((norm) => {
-			const displayName = nameByNormalized.get(norm) ?? norm;
-			return upsertTag(workspaceId, displayName, opts?.color);
-		})
-		.filter(Boolean) as Tag[];
-
-	const newTagIds = resolvedTags.map((t) => t.id);
-	const now = new Date();
-
-	const updatedFiles = files.map((file) => {
-		if (!idSet.has(file.id)) return file;
-		const merged = Array.from(new Set([...(file.tagIds || []), ...newTagIds]));
-		return { ...file, tagIds: merged, updatedAt: now };
-	});
-
-	currentFiles.set(updatedFiles);
-	return { tags: resolvedTags, updatedFiles: updatedFiles.filter((f) => idSet.has(f.id)) };
 }
 
 export function replaceFileTags(
@@ -686,59 +1533,146 @@ export function replaceFileTags(
 	tagNames: string[],
 	opts?: { color?: string }
 ): { tags: Tag[]; file?: File } {
-	const normalizedNames = tagNames
-		.map((n) => n.trim())
-		.filter(Boolean)
-		.map((n) => normalizeTagName(n));
+	if (USE_MOCK_DATA) {
+		// Mock mode: Replace tags locally
+		const normalizedNames = tagNames
+			.map((n) => n.trim())
+			.filter(Boolean)
+			.map((n) => normalizeTagName(n));
 
-	// Deduplicate incoming names by normalized value
-	const uniqueNormalized = Array.from(new Set(normalizedNames));
+		const uniqueNormalized = Array.from(new Set(normalizedNames));
 
-	// Map back to the original names with the first-seen casing
-	const nameByNormalized = new Map<string, string>();
-	for (const rawName of tagNames.map((n) => n.trim()).filter(Boolean)) {
-		const norm = normalizeTagName(rawName);
-		if (norm && !nameByNormalized.has(norm)) {
-			nameByNormalized.set(norm, rawName);
+		const nameByNormalized = new Map<string, string>();
+		for (const rawName of tagNames.map((n) => n.trim()).filter(Boolean)) {
+			const norm = normalizeTagName(rawName);
+			if (norm && !nameByNormalized.has(norm)) {
+				nameByNormalized.set(norm, rawName);
+			}
 		}
+
+		const resolvedTags = uniqueNormalized
+			.map((norm) => {
+				const displayName = nameByNormalized.get(norm) ?? norm;
+				return upsertTag(workspaceId, displayName, opts?.color);
+			})
+			.filter(Boolean) as Tag[];
+
+		setFileTags(
+			fileId,
+			resolvedTags.map((t) => t.id)
+		);
+		return { tags: resolvedTags, file: get(currentFiles).find((f) => f.id === fileId) };
+	} else {
+		// Backend mode: Fire async API call in background
+		const normalizedNames = tagNames
+			.map((n) => n.trim())
+			.filter(Boolean)
+			.map((n) => normalizeTagName(n));
+
+		const uniqueNormalized = Array.from(new Set(normalizedNames));
+
+		const nameByNormalized = new Map<string, string>();
+		for (const rawName of tagNames.map((n) => n.trim()).filter(Boolean)) {
+			const norm = normalizeTagName(rawName);
+			if (norm && !nameByNormalized.has(norm)) {
+				nameByNormalized.set(norm, rawName);
+			}
+		}
+
+		const resolvedTags = uniqueNormalized
+			.map((norm) => {
+				const displayName = nameByNormalized.get(norm) ?? norm;
+				return upsertTag(workspaceId, displayName, opts?.color);
+			})
+			.filter(Boolean) as Tag[];
+
+		setFileTags(
+			fileId,
+			resolvedTags.map((t) => t.id)
+		);
+
+		// Fire API call in background
+		(async () => {
+			try {
+				await fetch(`/api/files/${fileId}/tags`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						workspaceId,
+						tagNames: tagNames.map((n) => n.trim())
+					})
+				});
+			} catch (err) {
+				console.error('Replace file tags error:', err);
+			}
+		})();
+
+		return { tags: resolvedTags, file: get(currentFiles).find((f) => f.id === fileId) };
 	}
-
-	const resolvedTags = uniqueNormalized
-		.map((norm) => {
-			const displayName = nameByNormalized.get(norm) ?? norm;
-			return upsertTag(workspaceId, displayName, opts?.color);
-		})
-		.filter(Boolean) as Tag[];
-
-	setFileTags(
-		fileId,
-		resolvedTags.map((t) => t.id)
-	);
-	return { tags: resolvedTags, file: get(currentFiles).find((f) => f.id === fileId) };
 }
 
 export function restoreFolder(folderId: string): void {
-	const currentFoldersList = get(workspaceFolders);
-	const folder = currentFoldersList.find((f) => f.id === folderId);
+	if (USE_MOCK_DATA) {
+		// Mock mode: Restore locally with files
+		const currentFoldersList = get(workspaceFolders);
+		const folder = currentFoldersList.find((f) => f.id === folderId);
 
-	if (!folder) return;
+		if (!folder) return;
 
-	folder.deletedAt = null;
-	folder.trashedUntil = null;
-	folder.updatedAt = new Date();
+		folder.deletedAt = null;
+		folder.trashedUntil = null;
+		folder.updatedAt = new Date();
 
-	const currentFilesList = get(currentFiles);
-	currentFilesList.forEach((file) => {
-		if (file.folderId === folderId) {
-			file.deletedAt = null;
-			file.trashedUntil = null;
-			file.updatedAt = new Date();
-		}
-	});
+		const currentFilesList = get(currentFiles);
+		currentFilesList.forEach((file) => {
+			if (file.folderId === folderId) {
+				file.deletedAt = null;
+				file.trashedUntil = null;
+				file.updatedAt = new Date();
+			}
+		});
 
-	currentFiles.set([...currentFilesList]);
+		currentFiles.set([...currentFilesList]);
+		workspaceFolders.set([...currentFoldersList]);
+	} else {
+		// Backend mode: Optimistic update + async API call
+		const currentFoldersList = get(workspaceFolders);
+		const folder = currentFoldersList.find((f) => f.id === folderId);
 
-	workspaceFolders.set([...currentFoldersList]);
+		if (!folder) return;
+
+		// Optimistic update
+		folder.deletedAt = null;
+		folder.trashedUntil = null;
+		folder.updatedAt = new Date();
+
+		const currentFilesList = get(currentFiles);
+		currentFilesList.forEach((file) => {
+			if (file.folderId === folderId) {
+				file.deletedAt = null;
+				file.trashedUntil = null;
+				file.updatedAt = new Date();
+			}
+		});
+
+		currentFiles.set([...currentFilesList]);
+		workspaceFolders.set([...currentFoldersList]);
+
+		// Fire API call in background
+		(async () => {
+			try {
+				const response = await fetch(`/api/folders/${folderId}/restore`, {
+					method: 'POST'
+				});
+
+				if (!response.ok) {
+					console.error('Failed to restore folder');
+				}
+			} catch (err) {
+				console.error('Restore folder error:', err);
+			}
+		})();
+	}
 }
 
 /**
@@ -760,44 +1694,83 @@ export function getFileCopyCount(fileId: string): number {
  * Returns the count of remaining copies that share the same storagePath
  * @returns Number of remaining copies (for UI feedback)
  */
-export function permanentlyDeleteFile(fileId: string): number {
-	// TODO: Replace with Cloudflare backend call (DELETE /api/files/:id?permanent=true)
-	// Backend MUST implement reference counting before deleting R2 files:
-	// 1. Delete the file record from D1
-	// 2. Check if any other file records reference the same storagePath
-	// 3. Only delete from R2 if refcount = 0 (no other copies exist)
-	// This prevents deleting R2 files that still have active copies
-
+export async function permanentlyDeleteFile(fileId: string): Promise<number> {
 	const currentFilesList = get(currentFiles);
 	const file = currentFilesList.find((f) => f.id === fileId);
 
-	// Count remaining copies BEFORE deleting this one
-	const totalCopies = file ? getFileCopyCount(fileId) : 0;
-	const remainingCopies = totalCopies - 1;
+	if (USE_MOCK_DATA) {
+		// Mock mode: Delete locally with reference counting
+		const totalCopies = file ? getFileCopyCount(fileId) : 0;
+		const remainingCopies = totalCopies - 1;
 
-	// Remove this file record from UI
-	const filtered = currentFilesList.filter((f) => f.id !== fileId);
-	currentFiles.set(filtered);
+		const filtered = currentFilesList.filter((f) => f.id !== fileId);
+		currentFiles.set(filtered);
 
-	// Return count for UI feedback
-	return remainingCopies;
+		return remainingCopies;
+	} else {
+		// Backend mode: Optimistic delete + async API call
+		const totalCopies = file ? getFileCopyCount(fileId) : 0;
+		const remainingCopies = totalCopies - 1;
+
+		// Optimistic update
+		const filtered = currentFilesList.filter((f) => f.id !== fileId);
+		currentFiles.set(filtered);
+
+		// Fire API call in background (handles R2 reference counting)
+		(async () => {
+			try {
+				const response = await fetch(`/api/files/${fileId}?permanent=true`, {
+					method: 'DELETE'
+				});
+
+				if (!response.ok) {
+					console.error('Failed to permanently delete file');
+				}
+			} catch (err) {
+				console.error('Permanently delete file error:', err);
+			}
+		})();
+
+		return remainingCopies;
+	}
 }
 
 export function permanentlyDeleteFolder(folderId: string): void {
-	// TODO: Replace with Cloudflare backend call (DELETE /api/folders/:id?permanent=true)
-	// Backend should cascade delete all files and subfolders
-
 	const currentFoldersList = get(workspaceFolders);
 	const currentFilesList = get(currentFiles);
 
-	// Remove folder
-	const filteredFolders = currentFoldersList.filter((f) => f.id !== folderId);
+	if (USE_MOCK_DATA) {
+		// Mock mode: Remove locally
+		const filteredFolders = currentFoldersList.filter((f) => f.id !== folderId);
+		const filteredFiles = currentFilesList.filter((f) => f.folderId !== folderId);
 
-	// Also remove all files in this folder
-	const filteredFiles = currentFilesList.filter((f) => f.folderId !== folderId);
+		workspaceFolders.set(filteredFolders);
+		currentFiles.set(filteredFiles);
+	} else {
+		// Backend mode: Optimistic delete + async API call
+		// Remove folder
+		const filteredFolders = currentFoldersList.filter((f) => f.id !== folderId);
+		// Also remove all files in this folder
+		const filteredFiles = currentFilesList.filter((f) => f.folderId !== folderId);
 
-	workspaceFolders.set(filteredFolders);
-	currentFiles.set(filteredFiles);
+		workspaceFolders.set(filteredFolders);
+		currentFiles.set(filteredFiles);
+
+		// Fire API call in background (cascades to nested folders/files and R2 cleanup)
+		(async () => {
+			try {
+				const response = await fetch(`/api/folders/${folderId}?permanent=true`, {
+					method: 'DELETE'
+				});
+
+				if (!response.ok) {
+					console.error('Failed to permanently delete folder');
+				}
+			} catch (err) {
+				console.error('Permanently delete folder error:', err);
+			}
+		})();
+	}
 }
 
 // ==================== COPY/PASTE OPERATIONS ====================
@@ -853,34 +1826,67 @@ export function copyFilesToFolder(fileIds: string[], targetFolderId: string | nu
 
 	const copied: File[] = [];
 
-	for (const fileId of fileIds) {
-		const original = currentFilesList.find((f) => f.id === fileId);
-		if (!original) continue; // Allow copying even if file is deleted
+	if (USE_MOCK_DATA) {
+		// Mock mode: Create local copies
+		for (const fileId of fileIds) {
+			const original = currentFilesList.find((f) => f.id === fileId);
+			if (!original) continue;
 
-		// Create completely independent file record
-		const newFile: File = {
-			id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Unique ID
-			workspaceId: workspace.id,
-			folderId: targetFolderId,
-			name: buildCopyName(original.name, existingNames),
-			mimeType: original.mimeType,
-			size: original.size,
-			storagePath: original.storagePath, // ONLY thing shared - R2 file reference
-			uploadedBy: 'user_1', // TODO: Get from auth context
-			starred: false, // Copies are never starred
-			createdAt: new Date(), // TODO Phase 2: Use toUTC() for D1
-			updatedAt: new Date(), // TODO Phase 2: Use toUTC() for D1
-			deletedAt: null, // Copies are never deleted (independent from original)
-			trashedUntil: null,
-			tagIds: [] // Copies don't inherit tags
-		};
+			const newFile: File = {
+				id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+				workspaceId: workspace.id,
+				folderId: targetFolderId,
+				name: buildCopyName(original.name, existingNames),
+				mimeType: original.mimeType,
+				size: original.size,
+				storagePath: original.storagePath,
+				uploadedBy: 'user_1',
+				starred: false,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+				deletedAt: null,
+				trashedUntil: null,
+				tagIds: []
+			};
 
-		copied.push(newFile);
-		existingNames.add(newFile.name);
+			copied.push(newFile);
+			existingNames.add(newFile.name);
+		}
+
+		currentFiles.set([...currentFilesList, ...copied]);
+	} else {
+		// Backend mode: Fire async API call in background
+		(async () => {
+			try {
+				const response = await fetch('/api/files/copy', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						fileIds,
+						targetFolderId,
+						workspaceId: workspace.id
+					})
+				});
+
+				if (!response.ok) {
+					console.error('Failed to copy files');
+					return;
+				}
+
+				const result = await response.json();
+				const newCopies: File[] = result.copies || [];
+
+				// Update store with copied files
+				const files = get(currentFiles);
+				currentFiles.set([...files, ...newCopies]);
+
+				return newCopies;
+			} catch (err) {
+				console.error('Copy files error:', err);
+			}
+		})();
 	}
 
-	// Add all copies to store
-	currentFiles.set([...currentFilesList, ...copied]);
 	return copied;
 }
 
@@ -905,34 +1911,66 @@ export function copyFilesToWorkspace(fileIds: string[], targetWorkspaceId: strin
 
 	const copied: File[] = [];
 
-	for (const fileId of fileIds) {
-		const original = currentFilesList.find((f) => f.id === fileId);
-		if (!original) continue; // Allow copying even if file is deleted
+	if (USE_MOCK_DATA) {
+		// Mock mode: Create local copies
+		for (const fileId of fileIds) {
+			const original = currentFilesList.find((f) => f.id === fileId);
+			if (!original) continue;
 
-		// Create completely independent file record
-		const newFile: File = {
-			id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Unique ID
-			workspaceId: targetWorkspaceId, // Different workspace
-			folderId: null, // Start at root
-			name: buildCopyName(original.name, existingNames),
-			mimeType: original.mimeType,
-			size: original.size,
-			storagePath: original.storagePath, // ONLY thing shared - R2 file reference
-			uploadedBy: 'user_1', // TODO: Get from auth context
-			starred: false, // Copies are never starred
-			createdAt: new Date(), // TODO Phase 2: Use toUTC() for D1
-			updatedAt: new Date(), // TODO Phase 2: Use toUTC() for D1
-			deletedAt: null, // Copies are never deleted (independent from original)
-			trashedUntil: null,
-			tagIds: [] // Copies don't inherit tags
-		};
+			const newFile: File = {
+				id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+				workspaceId: targetWorkspaceId,
+				folderId: null,
+				name: buildCopyName(original.name, existingNames),
+				mimeType: original.mimeType,
+				size: original.size,
+				storagePath: original.storagePath,
+				uploadedBy: 'user_1',
+				starred: false,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+				deletedAt: null,
+				trashedUntil: null,
+				tagIds: []
+			};
 
-		copied.push(newFile);
-		existingNames.add(newFile.name);
+			copied.push(newFile);
+			existingNames.add(newFile.name);
+		}
+
+		currentFiles.set([...currentFilesList, ...copied]);
+	} else {
+		// Backend mode: Fire async API call in background
+		(async () => {
+			try {
+				const response = await fetch('/api/files/copy-workspace', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						fileIds,
+						targetWorkspaceId
+					})
+				});
+
+				if (!response.ok) {
+					console.error('Failed to copy files to workspace');
+					return;
+				}
+
+				const result = await response.json();
+				const newCopies: File[] = result.copies || [];
+
+				// Update store with copied files
+				const files = get(currentFiles);
+				currentFiles.set([...files, ...newCopies]);
+
+				return newCopies;
+			} catch (err) {
+				console.error('Copy files to workspace error:', err);
+			}
+		})();
 	}
 
-	// Add all copies to store
-	currentFiles.set([...currentFilesList, ...copied]);
 	return copied;
 }
 
@@ -1004,44 +2042,81 @@ export function copyFoldersToFolder(folderIds: string[], targetFolderId: string 
 		}
 	};
 
-	// Start copying each requested folder
-	for (const folderId of folderIds) {
-		copyFolderRecursive(folderId, targetFolderId);
-	}
-
-	// Copy all files in the new folders (each file is independent)
-	const copiedFiles: File[] = [];
-	for (const [oldFolderId, newFolderId] of oldToNewFolderMap.entries()) {
-		const filesInOldFolder = currentFilesList.filter(
-			(f) => f.folderId === oldFolderId && !f.deletedAt
-		);
-
-		for (const originalFile of filesInOldFolder) {
-			// Create independent file record
-			const newFile: File = {
-				id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`, // Unique ID
-				workspaceId: workspace.id,
-				folderId: newFolderId, // New folder structure
-				name: originalFile.name, // Keep original name (inside copy folder)
-				mimeType: originalFile.mimeType,
-				size: originalFile.size,
-				storagePath: originalFile.storagePath, // ONLY thing shared - R2 file reference
-				uploadedBy: 'user_1', // TODO: Get from auth context
-				starred: false, // Copies are never starred
-				createdAt: new Date(), // TODO Phase 2: Use toUTC() for D1
-				updatedAt: new Date(), // TODO Phase 2: Use toUTC() for D1
-				deletedAt: null, // Copies are never deleted (independent)
-				trashedUntil: null,
-				tagIds: [] // Copies don't inherit tags
-			};
-
-			copiedFiles.push(newFile);
+	if (USE_MOCK_DATA) {
+		// Mock mode: Copy folders and files locally
+		// Start copying each requested folder
+		for (const folderId of folderIds) {
+			copyFolderRecursive(folderId, targetFolderId);
 		}
-	}
 
-	// Update stores
-	workspaceFolders.set([...currentFoldersList, ...copied]);
-	currentFiles.set([...currentFilesList, ...copiedFiles]);
+		// Copy all files in the new folders (each file is independent)
+		const copiedFiles: File[] = [];
+		for (const [oldFolderId, newFolderId] of oldToNewFolderMap.entries()) {
+			const filesInOldFolder = currentFilesList.filter(
+				(f) => f.folderId === oldFolderId && !f.deletedAt
+			);
+
+			for (const originalFile of filesInOldFolder) {
+				// Create independent file record
+				const newFile: File = {
+					id: `file_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+					workspaceId: workspace.id,
+					folderId: newFolderId,
+					name: originalFile.name,
+					mimeType: originalFile.mimeType,
+					size: originalFile.size,
+					storagePath: originalFile.storagePath,
+					uploadedBy: 'user_1',
+					starred: false,
+					createdAt: new Date(),
+					updatedAt: new Date(),
+					deletedAt: null,
+					trashedUntil: null,
+					tagIds: []
+				};
+
+				copiedFiles.push(newFile);
+			}
+		}
+
+		// Update stores
+		workspaceFolders.set([...currentFoldersList, ...copied]);
+		currentFiles.set([...currentFilesList, ...copiedFiles]);
+	} else {
+		// Backend mode: Fire async API call in background
+		(async () => {
+			try {
+				const response = await fetch('/api/folders/copy', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						folderIds,
+						targetFolderId,
+						workspaceId: workspace.id
+					})
+				});
+
+				if (!response.ok) {
+					console.error('Failed to copy folders');
+					return;
+				}
+
+				const result = await response.json();
+				const newCopiedFolders: Folder[] = result.copies || [];
+				const newCopiedFiles: File[] = result.copiedFiles || [];
+
+				// Update stores with copied folders and files
+				const folders = get(workspaceFolders);
+				const files = get(currentFiles);
+				workspaceFolders.set([...folders, ...newCopiedFolders]);
+				currentFiles.set([...files, ...newCopiedFiles]);
+
+				return newCopiedFolders;
+			} catch (err) {
+				console.error('Copy folders error:', err);
+			}
+		})();
+	}
 
 	return copied;
 }
