@@ -6,8 +6,14 @@ A modern, open-source CMS built with SvelteKit and Cloudflare infrastructure, de
 
 ```bash
 npm install
+
+# Option A: Seed UI from mock data
+echo "PUBLIC_USE_MOCK_DATA=true" > .env.local
 npm run dev
-# Visit http://localhost:5173 to see demo with mock data
+
+# Option B: Static demo via API fallbacks (no env needed)
+# Lists start empty; all routes work without Cloudflare bindings
+npm run dev
 ```
 
 ## 📚 Documentation
@@ -66,7 +72,7 @@ npm run lint
 4. Learn [docs/PHASE2_API_CONTRACT.md](./docs/PHASE2_API_CONTRACT.md) - What to build (30 min)
 5. Follow [docs/BACKEND_MIGRATION.md](./docs/BACKEND_MIGRATION.md) - How to build (step-by-step)
 
-**Key Insight**: Only `src/lib/services/dataService.ts` changes. All 20+ components remain untouched.
+**Key Insight**: Components remain untouched. Implement API route handlers and connect Cloudflare D1/R2; dataService already calls them.
 
 ### For AI Assistants (Claude, Copilot, etc.)
 
@@ -75,11 +81,11 @@ npm run lint
 3. Review [docs/PHASE2_API_CONTRACT.md](./docs/PHASE2_API_CONTRACT.md) - Requirements
 4. Reference [docs/BACKEND_MIGRATION.md](./docs/BACKEND_MIGRATION.md) - Code examples
 
-## 📍 Current Status (January 2, 2026)
+## 📍 Current Status (January 6, 2026)
 
 **Phase**: 1 ✅ Complete → Phase 2 🚀 In Progress  
-**Architecture**: Three-layer dual-mode (Components → dataService → Stores → Mock Data OR API)  
-**Latest Update**: January 2, 2026 - All dataService functions converted to dual-mode
+**Architecture**: Three-layer (Components → dataService → Stores). dataService is API-only; mock support lives in API route fallbacks and optional store seeding.  
+**Latest Update**: January 6, 2026 - 27 API endpoints implemented with mock fallbacks; dataService simplified to API-only
 
 ### Phase 1 - 100% Complete ✅
 
@@ -102,52 +108,34 @@ All UI/UX and interactivity implemented:
 
 **Key Architecture**:
 
-- **Mock Data**: `src/lib/data/mock.ts` (ONLY imported by stores)
-- **Data Service**: All CRUD through `src/lib/services/dataService.ts` (now dual-mode)
+- **Mock Data**: `src/lib/data/mock.ts` (ONLY imported by stores when `PUBLIC_USE_MOCK_DATA=true`)
+- **Data Service**: All CRUD via `src/lib/services/dataService.ts` (API-only, optimistic updates)
+- **API Routes**: `src/routes/api/*` implement 27 endpoints with mock fallbacks
 - **Reactive UI**: Svelte 5 `$derived` for hot reloading
 - **ViewWrapper Pattern**: Zero code duplication between views
 - **TypeScript**: Strict mode, no errors
 - **Fire-and-Forget Pattern**: Optimistic UI + background async API calls
 
-### Phase 2 - Backend Integration (🚀 Just Started!)
+### Phase 2 - Backend Integration (🚀 In Progress)
 
-**What's Done Today** (January 2, 2026):
+**What's Done (January 6, 2026):**
 
-- ✅ **Converted all 35+ dataService functions to dual-mode**
-  - Works with mock data (Phase 1) or API (Phase 2)
-  - Fire-and-forget pattern: sync returns, background API calls
-  - Optimistic UI updates: stores update before API response
-  - Zero component changes needed
+- ✅ **Simplified dataService to API-only** (optimistic UI + background API calls)
+- ✅ **Implemented 27 API endpoints** with mock fallbacks for static demos
+- ✅ **Added mock fallbacks to core CRUD routes** (workspaces, folders, files, tags, moves)
+- ✅ **Phase 1 docs and architecture updated** (see docs/\*)
 
-- ✅ **Fixed API endpoint error handling** (5 endpoints)
-  - Changed from `httpError()` → `json()` pattern
-  - Proper HTTP status codes
-  - Ready for production
+**Ways to Run**:
 
-- ✅ **Created comprehensive testing checklist**
-  - [docs/TESTING_CHECKLIST.md](./docs/TESTING_CHECKLIST.md)
-  - 100+ test cases across all operations
-  - Mock mode and API mode verification
+- **Mock Store Seeding** (`PUBLIC_USE_MOCK_DATA=true`)
+  - Seeds UI from `src/lib/data/mock.ts` via Svelte stores
+  - Great for rich demo content without Cloudflare
 
-- ✅ **Documented Phase 2 status**
-  - [docs/PHASE2_STATUS.md](./docs/PHASE2_STATUS.md)
-  - Full dual-mode architecture explanation
-  - Deployment readiness checklist
+- **API Fallback Demo** (no env needed)
+  - All API routes return synthetic or empty data if Cloudflare bindings are missing
+  - Ideal for static demos; lists start empty and mutate via actions
 
-**What's Ready for Testing**:
-
-- **Mock Mode** (Current - `PUBLIC_USE_MOCK_DATA=true`)
-  - All operations instant and working
-  - Perfect for demo and UI testing
-  - Ready to deploy as-is
-
-- **API Mode** (Next - Requires backend endpoints)
-  - API contract complete ([docs/PHASE2_API_CONTRACT.md](./docs/PHASE2_API_CONTRACT.md))
-  - Migration guide ready ([docs/BACKEND_MIGRATION.md](./docs/BACKEND_MIGRATION.md))
-  - Zero component modifications needed
-  - Seamless upgrade path
-
-**Estimated Duration**: 20-30 hours to create backend endpoints
+**Backend**: Cloudflare setup supported. Replace fallbacks with real D1/R2 queries per [docs/BACKEND_MIGRATION.md](./docs/BACKEND_MIGRATION.md).
 
 See [docs/PHASE2_STATUS.md](./docs/PHASE2_STATUS.md) for full status.
 See [docs/PHASE1_COMPLETE.md](./docs/PHASE1_COMPLETE.md) for Phase 1 review.
@@ -205,11 +193,11 @@ The `.cursorrules` file auto-loads in Cursor IDE for automatic context.
 
 **Phase 0 - Foundation**: ✅ COMPLETE  
 **Phase 1 - UI/UX First**: ✅ COMPLETE (100% - all CRUD, components, interactivity)  
-**Phase 2 - Backend Integration**: 🚀 READY (API contract defined, migration guide prepared)
+**Phase 2 - Backend Integration**: 🚀 In Progress (27 endpoints implemented + mock fallbacks)
 
-**Current Focus**: Phase 2 backend integration (see [docs/BACKEND_MIGRATION.md](./docs/BACKEND_MIGRATION.md))
+**Current Focus**: Connect Cloudflare D1/R2 in your environment. Handlers already include D1 logic with graceful fallbacks.
 
-**Architecture Ready**: Only `src/lib/services/dataService.ts` changes for Phase 2. All 20+ components remain untouched.
+**Architecture Ready**: UI remains unchanged. dataService is API-only; components stay untouched during backend integration.
 
 See [docs/ROADMAP.md](./docs/ROADMAP.md) for full phase breakdown through Phase 8.
 
