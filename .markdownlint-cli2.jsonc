@@ -1,0 +1,8 @@
+{
+	"config": {
+		// Disable hard-tab rule; project uses tabs per prettier config
+		"MD010": false,
+		// Allow lists without surrounding blank lines to avoid false positives in code-heavy docs
+		"MD032": false
+	}
+}
