@@ -79,7 +79,7 @@ CFS CMS uses a **three-layer architecture** designed for easy transition from mo
 
 **Responsibilities**:
 
-- Initialize state from mock data (Phase 1) or API (Phase 2+)
+- Initialize state from API endpoints (with mock fallback in API routes)
 - Hold ALL workspace data (not filtered by workspace)
 - Provide reactive state to components
 
@@ -119,7 +119,8 @@ export const viewType = createViewTypeStore();
 **Responsibilities**:
 
 - Provide clean API for data operations
-- Manage store updates (Phase 1) or API calls (Phase 2+)
+- Optimistic UI updates (immediate store changes)
+- Background API calls (fire-and-forget for consistency)
 - Handle business logic (validation, relationships, soft deletes)
 - NO direct mock data imports
 
@@ -141,19 +142,27 @@ export function deleteFile(fileId: string): void;
 export function uploadFiles(files: FileList): void;
 ```
 
-**Phase 1 (Current)**: Functions use `get()` and `set()` to manipulate stores
-
-**Phase 2 (Future)**: Functions will use `fetch()` to call API endpoints:
+**Current Implementation**: Functions use optimistic updates + background API calls:
 
 ```typescript
-// Example future implementation
-export async function createFolder(parentId: string | null, name: string): Promise<Folder> {
-	const response = await fetch('/api/folders', {
+// Current implementation pattern
+export function createFolder(parentId: string | null, name: string): Folder {
+	const workspace = get(currentWorkspace);
+	if (!workspace) throw new Error('No workspace selected');
+
+	// Create locally for instant UI feedback
+	const newFolder: Folder = { id: generateId(), name, parentId, /* ... */ };
+	const folders = get(workspaceFolders);
+	workspaceFolders.set([...folders, newFolder]);
+
+	// Fire API call in background
+	fetch('/api/folders', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ parentId, name })
-	});
-	return response.json();
+		body: JSON.stringify({ parentId, name, workspaceId: workspace.id })
+	}).catch(err => console.error('Create folder error:', err));
+
+	return newFolder;
 }
 ```
 
@@ -369,40 +378,41 @@ export function createFolder(name: string) {
 
 ## Backend Integration Strategy
 
-### Phase 1: Mock Data (Current)
+### Phase 1: Frontend with API Architecture (Current)
 
 **Data Flow**:
 
 ```
-Component → dataService → Stores (mock data) → Component
+Component → dataService → Stores (optimistic) + API call → Component
 ```
 
 **Files**:
 
-- `src/lib/data/mock.ts` - Mock data definitions
-- `src/lib/stores/index.ts` - Initialize stores from mock data
-- `src/lib/services/dataService.ts` - Manipulate stores
+- `src/lib/data/mock.ts` - Mock data for API fallback only
+- `src/lib/stores/index.ts` - Initialize stores from API
+- `src/lib/services/dataService.ts` - Optimistic updates + API calls
+- `src/routes/api/*` - API endpoints (mock fallback when no DB)
 
 **Characteristics**:
 
-- All data in-memory
-- No network requests
-- Instant UI feedback
-- Full CRUD operations work locally
+- Optimistic UI updates (instant feedback)
+- Background API calls (fire-and-forget)
+- Mock data fallback in API routes (for local dev)
+- Full CRUD operations ready for real backend
 
 ---
 
-### Phase 2: Cloudflare Backend (Future)
+### Phase 2: Cloudflare Backend (In Progress)
 
 **Data Flow**:
 
 ```
-Component → dataService → API Routes → Cloudflare Workers → D1/R2 → API Routes → dataService → Component
+Component → dataService (optimistic) → API Routes → Cloudflare Workers → D1/R2 → API Routes → Component (if needed)
 ```
 
 **Migration Steps**:
 
-1. **Create API Routes** (`src/routes/api/`):
+1. **Implement API Route Handlers** (`src/routes/api/*`):
 
 ```typescript
 // src/routes/api/folders/+server.ts
@@ -420,40 +430,23 @@ export async function POST({ request, platform }) {
 }
 ```
 
-2. **Update dataService** (ONLY file that needs changes):
+2. **Replace mock data with real database queries** in API handlers:
 
 ```typescript
-// Before (Phase 1)
-export function createFolder(parentId: string | null, name: string): Folder {
-	const folders = get(workspaceFolders);
-	const newFolder = {
-		/* ... */
-	};
-	workspaceFolders.set([...folders, newFolder]);
-	return newFolder;
+// Before (mock fallback)
+if (!platform?.env?.DB) {
+	return json(mockFolders);
 }
 
-// After (Phase 2)
-export async function createFolder(parentId: string | null, name: string): Promise<Folder> {
-	const response = await fetch('/api/folders', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ parentId, name })
-	});
+// After (real database)
+const result = await platform.env.DB.prepare(
+	'INSERT INTO folders (id, workspace_id, parent_id, name, created_at) VALUES (?, ?, ?, ?, ?)'
+).bind(newId, workspaceId, parentId, name, new Date()).run();
 
-	if (!response.ok) throw new Error('Failed to create folder');
-
-	const newFolder = await response.json();
-
-	// Update local store for immediate UI feedback
-	const folders = get(workspaceFolders);
-	workspaceFolders.set([...folders, newFolder]);
-
-	return newFolder;
-}
+return json(result);
 ```
 
-3. **Components remain unchanged** - They already use dataService abstraction
+3. **Components and dataService remain unchanged** - Already using optimistic update pattern
 
 ---
 

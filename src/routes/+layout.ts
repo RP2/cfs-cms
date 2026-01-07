@@ -11,7 +11,7 @@ import type { LayoutLoad } from './$types';
  * Load initial data from API if using backend mode
  * In mock mode, stores are already initialized with mock data
  */
-export const load: LayoutLoad = async () => {
+export const load: LayoutLoad = async ({ fetch }) => {
 	const useMockData = import.meta.env.PUBLIC_USE_MOCK_DATA === 'true';
 
 	if (useMockData) {

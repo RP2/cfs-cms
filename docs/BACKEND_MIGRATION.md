@@ -8,23 +8,26 @@
 
 ## Overview
 
-This guide shows exactly how to integrate the Cloudflare backend without changing any component code. Only `src/lib/services/dataService.ts` needs modifications.
+This guide shows exactly how to integrate the Cloudflare backend. The data service layer is already API-ready with optimistic updates.
 
-**Key Principle**: The three-layer architecture ensures zero component changes:
+**Key Principle**: The three-layer architecture with optimistic updates means minimal changes:
 
 ```
-Components → dataService → Stores → Mock Data (Phase 1) / API (Phase 2)
+Components → dataService (optimistic + API) → Stores → API Routes → D1/R2
 ```
+
+**Current Status**: dataService already fires API calls in background. Only API route handlers need implementation.
 
 ---
 
 ## Phase Overview
 
-| Phase   | Data Source             | Changes                     | Status        |
-| ------- | ----------------------- | --------------------------- | ------------- |
-| Phase 1 | Mock data (in-memory)   | None                        | ✅ Complete   |
-| Phase 2 | Cloudflare D1 + R2 + KV | Update dataService only     | 🚀 This guide |
-| Phase 3 | + Authentication        | Update stores + dataService | Future        |
+| Phase     | Data Source             | Changes                              | Status        |
+| --------- | ----------------------- | ------------------------------------ | ------------- |
+| Phase 1   | Mock data (in-memory)   | None                                 | ✅ Complete   |
+| Phase 1.5 | API-ready architecture  | Removed dual-mode, added optimistic  | ✅ Complete   |
+| Phase 2   | Cloudflare D1 + R2 + KV | Implement API route handlers only    | 🚀 This guide |
+| Phase 3   | + Authentication        | Add Auth.js + update user references | Future        |
 
 ---
 
@@ -141,74 +144,76 @@ src/routes/api/
 
 ## Migration Pattern
 
-### Pattern 1: Simple Read/Write (Folders)
+### Pattern: API Route Handler Implementation
 
-**Before** (Phase 1 - in-memory):
+**Current dataService** (already optimized):
 
 ```typescript
 export function createFolder(parentId: string | null, name: string): Folder {
 	const currentWs = get(currentWorkspace);
 	if (!currentWs) throw new Error('No workspace selected');
 
-	// Validation...
-	const newFolder: Folder = {
-		/* ... */
-	};
+	// Create locally for instant UI
+	const newFolder: Folder = { /* ... */ };
+	const folders = get(workspaceFolders);
+	workspaceFolders.set([...folders, newFolder]);
 
-	const currentFoldersList = get(workspaceFolders);
-	currentFoldersList.push(newFolder);
-	workspaceFolders.set([...currentFoldersList]);
+	// Fire API call in background
+	fetch('/api/folders', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ parentId, name, workspaceId: currentWs.id })
+	}).catch(err => console.error('Create folder error:', err));
 
 	return newFolder;
 }
 ```
 
-**After** (Phase 2 - Cloudflare):
+**What needs implementation** - API route handler:
 
 ```typescript
-export async function createFolder(parentId: string | null, name: string): Promise<Folder> {
-	const currentWs = get(currentWorkspace);
-	if (!currentWs) throw new Error('No workspace selected');
+// src/routes/api/folders/+server.ts
+import { json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
 
-	try {
-		// Call API endpoint
-		const response = await fetch('/api/folders', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				workspaceId: currentWs.id,
-				parentId,
-				name
-			})
-		});
+export const POST: RequestHandler = async ({ request, platform }) => {
+	const { workspaceId, parentId, name } = await request.json();
 
-		if (!response.ok) {
-			const error = await response.json();
-			throw new Error(error.error || 'Failed to create folder');
-		}
-
-		const newFolder: Folder = await response.json();
-
-		// Update local store for optimistic UI
-		const currentFoldersList = get(workspaceFolders);
-		workspaceFolders.set([...currentFoldersList, newFolder]);
-
-		return newFolder;
-	} catch (error) {
-		toast.error(`Failed to create folder: ${error.message}`);
-		throw error;
+	// Mock fallback for local dev
+	if (!platform?.env?.DB) {
+		const mockFolder = {
+			id: `folder_${Date.now()}`,
+			workspaceId,
+			parentId,
+			name,
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString()
+		};
+		return json(mockFolder, { status: 201 });
 	}
-}
+
+	// Real database implementation
+	const newId = `folder_${Date.now()}`;
+	const now = new Date().toISOString();
+
+	await platform.env.DB.prepare(
+		'INSERT INTO folders (id, workspace_id, parent_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
+	).bind(newId, workspaceId, parentId, name, now, now).run();
+
+	const folder = await platform.env.DB.prepare(
+		'SELECT * FROM folders WHERE id = ?'
+	).bind(newId).first();
+
+	return json(folder, { status: 201 });
+};
 ```
 
-**Key Changes**:
+**Key Points**:
 
-1. ✅ Function becomes `async` and returns `Promise<Folder>`
-2. ✅ Call `/api/folders` POST endpoint
-3. ✅ Handle response and errors
-4. ✅ Update store for optimistic UI
-5. ✅ Add toast notification
-6. ❌ No component changes needed
+1. ✅ dataService already fires API calls (no changes needed)
+2. ✅ Implement API route handler with mock fallback
+3. ✅ Replace mock data with D1 queries when ready
+4. ✅ Components continue to work unchanged
 
 ---
 
