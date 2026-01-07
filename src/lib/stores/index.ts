@@ -1,12 +1,13 @@
 import { writable } from 'svelte/store';
 import type { Workspace, Folder, File, Tag, ViewMode, ViewScope } from '$lib/types';
 import { mockWorkspaces, mockFolders, mockFiles, mockTags } from '$lib/data/mock';
+import { PUBLIC_USE_MOCK_DATA } from '$env/static/public';
 
 /**
  * Check if we should use mock data or real backend
  * This is evaluated at module load time, so no repeated checks
  */
-const USE_MOCK_DATA = import.meta.env.PUBLIC_USE_MOCK_DATA === 'true';
+const USE_MOCK_DATA = PUBLIC_USE_MOCK_DATA === 'true';
 
 // All workspaces - empty if backend mode, seeded with mock if mock mode
 export const workspaces = writable<Workspace[]>(

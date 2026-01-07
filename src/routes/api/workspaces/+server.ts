@@ -14,6 +14,21 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		}
 
 		const now = new Date().toISOString();
+
+		// Mock fallback for static demo
+		if (!platform?.env?.DB) {
+			const mock = {
+				id: `workspace_${Date.now()}`,
+				name: name.trim(),
+				description: description || null,
+				icon: icon || null,
+				ownerId: 'user_1',
+				createdAt: now,
+				updatedAt: now,
+				deletedAt: null
+			};
+			return json(mock, { status: 201 });
+		}
 		const newId = `workspace_${Date.now()}`;
 		const ownerId = 'user_1'; // TODO: Replace with actual auth user
 
@@ -49,6 +64,11 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 export const GET: RequestHandler = async ({ platform }) => {
 	try {
 		const ownerId = 'user_1'; // TODO: Replace with actual auth user
+
+		// Mock fallback for static demo
+		if (!platform?.env?.DB) {
+			return json({ workspaces: [], total: 0 });
+		}
 
 		const result = await platform!.env.DB.prepare(
 			`SELECT * FROM workspaces WHERE owner_id = ? AND deleted_at IS NULL ORDER BY created_at DESC`

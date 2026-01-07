@@ -5,6 +5,14 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	try {
 		const { fileIds, targetFolderId, targetWorkspaceId } = await request.json();
 
+		// Mock fallback for static demo
+		if (!platform?.env?.DB) {
+			return json({
+				success: true,
+				movedCount: Array.isArray(fileIds) ? fileIds.length : 0
+			});
+		}
+
 		// Validate inputs
 		if (!Array.isArray(fileIds) || fileIds.length === 0) {
 			return json({ error: 'fileIds array is required', code: 'INVALID_INPUT' }, { status: 400 });

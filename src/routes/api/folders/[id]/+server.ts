@@ -8,6 +8,12 @@ export const PATCH: RequestHandler = async ({ params, request, platform }) => {
 		const { id } = params;
 		const updates: UpdateFolderRequest = await request.json();
 
+		// Mock fallback for static demo
+		if (!platform?.env?.DB) {
+			const now = new Date().toISOString();
+			return json({ id, ...updates, updated_at: now });
+		}
+
 		// Check folder exists
 		const folder = await platform!.env.DB.prepare(
 			'SELECT * FROM folders WHERE id = ? AND deleted_at IS NULL'
@@ -65,10 +71,21 @@ export const PATCH: RequestHandler = async ({ params, request, platform }) => {
 	}
 };
 
-// DELETE /api/folders/[id] - Soft delete folder
-export const DELETE: RequestHandler = async ({ params, platform }) => {
+// DELETE /api/folders/[id] - Soft or permanent delete folder
+export const DELETE: RequestHandler = async ({ params, platform, url }) => {
 	try {
 		const { id } = params;
+		const permanent = url.searchParams.get('permanent') === 'true';
+
+		// Mock fallback for static demo
+		if (!platform?.env?.DB) {
+			if (permanent) {
+				return json({ success: true, permanentlyDeleted: true });
+			}
+			const now = new Date().toISOString();
+			const trashedUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+			return json({ success: true, deletedAt: now, trashedUntil });
+		}
 
 		const folder = await platform!.env.DB.prepare(
 			'SELECT * FROM folders WHERE id = ? AND deleted_at IS NULL'
@@ -78,6 +95,46 @@ export const DELETE: RequestHandler = async ({ params, platform }) => {
 
 		if (!folder) {
 			return httpError(404, { message: 'Folder not found' });
+		}
+
+		if (permanent) {
+			// Build list of all descendant folders including current
+			const toVisit: string[] = [id];
+			const allFolderIds: string[] = [];
+
+			while (toVisit.length) {
+				const currentId = toVisit.pop()!;
+				allFolderIds.push(currentId);
+				const children = await platform!.env.DB.prepare(
+					'SELECT id FROM folders WHERE parent_id = ?'
+				)
+					.bind(currentId)
+					.all();
+				for (const row of children.results as any[]) {
+					toVisit.push(row.id);
+				}
+			}
+
+			// Delete files in these folders
+			if (allFolderIds.length > 0) {
+				const placeholders = allFolderIds.map(() => '?').join(',');
+				await platform!.env.DB.prepare(`DELETE FROM files WHERE folder_id IN (${placeholders})`)
+					.bind(...allFolderIds)
+					.run();
+			}
+
+			// Delete the folders themselves
+			if (allFolderIds.length > 0) {
+				const placeholders2 = allFolderIds.map(() => '?').join(',');
+				await platform!.env.DB.prepare(`DELETE FROM folders WHERE id IN (${placeholders2})`)
+					.bind(...allFolderIds)
+					.run();
+			}
+
+			// Clear cache for root folder
+			await platform!.env.KV.delete(`folder:${id}`);
+
+			return json({ success: true, permanentlyDeleted: true });
 		}
 
 		const now = new Date().toISOString();

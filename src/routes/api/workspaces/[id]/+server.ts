@@ -8,6 +8,21 @@ export const PATCH: RequestHandler = async ({ params, request, platform }) => {
 		const { id } = params;
 		const { name, description, icon } = await request.json();
 
+		// Mock fallback for static demo
+		if (!platform?.env?.DB) {
+			const now = new Date().toISOString();
+			return json(
+				{
+					id,
+					name: name ?? 'Workspace',
+					description: description ?? null,
+					icon: icon ?? null,
+					updatedAt: now
+				},
+				{ status: 200 }
+			);
+		}
+
 		// Fetch current workspace
 		const workspace = await platform!.env.DB.prepare(
 			'SELECT * FROM workspaces WHERE id = ? AND deleted_at IS NULL'
@@ -54,6 +69,11 @@ export const PATCH: RequestHandler = async ({ params, request, platform }) => {
 export const DELETE: RequestHandler = async ({ params, platform }) => {
 	try {
 		const { id } = params;
+
+		// Mock fallback for static demo
+		if (!platform?.env?.DB) {
+			return json({ success: true, message: 'Workspace deleted' });
+		}
 
 		// Check workspace exists
 		const workspace = await platform!.env.DB.prepare(

@@ -13,6 +13,28 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			return httpError(400, { message: 'workspaceId and name are required' });
 		}
 
+		// Mock fallback for static demo
+		if (!platform?.env?.DB) {
+			if (!workspaceId || !name?.trim()) {
+				return httpError(400, { message: 'workspaceId and name are required' });
+			}
+			const now = new Date().toISOString();
+			return json(
+				{
+					id: `folder_${Date.now()}`,
+					workspaceId,
+					parentId: parentId || null,
+					name: name.trim(),
+					starred: 0,
+					createdAt: now,
+					updatedAt: now,
+					deletedAt: null,
+					trashedUntil: null
+				},
+				{ status: 201 }
+			);
+		}
+
 		// Verify workspace exists
 		const workspace = await platform!.env.DB.prepare(
 			'SELECT * FROM workspaces WHERE id = ? AND deleted_at IS NULL'
@@ -85,6 +107,11 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 
 		if (!workspaceId) {
 			return httpError(400, { message: 'workspaceId is required' });
+		}
+
+		// Mock fallback for static demo
+		if (!platform?.env?.DB) {
+			return json({ folders: [] });
 		}
 
 		const result = await platform!.env.DB.prepare(

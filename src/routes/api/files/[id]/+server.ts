@@ -8,6 +8,12 @@ export const PATCH: RequestHandler = async ({ params, request, platform }) => {
 		const { id } = params;
 		const updates: UpdateFileRequest = await request.json();
 
+		// Mock fallback for static demo
+		if (!platform?.env?.DB) {
+			const now = new Date().toISOString();
+			return json({ id, ...updates, updated_at: now });
+		}
+
 		const file = await platform!.env.DB.prepare(
 			'SELECT * FROM files WHERE id = ? AND deleted_at IS NULL'
 		)
@@ -65,6 +71,21 @@ export const DELETE: RequestHandler = async ({ params, platform, url }) => {
 	try {
 		const { id } = params;
 		const permanent = url.searchParams.get('permanent') === 'true';
+
+		// Mock fallback for static demo
+		if (!platform?.env?.DB) {
+			if (permanent) {
+				return json({
+					success: true,
+					remainingCopies: 0,
+					r2Deleted: true,
+					message: 'File deleted (mock)'
+				});
+			}
+			const now = new Date().toISOString();
+			const trashedUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+			return json({ success: true, deletedAt: now, trashedUntil });
+		}
 
 		const file = await platform!.env.DB.prepare('SELECT * FROM files WHERE id = ?')
 			.bind(id)

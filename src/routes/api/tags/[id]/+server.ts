@@ -5,6 +5,11 @@ export const DELETE: RequestHandler = async ({ params, platform }) => {
 	try {
 		const { id } = params;
 
+		// Mock fallback for static demo
+		if (!platform?.env?.DB) {
+			return json({ success: true, message: 'Tag deleted', tagId: id });
+		}
+
 		// Verify tag exists
 		const tag = await platform!.env.DB.prepare(
 			'SELECT * FROM tags WHERE id = ? AND deleted_at IS NULL'

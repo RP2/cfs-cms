@@ -27,6 +27,16 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 	try {
 		const { folderId, targetParentId, targetWorkspaceId } = await request.json();
 
+		// Mock fallback for static demo
+		if (!platform?.env?.DB) {
+			return json({
+				success: true,
+				folderId,
+				targetParentId: targetParentId || null,
+				targetWorkspaceId: targetWorkspaceId || null
+			});
+		}
+
 		// Validate inputs
 		if (!folderId) {
 			return json({ error: 'folderId is required', code: 'INVALID_INPUT' }, { status: 400 });

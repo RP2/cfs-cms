@@ -11,6 +11,11 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 			return json({ error: 'workspaceId is required', code: 'INVALID_INPUT' }, { status: 400 });
 		}
 
+		// Mock fallback for static demo
+		if (!platform?.env?.DB) {
+			return json({ tags: [] });
+		}
+
 		const result = await platform!.env.DB.prepare(
 			'SELECT * FROM tags WHERE workspace_id = ? AND deleted_at IS NULL ORDER BY name'
 		)
@@ -37,6 +42,29 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 					code: 'INVALID_INPUT'
 				},
 				{ status: 400 }
+			);
+		}
+
+		// Mock fallback for static demo
+		if (!platform?.env?.DB) {
+			const now = new Date().toISOString();
+			if (!workspaceId || !name?.trim()) {
+				return json(
+					{ error: 'workspaceId and name are required', code: 'INVALID_INPUT' },
+					{ status: 400 }
+				);
+			}
+			return json(
+				{
+					id: `tag_${Date.now()}`,
+					workspaceId,
+					name: name.trim().toLowerCase(),
+					color: color || 'accent',
+					createdAt: now,
+					updatedAt: now,
+					deletedAt: null
+				},
+				{ status: 201 }
 			);
 		}
 

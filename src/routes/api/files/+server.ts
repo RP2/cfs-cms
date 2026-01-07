@@ -15,6 +15,31 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			return httpError(400, { message: 'file and workspaceId are required' });
 		}
 
+		// Mock fallback for static demo
+		if (!platform?.env?.DB) {
+			const now = new Date().toISOString();
+			const newId = `file_${Date.now()}`;
+			const storagePath = `${workspaceId}/${newId}/${name}`;
+			return json(
+				{
+					id: newId,
+					workspaceId,
+					folderId,
+					name,
+					size: (file && (file as any).size) || 0,
+					mimeType: (file && (file as any).type) || 'application/octet-stream',
+					storagePath,
+					uploadedBy: 'user_1',
+					starred: 0,
+					createdAt: now,
+					updatedAt: now,
+					deletedAt: null,
+					trashedUntil: null
+				},
+				{ status: 201 }
+			);
+		}
+
 		// For Phase 2a testing: create record with placeholder storage path
 		// Phase 2b: Upload to R2 first
 		const now = new Date().toISOString();
@@ -61,6 +86,11 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 
 		if (!workspaceId) {
 			return httpError(400, { message: 'workspaceId is required' });
+		}
+
+		// Mock fallback for static demo
+		if (!platform?.env?.DB) {
+			return json({ files: [] });
 		}
 
 		const result = await platform!.env.DB.prepare(

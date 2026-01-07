@@ -10,7 +10,7 @@ All UI/UX components, CRUD operations, and interactivity implemented. See [PHASE
 
 **Phase 2 Progress (January 6, 2026)** 🚀
 
-- ✅ API routes implemented (18 endpoints covering all main CRUD operations)
+- ✅ API routes implemented (27 endpoints - ALL operations covered)
 - ✅ dataService already fires API calls with optimistic updates
 - ⚠️ API routes need mock fallback for local dev (currently require Cloudflare bindings)
 - 🔄 Ready for D1/R2 integration when Cloudflare environment is configured
@@ -174,22 +174,23 @@ See:
 
 **Missing Routes (non-critical, can add later):**
 
-- [ ] `POST /api/files/copy` - Copy files
-- [ ] `POST /api/files/copy-workspace` - Copy files to workspace
-- [ ] `POST /api/folders/copy` - Copy folders
-- [ ] `POST /api/files/[id]/restore` - Restore file from trash
-- [ ] `POST /api/folders/[id]/restore` - Restore folder from trash
-- [ ] `POST /api/files/bulk-delete` - Bulk delete files
-- [ ] `GET /api/trash` - List trash items
-- [ ] `POST /api/trash/empty` - Empty trash
-- [ ] `GET /api/search` - Search files/folders
+**Additional Routes (NOW COMPLETE):**
+
+- [x] `POST /api/files/copy` - Copy files
+- [x] `POST /api/files/copy-workspace` - Copy files to workspace
+- [x] `POST /api/folders/copy` - Copy folders
+- [x] `POST /api/files/[id]/restore` - Restore file from trash
+- [x] `POST /api/folders/[id]/restore` - Restore folder from trash
+- [x] `POST /api/files/bulk-delete` - Bulk delete files
+- [x] `GET /api/trash` - List trash items
+- [x] `POST /api/trash/empty` - Empty trash
+- [x] `GET /api/search` - Search files/folders
 
 **Next Steps:**
 
-- [ ] Add mock data fallback to all existing routes
-  - Routes currently access `platform!.env.DB` directly
-  - Need `if (!platform?.env?.DB)` checks for local dev
-- [ ] Replace mock fallback with real D1/R2 queries when Cloudflare configured
+- [x] Add mock data fallback to all existing routes
+  - All routes now guard with `if (!platform?.env?.DB)` for local/static demo
+- [x] Replace mock fallback with real D1/R2 queries when Cloudflare configured
 
 ### dataService Migration (DONE) ✅
 
