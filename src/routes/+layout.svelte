@@ -7,7 +7,13 @@
 	import { Combobox } from '$lib/components/ui/combobox';
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import { Search, Folder as FolderIcon, File as FileIcon } from '@lucide/svelte';
-	import { currentFiles, currentFolder, currentWorkspace, workspaceFolders } from '$lib/stores';
+	import {
+		currentFiles,
+		currentFolder,
+		currentWorkspace,
+		workspaceFolders,
+		currentView
+	} from '$lib/stores';
 	import type { Folder } from '$lib/types';
 
 	type SearchOption = {
@@ -68,6 +74,12 @@
 	function getBreadcrumbPath(): Folder[] {
 		if (!$currentFolder) return [];
 
+		// In trash view, we don't navigate into folders, so breadcrumbs are always empty
+		if ($currentView === 'trash') {
+			return [];
+		}
+
+		// Normal view: show full path from root to current folder
 		const path: Folder[] = [];
 		let current: Folder | undefined = $currentFolder;
 

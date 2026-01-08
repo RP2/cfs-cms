@@ -15,6 +15,7 @@
 	import RenameModal from './modals/RenameModal.svelte';
 	import EditFileModal from './modals/EditFileModal.svelte';
 	import DeleteConfirmModal from './modals/DeleteConfirmModal.svelte';
+	import RestoreConfirmModal from './modals/RestoreConfirmModal.svelte';
 	import UploadModal from './modals/UploadModal.svelte';
 	import FileDetailModal from './modals/FileDetailModal.svelte';
 	import BulkSelectionMenu from './BulkSelectionMenu.svelte';
@@ -126,6 +127,9 @@
 	let renameType = $state<'file' | 'folder'>('file');
 	let deleteTarget = $state<File | Folder | null>(null);
 	let deleteType = $state<'file' | 'folder'>('file');
+	let restoreTarget = $state<File | Folder | null>(null);
+	let restoreType = $state<'file' | 'folder'>('file');
+	let showRestoreConfirm = $state(false);
 	let editFileTarget = $state<File | null>(null);
 
 	const isTrashView = $derived($currentView === 'trash');
@@ -146,9 +150,15 @@
 
 		const parentId = $currentFolder?.id ?? null;
 		if (isTrashView) {
-			return $workspaceFolders.filter(
-				(f) => f.workspaceId === $currentWorkspace.id && f.parentId === parentId && !!f.deletedAt
-			);
+			// Trash: show only top-level deleted folders (like Windows Recycle Bin)
+			// No navigation into deleted folders - click opens restore modal
+			return $workspaceFolders.filter((f) => {
+				if (f.workspaceId !== $currentWorkspace.id || !f.deletedAt) return false;
+				// Show if parent is null, or parent exists but is not deleted
+				if (f.parentId === null) return true;
+				const parent = $workspaceFolders.find((p) => p.id === f.parentId);
+				return parent && !parent.deletedAt;
+			});
 		}
 
 		return $workspaceFolders.filter(
@@ -159,7 +169,11 @@
 	const derivedFiles = $derived.by(() => {
 		if (!$currentWorkspace) return [];
 
+		const parentId = $currentFolder?.id ?? null;
+
 		if (isTrashView) {
+			// Trash: show ALL deleted files flat (like Windows Recycle Bin)
+			// Makes it easy to find and recover any deleted file
 			return $currentFiles.filter((f) => f.workspaceId === $currentWorkspace.id && !!f.deletedAt);
 		}
 
@@ -186,7 +200,6 @@
 			);
 		}
 
-		const parentId = $currentFolder?.id ?? null;
 		return $currentFiles.filter(
 			(f) => f.workspaceId === $currentWorkspace.id && f.folderId === parentId && !f.deletedAt
 		);
@@ -535,24 +548,35 @@
 		showBulkTrashConfirm = true;
 	}
 
-	function handleBulkRestore() {
+	async function handleBulkRestore() {
 		const ids = Array.from($selectedFileIds);
 		if (ids.length === 0) return;
-		ids.forEach((id) => restoreFile(id));
-		selectedFileIds.set(new Set());
+		try {
+			await Promise.all(ids.map((id) => restoreFile(id)));
+			selectedFileIds.set(new Set());
+		} catch (error) {
+			console.error('Failed to restore files:', error);
+		}
 	}
 
-	function confirmBulkTrash() {
+	async function confirmBulkTrash() {
 		const ids = Array.from($selectedFileIds);
 		if (ids.length === 0) return;
-		deleteFiles(ids);
-		selectedFileIds.set(new Set());
-		showBulkTrashConfirm = false;
+		try {
+			await deleteFiles(ids);
+			selectedFileIds.set(new Set());
+			showBulkTrashConfirm = false;
+		} catch (error) {
+			console.error('Failed to delete files:', error);
+		}
 	}
 
 	function navigateToFolder(folder: Folder | null) {
-		if (isTrashView) {
-			currentFolder.set(folder);
+		if (isTrashView && folder) {
+			// In trash, clicking a folder opens restore confirmation
+			restoreTarget = folder;
+			restoreType = 'folder';
+			showRestoreConfirm = true;
 			return;
 		}
 		currentView.set('normal');
@@ -626,6 +650,13 @@
 	}
 
 	function handleOpenFileDetail(file: File) {
+		if (isTrashView) {
+			// In trash, clicking a file opens restore confirmation
+			restoreTarget = file;
+			restoreType = 'file';
+			showRestoreConfirm = true;
+			return;
+		}
 		detailModalFile = file;
 		showFileDetailModal = true;
 	}
@@ -642,12 +673,20 @@
 		toggleFolderStar(folderId);
 	}
 
-	function handleRestoreFile(fileId: string) {
-		restoreFile(fileId);
+	async function handleRestoreFile(fileId: string) {
+		try {
+			await restoreFile(fileId);
+		} catch (error) {
+			console.error('Failed to restore file:', error);
+		}
 	}
 
-	function handleRestoreFolder(folderId: string) {
-		restoreFolder(folderId);
+	async function handleRestoreFolder(folderId: string) {
+		try {
+			await restoreFolder(folderId);
+		} catch (error) {
+			console.error('Failed to restore folder:', error);
+		}
 	}
 
 	function handlePermanentDeleteFile(fileId: string) {
@@ -1159,6 +1198,11 @@
 	bind:open={showDeleteModal}
 	bind:item={deleteTarget}
 	bind:itemType={deleteType}
+/>
+<RestoreConfirmModal
+	bind:open={showRestoreConfirm}
+	bind:item={restoreTarget}
+	bind:itemType={restoreType}
 />
 <UploadModal bind:open={showUploadModal} />
 <FileDetailModal

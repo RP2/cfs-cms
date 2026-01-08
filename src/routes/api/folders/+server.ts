@@ -10,14 +10,11 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 
 		// Validate
 		if (!workspaceId || !name?.trim()) {
-			return httpError(400, { message: 'workspaceId and name are required' });
+			return json({ message: 'workspaceId and name are required' }, { status: 400 });
 		}
 
 		// Mock fallback for static demo
 		if (!platform?.env?.DB) {
-			if (!workspaceId || !name?.trim()) {
-				return httpError(400, { message: 'workspaceId and name are required' });
-			}
 			const now = new Date().toISOString();
 			return json(
 				{
@@ -43,33 +40,44 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			.first();
 
 		if (!workspace) {
-			return httpError(404, { message: 'Workspace not found' });
+			return json({ message: 'Workspace not found' }, { status: 404 });
 		}
 
 		// Verify parent folder if provided
 		if (parentId) {
-			const parent = await platform!.env.DB.prepare(
-				'SELECT * FROM folders WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL'
-			)
-				.bind(parentId, workspaceId)
-				.first();
+			let parent = null;
+			// Retry for up to 1 second to allow parent to be committed
+			for (let attempt = 0; attempt < 5; attempt++) {
+				parent = await platform!.env.DB.prepare(
+					'SELECT * FROM folders WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL'
+				)
+					.bind(parentId, workspaceId)
+					.first();
+
+				if (parent) break;
+				if (attempt < 4) {
+					// Wait 200ms before retrying (exponential: 200ms, 400ms, 600ms, 800ms)
+					await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
+				}
+			}
 
 			if (!parent) {
-				return httpError(404, { message: 'Parent folder not found in this workspace' });
+				return json({ message: 'Parent folder not found in this workspace' }, { status: 404 });
 			}
 		}
 
 		// Check for duplicate name at same level
 		const existing = await platform!.env.DB.prepare(
-			'SELECT * FROM folders WHERE workspace_id = ? AND parent_id IS ? AND name = ? AND deleted_at IS NULL'
+			'SELECT * FROM folders WHERE workspace_id = ? AND parent_id = ? AND name = ? AND deleted_at IS NULL'
 		)
 			.bind(workspaceId, parentId || null, name.trim())
 			.first();
 
 		if (existing) {
-			return httpError(409, {
-				message: 'A folder with this name already exists at this level'
-			});
+			return json(
+				{ message: 'A folder with this name already exists at this level' },
+				{ status: 409 }
+			);
 		}
 
 		// Create folder
@@ -96,7 +104,7 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 		return json(newFolder, { status: 201 });
 	} catch (err) {
 		console.error('Create folder error:', err);
-		return httpError(500, { message: 'Internal server error' });
+		return json({ message: 'Internal server error' }, { status: 500 });
 	}
 };
 
@@ -115,7 +123,7 @@ export const GET: RequestHandler = async ({ url, platform }) => {
 		}
 
 		const result = await platform!.env.DB.prepare(
-			'SELECT * FROM folders WHERE workspace_id = ? AND deleted_at IS NULL ORDER BY created_at'
+			'SELECT * FROM folders WHERE workspace_id = ? ORDER BY created_at'
 		)
 			.bind(workspaceId)
 			.all();

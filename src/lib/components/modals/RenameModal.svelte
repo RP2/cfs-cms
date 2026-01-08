@@ -9,8 +9,9 @@
 	} from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import { renameFolder, renameFile } from '$lib/services/dataService';
+	import { renameFile, renameFolder } from '$lib/services/dataService';
 	import type { Folder, File } from '$lib/types';
+	import { Loader2 } from '@lucide/svelte';
 
 	let {
 		open = $bindable(false),
@@ -20,11 +21,13 @@
 
 	let newName = $state('');
 	let error = $state('');
+	let loading = $state(false);
 
 	$effect(() => {
 		if (open && item) {
 			newName = item.name;
 			error = '';
+			loading = false;
 		}
 	});
 
@@ -33,9 +36,10 @@
 		item = null;
 		newName = '';
 		error = '';
+		loading = false;
 	}
 
-	function handleRename() {
+	async function handleRename() {
 		if (!newName.trim()) {
 			error = 'Name is required';
 			return;
@@ -43,20 +47,24 @@
 
 		if (!item) return;
 
+		loading = true;
+		error = '';
 		try {
 			if (itemType === 'folder') {
-				renameFolder(item.id, newName);
+				await renameFolder(item.id, newName.trim());
 			} else {
-				renameFile(item.id, newName);
+				await renameFile(item.id, newName.trim());
 			}
-			handleClose();
 		} catch (e) {
 			error = (e as Error).message;
+			loading = false;
+		} finally {
+			if (loading) handleClose();
 		}
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Enter') {
+		if (e.key === 'Enter' && !loading) {
 			handleRename();
 		}
 	}
@@ -78,8 +86,15 @@
 			{/if}
 		</div>
 		<DialogFooter>
-			<Button variant="outline" onclick={handleClose}>Cancel</Button>
-			<Button onclick={handleRename}>Rename</Button>
+			<Button variant="outline" onclick={handleClose} disabled={loading}>Cancel</Button>
+			<Button onclick={handleRename} disabled={!newName.trim() || loading}>
+				{#if loading}
+					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+					Renaming...
+				{:else}
+					Rename
+				{/if}
+			</Button>
 		</DialogFooter>
 	</DialogContent>
 </Dialog>

@@ -298,10 +298,10 @@
 														{@const expiry = formatTrashExpiry(folder)}
 														{#if expiry}
 															<p
-																class="mt-2 flex items-center justify-center gap-1 text-xs text-muted-foreground"
+																class="mt-2 flex items-center justify-center gap-1 text-xs text-destructive"
 															>
 																<RotateCcw class="h-3 w-3" />
-																Auto-deletes {expiry}
+																{expiry}
 															</p>
 														{/if}
 													{/if}
@@ -390,10 +390,10 @@
 													{@const expiry = formatTrashExpiry(file)}
 													{#if expiry}
 														<p
-															class="mt-2 flex items-center justify-center gap-1 text-xs text-muted-foreground"
+															class="mt-2 flex items-center justify-center gap-1 text-xs text-destructive"
 														>
 															<RotateCcw class="h-3 w-3" />
-															Auto-deletes {expiry}
+															{expiry}
 														</p>
 													{/if}
 												{/if}
@@ -561,10 +561,10 @@
 													{@const expiry = formatTrashExpiry(file)}
 													{#if expiry}
 														<p
-															class="mt-2 flex items-center justify-center gap-1 text-xs text-muted-foreground"
+															class="mt-2 flex items-center justify-center gap-1 text-xs text-destructive"
 														>
 															<RotateCcw class="h-3 w-3" />
-															Auto-deletes {expiry}
+															{expiry}
 														</p>
 													{/if}
 												{/if}

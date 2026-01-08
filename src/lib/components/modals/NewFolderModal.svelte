@@ -11,19 +11,22 @@
 	import { Input } from '$lib/components/ui/input';
 	import { currentFolder, currentWorkspace, workspaceFolders } from '$lib/stores';
 	import { createFolder } from '$lib/services/dataService';
+	import { Loader2 } from '@lucide/svelte';
 
 	let { open = $bindable(false), parentFolderId = $bindable<string | null>(null) } = $props();
 	let folderName = $state('');
 	let error = $state('');
+	let loading = $state(false);
 
 	function handleClose() {
 		open = false;
 		folderName = '';
 		error = '';
 		parentFolderId = null;
+		loading = false;
 	}
 
-	function handleCreate() {
+	async function handleCreate() {
 		if (!folderName.trim()) {
 			error = 'Folder name is required';
 			return;
@@ -34,20 +37,24 @@
 			return;
 		}
 
+		loading = true;
+		error = '';
 		try {
 			// Use parentFolderId if provided (from context menu), otherwise use currentFolder's id
 			const effectiveParentId = parentFolderId || $currentFolder?.id || null;
 
-			// Use dataService which properly manages all workspace data
-			createFolder(effectiveParentId, folderName.trim());
-			handleClose();
+			// Await to ensure backend syncs before modal closes
+			await createFolder(effectiveParentId, folderName.trim());
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to create folder';
+			loading = false;
+		} finally {
+			if (loading) handleClose();
 		}
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Enter') {
+		if (e.key === 'Enter' && !loading) {
 			e.preventDefault();
 			handleCreate();
 		}
@@ -82,8 +89,15 @@
 			{/if}
 		</div>
 		<DialogFooter>
-			<Button variant="outline" onclick={handleClose}>Cancel</Button>
-			<Button onclick={handleCreate}>Create</Button>
+			<Button variant="outline" onclick={handleClose} disabled={loading}>Cancel</Button>
+			<Button onclick={handleCreate} disabled={!folderName.trim() || loading}>
+				{#if loading}
+					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+					Creating...
+				{:else}
+					Create Folder
+				{/if}
+			</Button>
 		</DialogFooter>
 	</DialogContent>
 </Dialog>

@@ -11,18 +11,21 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { createWorkspace } from '$lib/services/dataService';
+	import { Loader2 } from '@lucide/svelte';
 
 	let { open = $bindable(false) } = $props();
 
 	let workspaceName = $state('');
 	let workspaceDescription = $state('');
 	let error = $state('');
+	let loading = $state(false);
 
 	$effect(() => {
 		if (open) {
 			workspaceName = '';
 			workspaceDescription = '';
 			error = '';
+			loading = false;
 		}
 	});
 
@@ -31,19 +34,25 @@
 		workspaceName = '';
 		workspaceDescription = '';
 		error = '';
+		loading = false;
 	}
 
-	function handleCreate() {
+	async function handleCreate() {
 		if (!workspaceName.trim()) {
 			error = 'Workspace name is required';
 			return;
 		}
 
+		error = '';
+		loading = true;
+
 		try {
-			createWorkspace(workspaceName, workspaceDescription);
-			handleClose();
+			await createWorkspace(workspaceName, workspaceDescription);
 		} catch (e) {
 			error = (e as Error).message;
+			loading = false;
+		} finally {
+			if (loading) handleClose();
 		}
 	}
 
@@ -88,8 +97,15 @@
 			</div>
 		</div>
 		<DialogFooter>
-			<Button variant="outline" onclick={handleClose}>Cancel</Button>
-			<Button onclick={handleCreate}>Create Workspace</Button>
+			<Button variant="outline" onclick={handleClose} disabled={loading}>Cancel</Button>
+			<Button onclick={handleCreate} disabled={!workspaceName.trim() || loading}>
+				{#if loading}
+					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+					Creating...
+				{:else}
+					Create Workspace
+				{/if}
+			</Button>
 		</DialogFooter>
 	</DialogContent>
 </Dialog>

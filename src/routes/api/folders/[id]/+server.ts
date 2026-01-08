@@ -87,9 +87,7 @@ export const DELETE: RequestHandler = async ({ params, platform, url }) => {
 			return json({ success: true, deletedAt: now, trashedUntil });
 		}
 
-		const folder = await platform!.env.DB.prepare(
-			'SELECT * FROM folders WHERE id = ? AND deleted_at IS NULL'
-		)
+		const folder = await platform!.env.DB.prepare('SELECT * FROM folders WHERE id = ?')
 			.bind(id)
 			.first();
 

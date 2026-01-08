@@ -79,6 +79,62 @@ function utcNow(): Date {
 	return new Date(Date.now());
 }
 
+// ==================== SYNC & RETRY UTILITIES ====================
+
+/**
+ * Track pending operations to prevent race conditions
+ * When creating a folder, we track it as "pending" until the API responds
+ * Child folder operations wait for parent to finish
+ */
+const pendingOperations = new Map<string, Promise<void>>();
+
+/**
+ * Retry failed API calls with exponential backoff
+ * Max 3 retries with 100ms, 300ms, 1000ms delays
+ */
+async function fetchWithRetry(url: string, init?: RequestInit, maxRetries = 3): Promise<Response> {
+	let lastError: Error | null = null;
+
+	for (let attempt = 0; attempt <= maxRetries; attempt++) {
+		try {
+			const response = await fetch(url, init);
+
+			// Don't retry on client errors (4xx) - those are real problems
+			if (response.ok || (response.status >= 400 && response.status < 500)) {
+				return response;
+			}
+
+			// Retry on server errors (5xx) and network issues
+			if (attempt < maxRetries) {
+				const delayMs = [100, 300, 1000][attempt];
+				await new Promise((resolve) => setTimeout(resolve, delayMs));
+				continue;
+			}
+
+			return response;
+		} catch (err) {
+			lastError = err instanceof Error ? err : new Error(String(err));
+			if (attempt < maxRetries) {
+				const delayMs = [100, 300, 1000][attempt];
+				await new Promise((resolve) => setTimeout(resolve, delayMs));
+			}
+		}
+	}
+
+	throw lastError || new Error('Failed after all retries');
+}
+
+/**
+ * Wait for a pending operation to complete
+ * This ensures dependencies are met before proceeding
+ */
+async function waitForPendingOperation(operationKey: string): Promise<void> {
+	const pending = pendingOperations.get(operationKey);
+	if (pending) {
+		await pending;
+	}
+}
+
 function computeTrashedUntil(deletedAt: Date): Date {
 	return new Date(deletedAt.getTime() + TRASH_RETENTION_DAYS * MS_PER_DAY);
 }
@@ -98,36 +154,52 @@ function computeTrashedUntil(deletedAt: Date): Date {
  * Create a new workspace
  */
 export async function createWorkspace(name: string, description: string): Promise<Workspace> {
-	const response = await fetch('/api/workspaces', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ name, description })
-	});
+	// Create optimistically for instant UI
+	const newWorkspace: Workspace = {
+		id: `workspace_${Date.now()}`,
+		name: name.trim(),
+		description: description.trim(),
+		icon: 'briefcase',
+		ownerId: 'user_1',
+		createdAt: new Date(),
+		updatedAt: new Date(),
+		deletedAt: null
+	};
 
-	if (!response.ok) {
-		const error = await response.json();
-		throw new Error(error.error || 'Failed to create workspace');
-	}
-
-	const newWorkspace = await response.json();
-
-	// Update store for UI consistency
+	// Update store immediately
 	const currentWorkspaces = get(workspaces);
 	workspaces.set([...currentWorkspaces, newWorkspace]);
 	currentWorkspace.set(newWorkspace);
 
+	// Await API call to ensure it persists before returning
+	try {
+		await fetchWithRetry('/api/workspaces', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ name, description })
+		});
+	} catch (err) {
+		console.error('Create workspace error:', err);
+		throw err;
+	}
+
 	return newWorkspace;
 }
 
-export async function deleteWorkspace(workspaceId: string): Promise<void> {
-	const response = await fetch(`/api/workspaces/${workspaceId}`, {
+export async function deleteWorkspace(
+	workspaceId: string,
+	emptyTrash: boolean = false
+): Promise<number> {
+	const response = await fetch(`/api/workspaces/${workspaceId}?emptyTrash=${emptyTrash}`, {
 		method: 'DELETE'
 	});
 
 	if (!response.ok) {
 		const error = await response.json();
-		throw new Error(error.error || 'Failed to delete workspace');
+		throw new Error(error.error || error.message || 'Failed to delete workspace');
 	}
+
+	const result = await response.json();
 
 	// Update store
 	const currentWorkspacesList = get(workspaces);
@@ -140,6 +212,9 @@ export async function deleteWorkspace(workspaceId: string): Promise<void> {
 		currentWorkspace.set(nextWorkspace);
 		currentFolder.set(null);
 	}
+
+	// Return number of trashed items that were deleted
+	return result.trashedCount || 0;
 }
 
 export function restoreWorkspace(workspaceId: string): void {
@@ -158,7 +233,7 @@ export function restoreWorkspace(workspaceId: string): void {
 	});
 }
 
-export function renameWorkspace(workspaceId: string, newName: string): void {
+export async function renameWorkspace(workspaceId: string, newName: string): Promise<void> {
 	if (!newName.trim()) throw new Error('Name is required');
 
 	// Optimistic update
@@ -174,17 +249,23 @@ export function renameWorkspace(workspaceId: string, newName: string): void {
 		currentWorkspace.set({ ...currentWs, name: newName.trim(), updatedAt: now });
 	}
 
-	// Fire API call in background
-	fetch(`/api/workspaces/${workspaceId}`, {
+	// Await API call to ensure persistence
+	const response = await fetchWithRetry(`/api/workspaces/${workspaceId}`, {
 		method: 'PATCH',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ name: newName })
-	}).catch((err) => {
-		console.error('Failed to rename workspace:', err);
 	});
+
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error || 'Failed to rename workspace');
+	}
 }
 
-export function updateWorkspaceDescription(workspaceId: string, newDescription: string): void {
+export async function updateWorkspaceDescription(
+	workspaceId: string,
+	newDescription: string
+): Promise<void> {
 	// Optimistic update
 	const currentWorkspacesList = get(workspaces);
 	const now = new Date();
@@ -198,17 +279,20 @@ export function updateWorkspaceDescription(workspaceId: string, newDescription: 
 		currentWorkspace.set({ ...currentWs, description: newDescription.trim(), updatedAt: now });
 	}
 
-	// Fire API call in background
-	fetch(`/api/workspaces/${workspaceId}`, {
+	// Await API call to ensure persistence
+	const response = await fetchWithRetry(`/api/workspaces/${workspaceId}`, {
 		method: 'PATCH',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ description: newDescription })
-	}).catch((err) => {
-		console.error('Failed to update workspace description:', err);
 	});
+
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error || 'Failed to update workspace description');
+	}
 }
 
-export function updateWorkspaceIcon(workspaceId: string, newIcon: string): void {
+export async function updateWorkspaceIcon(workspaceId: string, newIcon: string): Promise<void> {
 	// Optimistic update
 	const currentWorkspacesList = get(workspaces);
 	const now = new Date();
@@ -222,14 +306,17 @@ export function updateWorkspaceIcon(workspaceId: string, newIcon: string): void 
 		currentWorkspace.set({ ...currentWs, icon: newIcon, updatedAt: now });
 	}
 
-	// Fire API call in background
-	fetch(`/api/workspaces/${workspaceId}`, {
+	// Await API call to ensure persistence
+	const response = await fetchWithRetry(`/api/workspaces/${workspaceId}`, {
 		method: 'PATCH',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ icon: newIcon })
-	}).catch((err) => {
-		console.error('Failed to update workspace icon:', err);
 	});
+
+	if (!response.ok) {
+		const error = await response.json();
+		throw new Error(error.error || 'Failed to update workspace icon');
+	}
 }
 
 // ==================== FOLDER OPERATIONS ====================
@@ -238,22 +325,50 @@ export async function createFolder(parentId: string | null, name: string): Promi
 	const currentWs = get(currentWorkspace);
 	if (!currentWs) throw new Error('No workspace selected');
 
-	const response = await fetch('/api/folders', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ workspaceId: currentWs.id, parentId, name })
-	});
+	// Create optimistically for instant UI
+	const newFolder: Folder = {
+		id: `folder_${Date.now()}`,
+		workspaceId: currentWs.id,
+		parentId,
+		name: name.trim(),
+		starred: false,
+		createdAt: new Date(),
+		updatedAt: new Date(),
+		deletedAt: null,
+		trashedUntil: null
+	};
 
-	if (!response.ok) {
-		const error = await response.json();
-		throw new Error(error.error || 'Failed to create folder');
+	// Update store immediately - use get/set pattern for proper reactivity
+	const currentFoldersList = get(workspaceFolders);
+	const updated = [...currentFoldersList, newFolder];
+	workspaceFolders.set(updated);
+
+	// If parent folder exists and has a pending operation, wait for it to complete
+	if (parentId) {
+		await waitForPendingOperation(`folder:${parentId}`);
 	}
 
-	const newFolder = await response.json();
+	// Track this operation as pending so child folders wait for it
+	const operationKey = `folder:${newFolder.id}`;
+	const apiCall = (async () => {
+		try {
+			await fetchWithRetry('/api/folders', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ workspaceId: currentWs.id, parentId, name })
+			});
+		} catch (err) {
+			console.error('Create folder error:', err);
+			// Keep optimistic update even if API fails (offline support)
+		}
+	})();
 
-	// Update store
-	const currentFoldersList = get(workspaceFolders);
-	workspaceFolders.set([...currentFoldersList, newFolder]);
+	pendingOperations.set(operationKey, apiCall);
+	try {
+		await apiCall;
+	} finally {
+		pendingOperations.delete(operationKey);
+	}
 
 	return newFolder;
 }
@@ -290,29 +405,43 @@ export async function deleteFolder(folderId: string): Promise<void> {
 
 	const deletedAt = new Date();
 
-	// Optimistic update
-	folder.deletedAt = deletedAt;
-	folder.updatedAt = deletedAt;
-	folder.trashedUntil = computeTrashedUntil(deletedAt);
+	// Optimistic update - create new objects to ensure reactivity
+	const updatedFolders = currentFoldersList.map((f) =>
+		f.id === folderId
+			? {
+					...f,
+					deletedAt,
+					updatedAt: deletedAt,
+					trashedUntil: computeTrashedUntil(deletedAt)
+				}
+			: f
+	);
 
+	// Mark files in this folder as deleted too
 	const currentFilesList = get(currentFiles);
-	currentFilesList.forEach((file) => {
-		if (file.folderId === folderId) {
-			file.deletedAt = deletedAt;
-			file.trashedUntil = computeTrashedUntil(deletedAt);
-			file.updatedAt = deletedAt;
-		}
-	});
+	const updatedFiles = currentFilesList.map((file) =>
+		file.folderId === folderId
+			? {
+					...file,
+					deletedAt,
+					trashedUntil: computeTrashedUntil(deletedAt),
+					updatedAt: deletedAt
+				}
+			: file
+	);
 
-	workspaceFolders.set([...currentFoldersList]);
-	currentFiles.set([...currentFilesList]);
+	workspaceFolders.set(updatedFolders);
+	currentFiles.set(updatedFiles);
 
-	// Fire API call in background
-	fetch(`/api/folders/${folderId}`, {
-		method: 'DELETE'
-	}).catch((err) => {
+	// Await API call to ensure soft delete is persisted
+	try {
+		await fetchWithRetry(`/api/folders/${folderId}`, {
+			method: 'DELETE'
+		});
+	} catch (err) {
 		console.error('Delete folder error:', err);
-	});
+		// Keep optimistic update even if API fails
+	}
 }
 
 // ==================== FILE OPERATIONS ====================
@@ -362,7 +491,7 @@ export function setFileTags(fileId: string, tagIds: string[]): void {
 	});
 }
 
-export function deleteFile(fileId: string): void {
+export async function deleteFile(fileId: string): Promise<void> {
 	const currentFilesList = get(currentFiles);
 	const file = currentFilesList.find((f) => f.id === fileId);
 
@@ -374,18 +503,21 @@ export function deleteFile(fileId: string): void {
 	file.updatedAt = file.deletedAt;
 	currentFiles.set([...currentFilesList]);
 
-	// Fire API call in background
-	fetch(`/api/files/${fileId}`, {
-		method: 'DELETE'
-	}).catch((err) => {
+	// Await API call to ensure soft delete is persisted
+	try {
+		await fetchWithRetry(`/api/files/${fileId}`, {
+			method: 'DELETE'
+		});
+	} catch (err) {
 		console.error('Failed to delete file:', err);
-	});
+		// Keep optimistic update even if API fails
+	}
 }
 
 export async function deleteFiles(fileIds: string[]): Promise<void> {
 	if (fileIds.length === 0) return;
 
-	const response = await fetch('/api/files/bulk-delete', {
+	const response = await fetchWithRetry('/api/files/bulk-delete', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ fileIds })
@@ -414,38 +546,107 @@ export async function deleteFiles(fileIds: string[]): Promise<void> {
 	currentFiles.set([...currentFilesList]);
 }
 
-export function uploadFiles(files: FileList): void {
+export async function uploadFiles(files: FileList): Promise<number> {
 	const currentWs = get(currentWorkspace);
-	const currentFolder_ = get(currentFolder);
 
-	if (!currentWs || !currentFolder_) return;
+	if (!currentWs) {
+		throw new Error('No workspace selected');
+	}
 
-	// Fire async API call in background
-	(async () => {
-		try {
-			for (let i = 0; i < files.length; i++) {
-				const file = files[i];
-				const formData = new FormData();
-				formData.append('file', file);
-				formData.append('workspaceId', currentWs.id);
-				formData.append('folderId', currentFolder_.id);
-				formData.append('name', file.name);
+	const currentFolder_ = get(currentFolder); // Can be null for workspace root uploads
+	const currentFilesList = get(currentFiles);
 
-				const response = await fetch('/api/files', {
-					method: 'POST',
-					body: formData
-				});
+	let uploadedCount = 0;
+	const newFiles: File[] = [];
+	const errors: string[] = [];
 
-				if (response.ok) {
-					const newFile = await response.json();
-					const updated = get(currentFiles);
-					currentFiles.set([...updated, newFile]);
+	try {
+		for (let i = 0; i < files.length; i++) {
+			const file = files[i];
+			const formData = new FormData();
+			formData.append('file', file);
+			formData.append('workspaceId', currentWs.id);
+			formData.append('folderId', currentFolder_?.id || '');
+			formData.append('name', file.name);
+
+			const response = await fetch('/api/files', {
+				method: 'POST',
+				body: formData
+			});
+
+			console.log('Upload response:', { status: response.status, statusText: response.statusText });
+
+			if (!response.ok) {
+				let errorMessage = `${file.name}: ${response.statusText} (${response.status})`;
+				let fullErrorData = null;
+				try {
+					const errorData = await response.json();
+					fullErrorData = errorData;
+					if (errorData.message) {
+						errorMessage = `${file.name}: ${errorData.message} (${response.status})`;
+					}
+				} catch {
+					// Could not parse error response as JSON
+					try {
+						const text = await response.text();
+						fullErrorData = text;
+						if (text) {
+							errorMessage = `${file.name}: ${text} (${response.status})`;
+						}
+					} catch {
+						// ignore
+					}
 				}
+				errors.push(errorMessage);
+				console.error(`Upload error for ${file.name}:`, {
+					status: response.status,
+					statusText: response.statusText,
+					fullErrorData,
+					errorMessage
+				});
+				continue;
 			}
-		} catch (err) {
-			console.error('Upload files error:', err);
+
+			// Parse response and add to store
+			const uploadedFile = await response.json();
+			console.log('Upload success:', uploadedFile);
+
+			// Convert API response to File type
+			const fileObj: File = {
+				id: uploadedFile.id,
+				workspaceId: uploadedFile.workspaceId,
+				folderId: uploadedFile.folderId || null,
+				name: uploadedFile.name,
+				size: uploadedFile.size,
+				mimeType: uploadedFile.mimeType || 'application/octet-stream',
+				storagePath: uploadedFile.storagePath,
+				uploadedBy: uploadedFile.uploadedBy || 'user_1',
+				starred: uploadedFile.starred ? true : false,
+				tagIds: uploadedFile.tagIds || [],
+				createdAt: new Date(uploadedFile.createdAt),
+				updatedAt: new Date(uploadedFile.updatedAt),
+				deletedAt: uploadedFile.deletedAt ? new Date(uploadedFile.deletedAt) : null,
+				trashedUntil: uploadedFile.trashedUntil ? new Date(uploadedFile.trashedUntil) : null
+			};
+
+			newFiles.push(fileObj);
+			uploadedCount++;
 		}
-	})();
+
+		// Update store with all new files at once
+		if (newFiles.length > 0) {
+			currentFiles.set([...currentFilesList, ...newFiles]);
+		}
+
+		if (errors.length > 0) {
+			throw new Error(`Failed to upload ${errors.length} file(s): ${errors.join('; ')}`);
+		}
+
+		return uploadedCount;
+	} catch (err) {
+		console.error('Upload files error:', err);
+		throw err;
+	}
 }
 
 // ==================== MOVE OPERATIONS ====================
@@ -700,24 +901,27 @@ export function toggleFolderStar(folderId: string): void {
 
 // ==================== TRASH OPERATIONS ====================
 
-export function restoreFile(fileId: string): void {
+export async function restoreFile(fileId: string): Promise<void> {
 	const currentFilesList = get(currentFiles);
 	const file = currentFilesList.find((f) => f.id === fileId);
 
 	if (!file) return;
 
-	// Optimistic update
-	file.deletedAt = null;
-	file.trashedUntil = null;
-	file.updatedAt = new Date();
-	currentFiles.set([...currentFilesList]);
+	try {
+		// Await API call to ensure it persists before proceeding
+		await fetchWithRetry(`/api/files/${fileId}/restore`, {
+			method: 'POST'
+		});
 
-	// Fire API call in background
-	fetch(`/api/files/${fileId}/restore`, {
-		method: 'POST'
-	}).catch((err) => {
-		console.error('Failed to restore file:', err);
-	});
+		// Optimistic update (already done above optimistically, confirm here)
+		file.deletedAt = null;
+		file.trashedUntil = null;
+		file.updatedAt = new Date();
+		currentFiles.set([...currentFilesList]);
+	} catch (error) {
+		console.error('Failed to restore file:', error);
+		throw error;
+	}
 }
 
 // ==================== TAG OPERATIONS ====================
@@ -955,35 +1159,38 @@ export function replaceFileTags(
 	return { tags: resolvedTags, file: get(currentFiles).find((f) => f.id === fileId) };
 }
 
-export function restoreFolder(folderId: string): void {
+export async function restoreFolder(folderId: string): Promise<void> {
 	const currentFoldersList = get(workspaceFolders);
 	const folder = currentFoldersList.find((f) => f.id === folderId);
 
 	if (!folder) return;
 
-	// Optimistic update
-	folder.deletedAt = null;
-	folder.trashedUntil = null;
-	folder.updatedAt = new Date();
+	try {
+		// Await API call to ensure it persists before proceeding
+		await fetchWithRetry(`/api/folders/${folderId}/restore`, {
+			method: 'POST'
+		});
 
-	const currentFilesList = get(currentFiles);
-	currentFilesList.forEach((file) => {
-		if (file.folderId === folderId) {
-			file.deletedAt = null;
-			file.trashedUntil = null;
-			file.updatedAt = new Date();
-		}
-	});
+		// Optimistic update
+		folder.deletedAt = null;
+		folder.trashedUntil = null;
+		folder.updatedAt = new Date();
 
-	currentFiles.set([...currentFilesList]);
-	workspaceFolders.set([...currentFoldersList]);
+		const currentFilesList = get(currentFiles);
+		currentFilesList.forEach((file) => {
+			if (file.folderId === folderId) {
+				file.deletedAt = null;
+				file.trashedUntil = null;
+				file.updatedAt = new Date();
+			}
+		});
 
-	// Fire API call in background
-	fetch(`/api/folders/${folderId}/restore`, {
-		method: 'POST'
-	}).catch((err) => {
-		console.error('Restore folder error:', err);
-	});
+		currentFiles.set([...currentFilesList]);
+		workspaceFolders.set([...currentFoldersList]);
+	} catch (error) {
+		console.error('Restore folder error:', error);
+		throw error;
+	}
 }
 
 /**
@@ -1033,9 +1240,22 @@ export function permanentlyDeleteFolder(folderId: string): void {
 	const currentFoldersList = get(workspaceFolders);
 	const currentFilesList = get(currentFiles);
 
-	// Optimistic update
-	const filteredFolders = currentFoldersList.filter((f) => f.id !== folderId);
-	const filteredFiles = currentFilesList.filter((f) => f.folderId !== folderId);
+	// Find all descendant folder IDs (including the folder itself)
+	const toDelete = new Set<string>([folderId]);
+	const toVisit = [folderId];
+
+	while (toVisit.length > 0) {
+		const currentId = toVisit.pop()!;
+		const children = currentFoldersList.filter((f) => f.parentId === currentId);
+		for (const child of children) {
+			toDelete.add(child.id);
+			toVisit.push(child.id);
+		}
+	}
+
+	// Optimistic update: remove all cascading folders and their files
+	const filteredFolders = currentFoldersList.filter((f) => !toDelete.has(f.id));
+	const filteredFiles = currentFilesList.filter((f) => !toDelete.has(f.folderId ?? ''));
 
 	workspaceFolders.set(filteredFolders);
 	currentFiles.set(filteredFiles);

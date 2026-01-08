@@ -99,10 +99,14 @@
 		toggleFileStar(file.id);
 	}
 
-	function handleRestore() {
+	async function handleRestore() {
 		if (!file) return;
-		restoreFile(file.id);
-		open = false;
+		try {
+			await restoreFile(file.id);
+			open = false;
+		} catch (error) {
+			console.error('Failed to restore file:', error);
+		}
 	}
 
 	function handlePermanentDelete() {

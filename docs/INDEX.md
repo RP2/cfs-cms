@@ -1,11 +1,24 @@
 # CFS CMS Documentation Index
 
-**Phase**: Phase 1 Complete ✅ → Phase 2 Ready 🚀  
-**Last Updated**: January 1, 2026
+**Phase**: Phase 1 Complete ✅ → Phase 2 In Progress 🚀  
+**Current Status**: File upload pipeline complete, blocked on 403 Forbidden  
+**Last Updated**: January 7, 2026
 
 ---
 
 ## Essential Documents (Start Here)
+
+### 0. UPLOAD_PIPELINE.md (NEW)
+
+**Complete file upload implementation walkthrough**
+
+- End-to-end pipeline from UI to API
+- All code snippets included
+- Current 403 blocker explained
+- Debugging checklist
+
+**Read time**: 15 minutes  
+**For**: Understanding current work
 
 ### 1. PHASE1_COMPLETE.md
 
@@ -24,7 +37,7 @@
 
 **Complete API specification for backend**
 
-- All 20+ endpoint definitions
+- All 27 endpoint definitions
 - Request/response examples
 - Error handling patterns
 - Authentication requirements
@@ -73,6 +86,7 @@
 
 ## Reference Documents
 
+- **PHASE2_STATUS.md** - Current Phase 2 progress and blockers
 - **DATABASE.md** - D1 schema and relationships
 - **PROJECT_CONTEXT.md** - Tech stack decisions
 - **ROADMAP.md** - 8-phase development plan

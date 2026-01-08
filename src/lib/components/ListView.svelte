@@ -295,7 +295,9 @@
 													{#if isTrashView}
 														{@const expiry = formatTrashExpiry(folder)}
 														{#if expiry}
-															<p class="text-xs text-muted-foreground">Auto-deletes {expiry}</p>
+															<p class="flex items-center gap-1 text-xs text-destructive">
+																<RotateCcw class="h-3 w-3" />{expiry}
+															</p>
 														{/if}
 													{/if}
 												</div>
@@ -354,7 +356,9 @@
 											{#if isTrashView}
 												{@const expiry = formatTrashExpiry(file)}
 												{#if expiry}
-													<p class="text-xs text-muted-foreground">Auto-deletes {expiry}</p>
+													<p class="flex items-center gap-1 text-xs text-destructive">
+														<RotateCcw class="h-3 w-3" />{expiry}
+													</p>
 												{/if}
 											{/if}
 										</div>

@@ -10,29 +10,49 @@
 	import { Button } from '$lib/components/ui/button';
 	import { currentFolder } from '$lib/stores';
 	import { uploadFiles } from '$lib/services/dataService';
-	import { Upload } from '@lucide/svelte';
+	import { Upload, Loader2 } from '@lucide/svelte';
+	import { toast } from 'svelte-sonner';
 
 	let { open = $bindable(false) } = $props();
 	let files = $state<FileList | null>(null);
 	let uploading = $state(false);
+	let error = $state<string | null>(null);
 
 	function handleClose() {
 		open = false;
 		files = null;
 		uploading = false;
+		error = null;
 	}
 
 	async function handleUpload() {
-		if (!files || !$currentFolder) return;
+		if (!files) {
+			console.log('Upload: no files selected');
+			return;
+		}
 
+		console.log('Upload: starting', {
+			fileCount: files.length,
+			folder: $currentFolder?.name || 'root'
+		});
 		uploading = true;
+		error = null;
 
-		// Simulate upload delay
-		await new Promise((resolve) => setTimeout(resolve, 800));
-
-		uploadFiles(files);
-		uploading = false;
-		handleClose();
+		try {
+			console.log('Upload: calling uploadFiles');
+			const uploaded = await uploadFiles(files);
+			console.log('Upload: success', { uploaded });
+			toast.success(`${uploaded} file(s) uploaded`);
+			// Small delay to show success state before closing
+			await new Promise((resolve) => setTimeout(resolve, 500));
+			handleClose();
+		} catch (err) {
+			console.log('Upload: caught error', err);
+			const message = err instanceof Error ? err.message : 'Upload failed';
+			error = message;
+			toast.error(message);
+			uploading = false;
+		}
 	}
 </script>
 
@@ -49,7 +69,14 @@
 				<label for="file-input" class="flex flex-col items-center gap-2">
 					<Upload class="h-8 w-8 text-muted-foreground" />
 					<span class="text-sm text-muted-foreground">Click to select files or drag and drop</span>
-					<input id="file-input" type="file" multiple bind:files class="hidden" />
+					<input
+						id="file-input"
+						type="file"
+						multiple
+						bind:files
+						class="hidden"
+						disabled={uploading}
+					/>
 				</label>
 			</div>
 			{#if files && files.length > 0}
@@ -62,11 +89,21 @@
 					</ul>
 				</div>
 			{/if}
+			{#if error}
+				<div class="rounded-md bg-destructive/10 p-3">
+					<p class="text-sm text-destructive">{error}</p>
+				</div>
+			{/if}
 		</div>
 		<DialogFooter>
-			<Button variant="outline" onclick={handleClose}>Cancel</Button>
+			<Button variant="outline" onclick={handleClose} disabled={uploading}>Cancel</Button>
 			<Button onclick={handleUpload} disabled={!files || files.length === 0 || uploading}>
-				{uploading ? 'Uploading...' : 'Upload'}
+				{#if uploading}
+					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+					Uploading...
+				{:else}
+					Upload
+				{/if}
 			</Button>
 		</DialogFooter>
 	</DialogContent>

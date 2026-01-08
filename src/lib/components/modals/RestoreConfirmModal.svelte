@@ -8,7 +8,7 @@
 		DialogFooter
 	} from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
-	import { deleteFolder, deleteFile } from '$lib/services/dataService';
+	import { restoreFile, restoreFolder } from '$lib/services/dataService';
 	import type { Folder, File } from '$lib/types';
 	import { Loader2 } from '@lucide/svelte';
 
@@ -26,18 +26,18 @@
 		loading = false;
 	}
 
-	async function handleDelete() {
+	async function handleRestore() {
 		if (!item) return;
 
 		loading = true;
 		try {
 			if (itemType === 'folder') {
-				await deleteFolder(item.id);
+				await restoreFolder(item.id);
 			} else {
-				await deleteFile(item.id);
+				await restoreFile(item.id);
 			}
 		} catch (err) {
-			console.error('Delete failed:', err);
+			console.error('Restore failed:', err);
 			loading = false;
 		} finally {
 			if (loading) handleClose();
@@ -48,24 +48,24 @@
 <Dialog bind:open>
 	<DialogContent>
 		<DialogHeader>
-			<DialogTitle>Move to Trash</DialogTitle>
+			<DialogTitle>Restore from Trash</DialogTitle>
 			<DialogDescription>
-				Are you sure you want to move "{item?.name}" to the trash?
+				Are you sure you want to restore "{item?.name}"?
 				{#if itemType === 'folder'}
-					This also moves all files inside. Items can be restored from Trash for 30 days.
+					This will restore the folder and all files inside to their original location.
 				{:else}
-					Items can be restored from Trash for 30 days.
+					This will restore the file to its original location.
 				{/if}
 			</DialogDescription>
 		</DialogHeader>
 		<DialogFooter>
 			<Button variant="outline" onclick={handleClose} disabled={loading}>Cancel</Button>
-			<Button variant="destructive" onclick={handleDelete} disabled={loading}>
+			<Button onclick={handleRestore} disabled={loading}>
 				{#if loading}
 					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
-					Deleting...
+					Restoring...
 				{:else}
-					Move to Trash
+					Restore
 				{/if}
 			</Button>
 		</DialogFooter>
