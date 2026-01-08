@@ -8,24 +8,45 @@
 
 All UI/UX components, CRUD operations, and interactivity implemented. See [PHASE1_COMPLETE.md](PHASE1_COMPLETE.md) for detailed review.
 
-**Phase 2 Progress (January 7, 2026)** 🚀
+**Phase 2 Progress (January 8, 2026)** 🚀
 
 - ✅ API routes implemented (27 endpoints - ALL operations covered)
 - ✅ dataService already fires API calls with optimistic updates
-- ✅ File upload pipeline fully coded and structured correctly
+- ✅ File upload pipeline working with base64 JSON approach (bypasses Cloudflare CSRF)
   - ✅ UploadModal captures files and shows upload UI
-  - ✅ dataService.uploadFiles() creates FormData and posts to /api/files
+  - ✅ dataService.uploadFiles() converts to base64 and posts JSON to /api/files
   - ✅ API endpoint receives request, creates DB record, returns camelCase response
   - ✅ dataService receives response and updates currentFiles store
   - ✅ UI automatically re-renders with new files via $derived
-  - 🔴 **BLOCKER**: Consistent 403 Forbidden on POST requests (CORS/Cloudflare infrastructure issue)
-- ⚠️ Mock fallback works for GET, but POST/file upload hits 403 before reaching handler
-- 🔄 Ready for D1/R2 integration once Cloudflare/CORS issue resolved
+  - ⚠️ **TEMP SOLUTION**: Using base64 encoding (33% payload overhead)
+- 🔄 Ready for D1/R2 integration
+
+**⚠️ BEFORE PRODUCTION:**
+
+- [ ] **Replace base64 upload with presigned R2 URLs** - Current approach adds 33% payload overhead
+  - Client requests presigned URL from `/api/files/upload-url`
+  - Client uploads directly to R2 (bypasses Worker limits)
+  - Client notifies API with metadata after successful upload
+- [ ] **Add client-side image optimization** - Reduce storage costs 60-80%
+  - Add toggle in upload UI: "Upload original" vs "Optimize for web"
+  - Compress/resize images before upload (max 2048px, 85% quality)
+  - Convert HEIC/TIFF to WebP/JPEG automatically
+  - Show file size before/after in UI
+  - Library options: `browser-image-compression` or native Canvas API
 
 See:
 
 - [PHASE2_API_CONTRACT.md](PHASE2_API_CONTRACT.md) - All endpoint specifications
 - [BACKEND_MIGRATION.md](BACKEND_MIGRATION.md) - Step-by-step integration guide
+
+**Recent Improvements (January 8, 2026)** ✅
+
+- ✅ **File upload working!** - Solved Cloudflare CSRF 403 issue
+  - Switched from multipart/form-data to JSON with base64-encoded files
+  - Bypasses Cloudflare's cross-site POST protection
+  - Works for local dev (`wrangler dev --remote`) and production
+  - Added `nodejs_compat` flag to wrangler.toml
+- ⚠️ **Temporary solution** - Base64 adds 33% payload overhead, need presigned R2 URLs for prod
 
 **Recent Improvements (January 7, 2026)** ✅
 

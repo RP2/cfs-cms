@@ -20,15 +20,12 @@ export const OPTIONS: RequestHandler = async () => {
 // POST /api/files - Upload file (mock for now, real R2 in Phase 2b)
 export const POST: RequestHandler = async ({ request, platform }) => {
 	try {
-		const formData = await request.formData();
-		const file = formData.get('file') as File;
-		const workspaceId = formData.get('workspaceId') as string;
-		const folderId = (formData.get('folderId') as string) || null;
-		const name = (formData.get('name') as string) || file.name;
+		const body = await request.json();
+		const { file: base64Data, fileName, fileType, fileSize, workspaceId, folderId, name } = body;
 
-		console.log('Upload attempt:', { fileName: name, workspaceId, folderId, fileSize: file?.size });
+		console.log('Upload attempt:', { fileName: name || fileName, workspaceId, folderId, fileSize });
 
-		if (!file || !workspaceId) {
+		if (!base64Data || !workspaceId) {
 			return new Response(JSON.stringify({ message: 'file and workspaceId are required' }), {
 				status: 400,
 				headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
@@ -37,7 +34,8 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 
 		const now = new Date().toISOString();
 		const newId = `file_${Date.now()}`;
-		const storagePath = `${workspaceId}/${newId}/${file.name}`;
+		const finalName = name || fileName;
+		const storagePath = `${workspaceId}/${newId}/${finalName}`;
 
 		// Mock fallback for static demo
 		if (!platform?.env?.DB) {
@@ -46,9 +44,9 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 					id: newId,
 					workspaceId,
 					folderId: folderId || null,
-					name,
-					size: file.size,
-					mimeType: file.type || 'application/octet-stream',
+					name: finalName,
+					size: fileSize,
+					mimeType: fileType || 'application/octet-stream',
 					storagePath,
 					uploadedBy: 'user_1',
 					starred: false,
@@ -74,9 +72,9 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 				newId,
 				workspaceId,
 				folderId,
-				name,
-				file.type || 'application/octet-stream',
-				file.size,
+				finalName,
+				fileType || 'application/octet-stream',
+				fileSize,
 				storagePath,
 				'user_1', // TODO: auth
 				0,
@@ -85,8 +83,11 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 			)
 			.run();
 
-		// Phase 2b: Upload to R2
-		// await platform!.env.R2.put(storagePath, file.stream());
+		// Upload to R2 (decode base64 back to binary)
+		const binaryData = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
+		await platform!.env.R2.put(storagePath, binaryData);
+
+		console.log('R2 upload complete:', storagePath);
 
 		const newFile = await platform!.env.DB.prepare('SELECT * FROM files WHERE id = ?')
 			.bind(newId)

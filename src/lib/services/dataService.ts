@@ -563,15 +563,25 @@ export async function uploadFiles(files: FileList): Promise<number> {
 	try {
 		for (let i = 0; i < files.length; i++) {
 			const file = files[i];
-			const formData = new FormData();
-			formData.append('file', file);
-			formData.append('workspaceId', currentWs.id);
-			formData.append('folderId', currentFolder_?.id || '');
-			formData.append('name', file.name);
+
+			// Convert file to base64 to avoid Cloudflare's multipart CSRF protection
+			const arrayBuffer = await file.arrayBuffer();
+			const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
 
 			const response = await fetch('/api/files', {
 				method: 'POST',
-				body: formData
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					file: base64,
+					fileName: file.name,
+					fileType: file.type || 'application/octet-stream',
+					fileSize: file.size,
+					workspaceId: currentWs.id,
+					folderId: currentFolder_?.id || null,
+					name: file.name
+				})
 			});
 
 			console.log('Upload response:', { status: response.status, statusText: response.statusText });
