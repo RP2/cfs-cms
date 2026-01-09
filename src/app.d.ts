@@ -16,8 +16,8 @@ declare global {
 				DB: D1Database;
 				R2: R2Bucket;
 				KV: KVNamespace;
-				CLOUDFLARE_ACCESS_AUD?: string;
-				CLOUDFLARE_ACCESS_JWKS_URL?: string;
+				POLICY_AUD?: string;
+				TEAM_DOMAIN?: string;
 			};
 		}
 	}
