@@ -53,6 +53,7 @@
 		"wrangler": "^4.54.0"
 	},
 	"dependencies": {
-		"browser-image-compression": "^2.0.2"
+		"browser-image-compression": "^2.0.2",
+		"jose": "^6.1.3"
 	}
 }
