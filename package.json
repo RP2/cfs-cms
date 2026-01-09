@@ -51,5 +51,8 @@
 		"vite": "^7.2.6",
 		"vitest": "^4.0.16",
 		"wrangler": "^4.54.0"
+	},
+	"dependencies": {
+		"browser-image-compression": "^2.0.2"
 	}
 }

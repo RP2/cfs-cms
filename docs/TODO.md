@@ -34,18 +34,27 @@ All UI/UX components, CRUD operations, and interactivity implemented. See [PHASE
   - ✅ Error handling with descriptive messages
   - ✅ CORS headers on all responses
 
-**⚠️ BEFORE PRODUCTION:**
+**⚠️ KNOWN ISSUES:**
 
-- [ ] **Replace base64 upload with presigned R2 URLs** - Current approach adds 33% payload overhead
-  - Client requests presigned URL from `/api/files/upload-url`
-  - Client uploads directly to R2 (bypasses Worker limits)
-  - Client notifies API with metadata after successful upload
-- [ ] **Add client-side image optimization** - Reduce storage costs 60-80%
-  - Add toggle in upload UI: "Upload original" vs "Optimize for web"
-  - Compress/resize images before upload (max 2048px, 85% quality)
-  - Convert HEIC/TIFF to WebP/JPEG automatically
+- [ ] **403 Forbidden on chunked uploads in wrangler dev --remote**
+  - Cloudflare CSRF protection blocks multipart/form-data POST requests
+  - Added `X-Requested-With: XMLHttpRequest` header (may not be sufficient)
+  - Workaround: Deploy to Cloudflare Pages for testing (production has different CSRF rules)
+  - Fallback option: Encode chunks as base64 in JSON (adds 33% overhead per chunk)
+  - Testing blocked locally until resolved
+
+**⚠️ BEFORE PRODUCTION (Optional Optimizations):**
+
+- [ ] **Add presigned R2 URL upload** (alternative to chunked server-mediated)
+  - Bypasses Worker memory limits completely
+  - More complex CORS setup
+  - Less secure for open-source (client has direct R2 access)
+  - Decision: Keep server-mediated for simplicity unless performance issues arise
+- [ ] **Add client-side image optimization UI** - Already installed `browser-image-compression`
+  - Add toggle in UploadModal: "Optimize images for web"
+  - Call `compressImage()` before `uploadFileInChunks()`
   - Show file size before/after in UI
-  - Library options: `browser-image-compression` or native Canvas API
+  - Reduce storage costs 60-80%
 
 See:
 
@@ -66,28 +75,23 @@ See:
   - 24 tests validating real D1 database operations
   - Covers all edge cases (cross-workspace, reference counting, etc.)
 
-**Recent Improvements (January 8, 2026)** ✅
+**Recent Improvements (January 9, 2026)** ✅
 
-- ✅ **File upload working!** - Solved Cloudflare CSRF 403 issue
-  - Switched from multipart/form-data to JSON with base64-encoded files
-  - Bypasses Cloudflare's cross-site POST protection
-  - Works for local dev (`wrangler dev --remote`) and production
-  - Added `nodejs_compat` flag to wrangler.toml
-- ⚠️ **Base64 upload temporary** - Adds 33% payload overhead, will replace with presigned R2 URLs for production
-
-**Recent Improvements (January 7, 2026)** ✅
-
-- ✅ **Complete file upload pipeline implemented**
-  - ✅ Fixed dataService.uploadFiles() to update currentFiles store with uploaded files
-  - ✅ Added proper camelCase conversion in API response
-  - ✅ Added CORS headers to all responses in /api/files endpoint
-  - ✅ Modal shows 500ms success delay before closing for better UX
-  - ✅ Type conversion from API response to File type working correctly
-- ⚠️ **Upload blocked on infrastructure**: 403 Forbidden on all POST requests to /api/files
-  - Happens even before handler execution (likely Cloudflare WAF or routing issue)
-  - OPTIONS preflight working with CORS headers
-  - Issue appears to be Cloudflare-side, not code-related
-  - Needs investigation of: WAF rules, D1/R2 permissions, Route configuration in wrangler.toml
+- ✅ **Chunked upload service implemented**
+  - ✅ Created `uploadService.ts` with chunked upload logic (512KB chunks)
+  - ✅ Created `/api/files/upload-chunk` endpoint (stores chunks in KV)
+  - ✅ Created `/api/files/finalize-upload` endpoint (assembles chunks → R2 + D1)
+  - ✅ Updated `dataService.uploadFiles()` to use chunked approach
+  - ✅ Deprecated old POST `/api/files` endpoint (returned 410 Gone)
+  - ✅ Installed `browser-image-compression` for optional image optimization
+  - ✅ Added browser-only guard for compression (prevents SSR errors)
+  - ✅ Progress tracking support via callback
+  - ✅ All TypeScript errors resolved
+  - ✅ Build passing (`npm run build` succeeds)
+- ⚠️ **Upload still blocked locally**: 403 Forbidden on chunked uploads
+  - Same Cloudflare CSRF protection issue as before
+  - Added `X-Requested-With` header to bypass detection
+  - Need to test on Cloudflare Pages production deployment
 
 **Recent Improvements (January 6, 2026)** ✅
 

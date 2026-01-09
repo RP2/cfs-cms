@@ -9,6 +9,7 @@ import {
 import type { Workspace, Folder, File, Tag } from '$lib/types';
 import { get } from 'svelte/store';
 import { toast } from 'svelte-sonner';
+import { uploadFileInChunks, compressImage, formatFileSize } from './uploadService';
 
 const TRASH_RETENTION_DAYS = 30;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -656,51 +657,38 @@ export async function uploadFiles(files: FileList): Promise<number> {
 			const file = files[i];
 
 			try {
-				// Convert file to base64 to avoid Cloudflare's multipart CSRF protection
-				const arrayBuffer = await file.arrayBuffer();
-				const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+				// Show upload progress toast
+				const progressToast = toast.loading(`Uploading ${file.name}...`);
 
-				// Call API and wait for response (API-first pattern)
-				const response = await fetchWithRetry('/api/files', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify({
-						file: base64,
-						fileName: file.name,
-						fileType: file.type || 'application/octet-stream',
-						fileSize: file.size,
-						workspaceId: currentWs.id,
-						folderId: currentFolder_?.id || null,
-						name: file.name
-					})
-				});
+				// Upload using chunked service (API-first pattern)
+				const uploadedFile = await uploadFileInChunks(
+					file,
+					currentWs.id,
+					currentFolder_?.id || null,
+					(percent) => {
+						console.log(`${file.name}: ${percent}%`);
+					}
+				);
 
-				if (!response.ok) {
-					const errorData = await response.json().catch(() => ({}));
-					throw new Error(errorData.error || `Upload failed: ${response.statusText}`);
-				}
-
-				// Only update store AFTER API succeeds
-				const uploadedFile = await response.json();
+				// Dismiss progress toast
+				toast.dismiss(progressToast);
 
 				// Convert API response to File type
 				const fileObj: File = {
 					id: uploadedFile.id,
-					workspaceId: uploadedFile.workspaceId,
-					folderId: uploadedFile.folderId || null,
+					workspaceId: uploadedFile.workspace_id,
+					folderId: uploadedFile.folder_id || null,
 					name: uploadedFile.name,
 					size: uploadedFile.size,
-					mimeType: uploadedFile.mimeType || 'application/octet-stream',
-					storagePath: uploadedFile.storagePath,
-					uploadedBy: uploadedFile.uploadedBy || 'user_1',
+					mimeType: uploadedFile.mime_type || 'application/octet-stream',
+					storagePath: uploadedFile.storage_path,
+					uploadedBy: uploadedFile.uploaded_by || 'user_1',
 					starred: uploadedFile.starred ? true : false,
-					tagIds: uploadedFile.tagIds || [],
-					createdAt: new Date(uploadedFile.createdAt),
-					updatedAt: new Date(uploadedFile.updatedAt),
-					deletedAt: uploadedFile.deletedAt ? new Date(uploadedFile.deletedAt) : null,
-					trashedUntil: uploadedFile.trashedUntil ? new Date(uploadedFile.trashedUntil) : null
+					tagIds: uploadedFile.tag_ids || [],
+					createdAt: new Date(uploadedFile.created_at),
+					updatedAt: new Date(uploadedFile.updated_at),
+					deletedAt: uploadedFile.deleted_at ? new Date(uploadedFile.deleted_at) : null,
+					trashedUntil: uploadedFile.trashed_until ? new Date(uploadedFile.trashed_until) : null
 				};
 
 				newFiles.push(fileObj);

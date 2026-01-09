@@ -17,120 +17,19 @@ export const OPTIONS: RequestHandler = async () => {
 	});
 };
 
-// POST /api/files - Upload file (mock for now, real R2 in Phase 2b)
+// POST /api/files - DEPRECATED: Use /api/files/upload-chunk + /api/files/finalize-upload instead
 export const POST: RequestHandler = async ({ request, platform }) => {
-	try {
-		const body = await request.json();
-		const { file: base64Data, fileName, fileType, fileSize, workspaceId, folderId, name } = body;
-
-		console.log('Upload attempt:', { fileName: name || fileName, workspaceId, folderId, fileSize });
-
-		if (!base64Data || !workspaceId) {
-			return new Response(JSON.stringify({ message: 'file and workspaceId are required' }), {
-				status: 400,
-				headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
-			});
+	return new Response(
+		JSON.stringify({
+			error:
+				'Use chunked upload endpoints: POST /api/files/upload-chunk and POST /api/files/finalize-upload',
+			deprecated: true
+		}),
+		{
+			status: 410, // Gone
+			headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
 		}
-
-		const now = new Date().toISOString();
-		const newId = `file_${Date.now()}`;
-		const finalName = name || fileName;
-		const storagePath = `${workspaceId}/${newId}/${finalName}`;
-
-		// Mock fallback for static demo
-		if (!platform?.env?.DB) {
-			return new Response(
-				JSON.stringify({
-					id: newId,
-					workspaceId,
-					folderId: folderId || null,
-					name: finalName,
-					size: fileSize,
-					mimeType: fileType || 'application/octet-stream',
-					storagePath,
-					uploadedBy: 'user_1',
-					starred: false,
-					tagIds: [],
-					createdAt: now,
-					updatedAt: now,
-					deletedAt: null,
-					trashedUntil: null
-				}),
-				{
-					status: 201,
-					headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
-				}
-			);
-		}
-
-		// Database mode: Insert file record
-		await platform!.env.DB.prepare(
-			`INSERT INTO files (id, workspace_id, folder_id, name, mime_type, size, storage_path, uploaded_by, starred, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-		)
-			.bind(
-				newId,
-				workspaceId,
-				folderId,
-				finalName,
-				fileType || 'application/octet-stream',
-				fileSize,
-				storagePath,
-				'user_1', // TODO: auth
-				0,
-				now,
-				now
-			)
-			.run();
-
-		// Upload to R2 (decode base64 back to binary)
-		const binaryData = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
-		await platform!.env.R2.put(storagePath, binaryData);
-
-		console.log('R2 upload complete:', storagePath);
-
-		const newFile = await platform!.env.DB.prepare('SELECT * FROM files WHERE id = ?')
-			.bind(newId)
-			.first();
-
-		console.log('Upload success:', newFile?.id);
-
-		// Convert snake_case to camelCase for response
-		return new Response(
-			JSON.stringify({
-				id: newFile.id,
-				workspaceId: newFile.workspace_id,
-				folderId: newFile.folder_id || null,
-				name: newFile.name,
-				size: newFile.size,
-				mimeType: newFile.mime_type,
-				storagePath: newFile.storage_path,
-				uploadedBy: newFile.uploaded_by,
-				starred: newFile.starred === 1,
-				tagIds: newFile.tag_ids ? JSON.parse(newFile.tag_ids) : [],
-				createdAt: newFile.created_at,
-				updatedAt: newFile.updated_at,
-				deletedAt: newFile.deleted_at || null,
-				trashedUntil: newFile.trashed_until || null
-			}),
-			{
-				status: 201,
-				headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
-			}
-		);
-	} catch (err) {
-		console.error('Upload file error:', err);
-		return new Response(
-			JSON.stringify({
-				message: 'Internal server error',
-				error: err instanceof Error ? err.message : String(err)
-			}),
-			{
-				status: 500,
-				headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
-			}
-		);
-	}
+	);
 };
 
 // GET /api/files?workspaceId=... - List all files in workspace
