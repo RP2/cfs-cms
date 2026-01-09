@@ -154,7 +154,9 @@ export function createFolder(parentId: string | null, name: string): Folder {
 	if (!currentWs) throw new Error('No workspace selected');
 
 	// Create locally for instant UI
-	const newFolder: Folder = { /* ... */ };
+	const newFolder: Folder = {
+		/* ... */
+	};
 	const folders = get(workspaceFolders);
 	workspaceFolders.set([...folders, newFolder]);
 
@@ -163,7 +165,7 @@ export function createFolder(parentId: string | null, name: string): Folder {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ parentId, name, workspaceId: currentWs.id })
-	}).catch(err => console.error('Create folder error:', err));
+	}).catch((err) => console.error('Create folder error:', err));
 
 	return newFolder;
 }
@@ -198,11 +200,13 @@ export const POST: RequestHandler = async ({ request, platform }) => {
 
 	await platform.env.DB.prepare(
 		'INSERT INTO folders (id, workspace_id, parent_id, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
-	).bind(newId, workspaceId, parentId, name, now, now).run();
+	)
+		.bind(newId, workspaceId, parentId, name, now, now)
+		.run();
 
-	const folder = await platform.env.DB.prepare(
-		'SELECT * FROM folders WHERE id = ?'
-	).bind(newId).first();
+	const folder = await platform.env.DB.prepare('SELECT * FROM folders WHERE id = ?')
+		.bind(newId)
+		.first();
 
 	return json(folder, { status: 201 });
 };

@@ -36,11 +36,10 @@
 			} else {
 				await deleteFile(item.id);
 			}
+			handleClose();
 		} catch (err) {
 			console.error('Delete failed:', err);
 			loading = false;
-		} finally {
-			if (loading) handleClose();
 		}
 	}
 </script>
@@ -63,7 +62,7 @@
 			<Button variant="destructive" onclick={handleDelete} disabled={loading}>
 				{#if loading}
 					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
-					Deleting...
+					Moving to trash...
 				{:else}
 					Move to Trash
 				{/if}

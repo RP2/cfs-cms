@@ -48,11 +48,10 @@
 
 		try {
 			await createWorkspace(workspaceName, workspaceDescription);
+			handleClose();
 		} catch (e) {
 			error = (e as Error).message;
 			loading = false;
-		} finally {
-			if (loading) handleClose();
 		}
 	}
 

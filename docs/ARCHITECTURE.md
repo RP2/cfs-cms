@@ -151,7 +151,7 @@ export function createFolder(parentId: string | null, name: string): Folder {
 	if (!workspace) throw new Error('No workspace selected');
 
 	// Create locally for instant UI feedback
-	const newFolder: Folder = { id: generateId(), name, parentId, /* ... */ };
+	const newFolder: Folder = { id: generateId(), name, parentId /* ... */ };
 	const folders = get(workspaceFolders);
 	workspaceFolders.set([...folders, newFolder]);
 
@@ -160,7 +160,7 @@ export function createFolder(parentId: string | null, name: string): Folder {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify({ parentId, name, workspaceId: workspace.id })
-	}).catch(err => console.error('Create folder error:', err));
+	}).catch((err) => console.error('Create folder error:', err));
 
 	return newFolder;
 }
@@ -441,7 +441,9 @@ if (!platform?.env?.DB) {
 // After (real database)
 const result = await platform.env.DB.prepare(
 	'INSERT INTO folders (id, workspace_id, parent_id, name, created_at) VALUES (?, ?, ?, ?, ?)'
-).bind(newId, workspaceId, parentId, name, new Date()).run();
+)
+	.bind(newId, workspaceId, parentId, name, new Date())
+	.run();
 
 return json(result);
 ```

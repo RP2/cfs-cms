@@ -22,8 +22,12 @@ export function snakeToCamel(obj: any): any {
 	for (const [key, value] of Object.entries(obj)) {
 		const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 
+		// Convert SQLite 1/0 to boolean true/false for any starred or boolean fields
+		if ((key === 'starred' || camelKey === 'starred') && (value === 1 || value === 0)) {
+			camelObj[camelKey] = value === 1;
+		}
 		// Convert date strings to Date objects
-		if (dateFields.includes(camelKey) && typeof value === 'string') {
+		else if (dateFields.includes(camelKey) && typeof value === 'string') {
 			camelObj[camelKey] = new Date(value);
 		} else {
 			camelObj[camelKey] = value;

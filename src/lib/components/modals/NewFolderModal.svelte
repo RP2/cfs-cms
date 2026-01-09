@@ -45,11 +45,10 @@
 
 			// Await to ensure backend syncs before modal closes
 			await createFolder(effectiveParentId, folderName.trim());
+			handleClose();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to create folder';
 			loading = false;
-		} finally {
-			if (loading) handleClose();
 		}
 	}
 

@@ -55,11 +55,10 @@
 			} else {
 				await renameFile(item.id, newName.trim());
 			}
+			handleClose();
 		} catch (e) {
 			error = (e as Error).message;
 			loading = false;
-		} finally {
-			if (loading) handleClose();
 		}
 	}
 

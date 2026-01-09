@@ -70,66 +70,66 @@ async function handleUpload() {
 
 ```typescript
 export async function uploadFiles(files: FileList): Promise<number> {
-  const currentWs = get(currentWorkspace);
-  const currentFolder_ = get(currentFolder);
-  const currentFilesList = get(currentFiles);
+	const currentWs = get(currentWorkspace);
+	const currentFolder_ = get(currentFolder);
+	const currentFilesList = get(currentFiles);
 
-  let uploadedCount = 0;
-  const newFiles: File[] = [];
-  const errors: string[] = [];
+	let uploadedCount = 0;
+	const newFiles: File[] = [];
+	const errors: string[] = [];
 
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('workspaceId', currentWs.id);
-    formData.append('folderId', currentFolder_?.id || '');
-    formData.append('name', file.name);
+	for (let i = 0; i < files.length; i++) {
+		const file = files[i];
+		const formData = new FormData();
+		formData.append('file', file);
+		formData.append('workspaceId', currentWs.id);
+		formData.append('folderId', currentFolder_?.id || '');
+		formData.append('name', file.name);
 
-    // POST to /api/files
-    const response = await fetch('/api/files', {
-      method: 'POST',
-      body: formData
-    });
+		// POST to /api/files
+		const response = await fetch('/api/files', {
+			method: 'POST',
+			body: formData
+		});
 
-    if (!response.ok) {
-      // Error handling...
-      continue;
-    }
+		if (!response.ok) {
+			// Error handling...
+			continue;
+		}
 
-    // Parse response and convert to File type
-    const uploadedFile = await response.json();
-    const fileObj: File = {
-      id: uploadedFile.id,
-      workspaceId: uploadedFile.workspaceId,
-      folderId: uploadedFile.folderId || null,
-      name: uploadedFile.name,
-      size: uploadedFile.size,
-      mimeType: uploadedFile.mimeType || 'application/octet-stream',
-      storagePath: uploadedFile.storagePath,
-      uploadedBy: uploadedFile.uploadedBy || 'user_1',
-      starred: uploadedFile.starred ? true : false,
-      tagIds: uploadedFile.tagIds || [],
-      createdAt: new Date(uploadedFile.createdAt),
-      updatedAt: new Date(uploadedFile.updatedAt),
-      deletedAt: uploadedFile.deletedAt ? new Date(uploadedFile.deletedAt) : null,
-      trashedUntil: uploadedFile.trashedUntil ? new Date(uploadedFile.trashedUntil) : null
-    };
+		// Parse response and convert to File type
+		const uploadedFile = await response.json();
+		const fileObj: File = {
+			id: uploadedFile.id,
+			workspaceId: uploadedFile.workspaceId,
+			folderId: uploadedFile.folderId || null,
+			name: uploadedFile.name,
+			size: uploadedFile.size,
+			mimeType: uploadedFile.mimeType || 'application/octet-stream',
+			storagePath: uploadedFile.storagePath,
+			uploadedBy: uploadedFile.uploadedBy || 'user_1',
+			starred: uploadedFile.starred ? true : false,
+			tagIds: uploadedFile.tagIds || [],
+			createdAt: new Date(uploadedFile.createdAt),
+			updatedAt: new Date(uploadedFile.updatedAt),
+			deletedAt: uploadedFile.deletedAt ? new Date(uploadedFile.deletedAt) : null,
+			trashedUntil: uploadedFile.trashedUntil ? new Date(uploadedFile.trashedUntil) : null
+		};
 
-    newFiles.push(fileObj);
-    uploadedCount++;
-  }
+		newFiles.push(fileObj);
+		uploadedCount++;
+	}
 
-  // ✅ THIS IS THE CRITICAL PART - Update store with new files
-  if (newFiles.length > 0) {
-    currentFiles.set([...currentFilesList, ...newFiles]);
-  }
+	// ✅ THIS IS THE CRITICAL PART - Update store with new files
+	if (newFiles.length > 0) {
+		currentFiles.set([...currentFilesList, ...newFiles]);
+	}
 
-  if (errors.length > 0) {
-    throw new Error(`Failed to upload ${errors.length} file(s): ${errors.join('; ')}`);
-  }
+	if (errors.length > 0) {
+		throw new Error(`Failed to upload ${errors.length} file(s): ${errors.join('; ')}`);
+	}
 
-  return uploadedCount;
+	return uploadedCount;
 }
 ```
 
@@ -153,17 +153,17 @@ export async function uploadFiles(files: FileList): Promise<number> {
 
 ```typescript
 const CORS_HEADERS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Max-Age': '86400'
+	'Access-Control-Allow-Origin': '*',
+	'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+	'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+	'Access-Control-Max-Age': '86400'
 };
 
 export const OPTIONS: RequestHandler = async () => {
-  return new Response(null, {
-    status: 204,
-    headers: CORS_HEADERS
-  });
+	return new Response(null, {
+		status: 204,
+		headers: CORS_HEADERS
+	});
 };
 ```
 
@@ -173,98 +173,110 @@ export const OPTIONS: RequestHandler = async () => {
 
 ```typescript
 export const POST: RequestHandler = async ({ request, platform }) => {
-  try {
-    // Parse FormData
-    const formData = await request.formData();
-    const file = formData.get('file') as File;
-    const workspaceId = formData.get('workspaceId') as string;
-    const folderId = (formData.get('folderId') as string) || null;
-    const name = (formData.get('name') as string) || file.name;
+	try {
+		// Parse FormData
+		const formData = await request.formData();
+		const file = formData.get('file') as File;
+		const workspaceId = formData.get('workspaceId') as string;
+		const folderId = (formData.get('folderId') as string) || null;
+		const name = (formData.get('name') as string) || file.name;
 
-    // Validate
-    if (!file || !workspaceId) {
-      return new Response(
-        JSON.stringify({ message: 'file and workspaceId are required' }),
-        { status: 400, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
-      );
-    }
+		// Validate
+		if (!file || !workspaceId) {
+			return new Response(JSON.stringify({ message: 'file and workspaceId are required' }), {
+				status: 400,
+				headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' }
+			});
+		}
 
-    // Mock fallback
-    if (!platform?.env?.DB) {
-      const now = new Date().toISOString();
-      const newId = `file_${Date.now()}`;
-      const storagePath = `${workspaceId}/${newId}/${file.name}`;
-      return new Response(
-        JSON.stringify({
-          id: newId,
-          workspaceId,
-          folderId: folderId || null,
-          name,
-          size: file.size,
-          mimeType: file.type || 'application/octet-stream',
-          storagePath,
-          uploadedBy: 'user_1',
-          starred: false,
-          tagIds: [],
-          createdAt: now,
-          updatedAt: now,
-          deletedAt: null,
-          trashedUntil: null
-        }),
-        { status: 201, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
-      );
-    }
+		// Mock fallback
+		if (!platform?.env?.DB) {
+			const now = new Date().toISOString();
+			const newId = `file_${Date.now()}`;
+			const storagePath = `${workspaceId}/${newId}/${file.name}`;
+			return new Response(
+				JSON.stringify({
+					id: newId,
+					workspaceId,
+					folderId: folderId || null,
+					name,
+					size: file.size,
+					mimeType: file.type || 'application/octet-stream',
+					storagePath,
+					uploadedBy: 'user_1',
+					starred: false,
+					tagIds: [],
+					createdAt: now,
+					updatedAt: now,
+					deletedAt: null,
+					trashedUntil: null
+				}),
+				{ status: 201, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+			);
+		}
 
-    // Database mode
-    const now = new Date().toISOString();
-    const newId = `file_${Date.now()}`;
-    const storagePath = `${workspaceId}/${newId}/${file.name}`;
+		// Database mode
+		const now = new Date().toISOString();
+		const newId = `file_${Date.now()}`;
+		const storagePath = `${workspaceId}/${newId}/${file.name}`;
 
-    // Create D1 record
-    await platform!.env.DB.prepare(
-      `INSERT INTO files (id, workspace_id, folder_id, name, mime_type, size, storage_path, uploaded_by, starred, created_at, updated_at)
+		// Create D1 record
+		await platform!.env.DB.prepare(
+			`INSERT INTO files (id, workspace_id, folder_id, name, mime_type, size, storage_path, uploaded_by, starred, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    )
-      .bind(newId, workspaceId, folderId, name, file.type || 'application/octet-stream', file.size, storagePath, 'user_1', 0, now, now)
-      .run();
+		)
+			.bind(
+				newId,
+				workspaceId,
+				folderId,
+				name,
+				file.type || 'application/octet-stream',
+				file.size,
+				storagePath,
+				'user_1',
+				0,
+				now,
+				now
+			)
+			.run();
 
-    // TODO: Upload to R2
-    // await platform!.env.R2.put(storagePath, file.stream());
+		// TODO: Upload to R2
+		// await platform!.env.R2.put(storagePath, file.stream());
 
-    // Fetch created record
-    const newFile = await platform!.env.DB.prepare('SELECT * FROM files WHERE id = ?')
-      .bind(newId)
-      .first();
+		// Fetch created record
+		const newFile = await platform!.env.DB.prepare('SELECT * FROM files WHERE id = ?')
+			.bind(newId)
+			.first();
 
-    // Return with camelCase conversion
-    return new Response(
-      JSON.stringify({
-        id: newFile.id,
-        workspaceId: newFile.workspace_id,
-        folderId: newFile.folder_id || null,
-        name: newFile.name,
-        size: newFile.size,
-        mimeType: newFile.mime_type,
-        storagePath: newFile.storage_path,
-        uploadedBy: newFile.uploaded_by,
-        starred: newFile.starred === 1,
-        tagIds: newFile.tag_ids ? JSON.parse(newFile.tag_ids) : [],
-        createdAt: newFile.created_at,
-        updatedAt: newFile.updated_at,
-        deletedAt: newFile.deleted_at || null,
-        trashedUntil: newFile.trashed_until || null
-      }),
-      { status: 201, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
-    );
-  } catch (err) {
-    return new Response(
-      JSON.stringify({
-        message: 'Internal server error',
-        error: err instanceof Error ? err.message : String(err)
-      }),
-      { status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
-    );
-  }
+		// Return with camelCase conversion
+		return new Response(
+			JSON.stringify({
+				id: newFile.id,
+				workspaceId: newFile.workspace_id,
+				folderId: newFile.folder_id || null,
+				name: newFile.name,
+				size: newFile.size,
+				mimeType: newFile.mime_type,
+				storagePath: newFile.storage_path,
+				uploadedBy: newFile.uploaded_by,
+				starred: newFile.starred === 1,
+				tagIds: newFile.tag_ids ? JSON.parse(newFile.tag_ids) : [],
+				createdAt: newFile.created_at,
+				updatedAt: newFile.updated_at,
+				deletedAt: newFile.deleted_at || null,
+				trashedUntil: newFile.trashed_until || null
+			}),
+			{ status: 201, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+		);
+	} catch (err) {
+		return new Response(
+			JSON.stringify({
+				message: 'Internal server error',
+				error: err instanceof Error ? err.message : String(err)
+			}),
+			{ status: 500, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+		);
+	}
 };
 ```
 
@@ -319,12 +331,11 @@ export const currentFiles = writable<File[]>(mockFiles);
 
 ```typescript
 let currentFileList = $derived.by(() => {
-  if (!$currentWorkspace) return [];
-  return $currentFiles.filter(
-    (f) => f.workspaceId === $currentWorkspace.id &&
-           f.folderId === $currentFolder?.id &&
-           !f.deletedAt
-  );
+	if (!$currentWorkspace) return [];
+	return $currentFiles.filter(
+		(f) =>
+			f.workspaceId === $currentWorkspace.id && f.folderId === $currentFolder?.id && !f.deletedAt
+	);
 });
 ```
 

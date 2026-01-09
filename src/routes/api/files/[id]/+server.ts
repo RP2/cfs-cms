@@ -5,7 +5,7 @@ import type { UpdateFileRequest } from '$lib/types/api';
 // PATCH /api/files/[id] - Update file metadata
 export const PATCH: RequestHandler = async ({ params, request, platform }) => {
 	try {
-		const { id } = params;
+		const id = params.id as string;
 		const updates: UpdateFileRequest = await request.json();
 
 		// Mock fallback for static demo
@@ -59,7 +59,24 @@ export const PATCH: RequestHandler = async ({ params, request, platform }) => {
 			.bind(id)
 			.first();
 
-		return json(updated);
+		// Convert response manually
+		const f = updated as any;
+		return json({
+			id: f.id,
+			workspaceId: f.workspace_id,
+			folderId: f.folder_id || null,
+			name: f.name,
+			size: f.size,
+			mimeType: f.mime_type,
+			storagePath: f.storage_path,
+			uploadedBy: f.uploaded_by,
+			starred: Boolean(f.starred),
+			tagIds: f.tag_ids ? JSON.parse(f.tag_ids) : [],
+			createdAt: f.created_at,
+			updatedAt: f.updated_at,
+			deletedAt: f.deleted_at || null,
+			trashedUntil: f.trashed_until || null
+		});
 	} catch (err) {
 		console.error('Update file error:', err);
 		return httpError(500, { message: 'Internal server error' });

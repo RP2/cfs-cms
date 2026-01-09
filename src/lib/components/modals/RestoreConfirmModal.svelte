@@ -39,9 +39,8 @@
 		} catch (err) {
 			console.error('Restore failed:', err);
 			loading = false;
-		} finally {
-			if (loading) handleClose();
 		}
+		handleClose();
 	}
 </script>
 

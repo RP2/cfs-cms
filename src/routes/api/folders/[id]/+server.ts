@@ -5,7 +5,7 @@ import type { UpdateFolderRequest } from '$lib/types/api';
 // PATCH /api/folders/[id] - Update folder (rename, move, star)
 export const PATCH: RequestHandler = async ({ params, request, platform }) => {
 	try {
-		const { id } = params;
+		const id = params.id as string;
 		const updates: UpdateFolderRequest = await request.json();
 
 		// Mock fallback for static demo
@@ -64,7 +64,19 @@ export const PATCH: RequestHandler = async ({ params, request, platform }) => {
 		// Update cache
 		await platform!.env.KV.put(`folder:${id}`, JSON.stringify(updated), { expirationTtl: 600 });
 
-		return json(updated);
+		// Convert response manually
+		const f = updated as any;
+		return json({
+			id: f.id,
+			workspaceId: f.workspace_id,
+			parentId: f.parent_id || null,
+			name: f.name,
+			starred: Boolean(f.starred),
+			createdAt: f.created_at,
+			updatedAt: f.updated_at,
+			deletedAt: f.deleted_at || null,
+			trashedUntil: f.trashed_until || null
+		});
 	} catch (err) {
 		console.error('Update folder error:', err);
 		return httpError(500, { message: 'Internal server error' });
@@ -74,7 +86,7 @@ export const PATCH: RequestHandler = async ({ params, request, platform }) => {
 // DELETE /api/folders/[id] - Soft or permanent delete folder
 export const DELETE: RequestHandler = async ({ params, platform, url }) => {
 	try {
-		const { id } = params;
+		const id = params.id as string;
 		const permanent = url.searchParams.get('permanent') === 'true';
 
 		// Mock fallback for static demo

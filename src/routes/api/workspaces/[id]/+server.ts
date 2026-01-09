@@ -102,10 +102,11 @@ export const DELETE: RequestHandler = async ({ params, request, url, platform })
 			.bind(id)
 			.first();
 
-		const hasActiveContent = (hasFolders?.count as number) > 0 || (hasFiles?.count as number) > 0;
+		const hasActiveContent =
+			((hasFolders as any)?.count || 0) > 0 || ((hasFiles as any)?.count || 0) > 0;
 
 		// If has active content, reject
-		if (hasActiveContent && !emptyTrash) {
+		if (hasActiveContent) {
 			return httpError(409, {
 				message:
 					'Cannot delete workspace with content. Please delete or move all files and folders first.',
@@ -113,18 +114,18 @@ export const DELETE: RequestHandler = async ({ params, request, url, platform })
 			});
 		}
 
-		// If emptyTrash is true, permanently delete all trashed items
+		// No active content - permanently delete ALL items (including trashed) before deleting workspace
 		let trashedCount = 0;
-		if (emptyTrash) {
-			// Get all trashed files in workspace for R2 cleanup
-			const trashedFiles = await platform!.env.DB.prepare(
-				'SELECT id, storage_path FROM files WHERE workspace_id = ? AND deleted_at IS NOT NULL'
+		{
+			// Get ALL files in workspace (including trashed) for R2 cleanup
+			const allFiles = await platform!.env.DB.prepare(
+				'SELECT id, storage_path FROM files WHERE workspace_id = ?'
 			)
 				.bind(id)
 				.all();
 
-			// Delete trashed files and handle R2 reference counting
-			for (const file of trashedFiles.results || []) {
+			// Delete files and handle R2 reference counting
+			for (const file of allFiles.results || []) {
 				// Delete from D1
 				await platform!.env.DB.prepare('DELETE FROM files WHERE id = ?').bind(file.id).run();
 
@@ -136,7 +137,7 @@ export const DELETE: RequestHandler = async ({ params, request, url, platform })
 					.first();
 
 				// Only delete R2 file if no other copies remain
-				if ((refCount?.count as number) === 0 && file.storage_path) {
+				if (((refCount as any)?.count || 0) === 0 && file.storage_path) {
 					try {
 						await platform!.env.R2.delete(file.storage_path);
 					} catch (err) {
@@ -145,25 +146,24 @@ export const DELETE: RequestHandler = async ({ params, request, url, platform })
 				}
 			}
 
-			trashedCount = (trashedFiles.results || []).length;
+			trashedCount = (allFiles.results || []).length;
 
-			// Delete trashed folders (cascades handled by DB constraints)
-			const trashedFolders = await platform!.env.DB.prepare(
-				'SELECT COUNT(*) as count FROM folders WHERE workspace_id = ? AND deleted_at IS NOT NULL'
+			// Delete ALL folders (including trashed)
+			const allFolders = await platform!.env.DB.prepare(
+				'SELECT COUNT(*) as count FROM folders WHERE workspace_id = ?'
 			)
 				.bind(id)
 				.first();
 
-			if ((trashedFolders?.count as number) > 0) {
-				await platform!.env.DB.prepare(
-					'DELETE FROM folders WHERE workspace_id = ? AND deleted_at IS NOT NULL'
-				)
-					.bind(id)
-					.run();
+			if (((allFolders as any)?.count || 0) > 0) {
+				await platform!.env.DB.prepare('DELETE FROM folders WHERE workspace_id = ?').bind(id).run();
 
-				trashedCount += trashedFolders?.count as number;
+				trashedCount += (allFolders as any)?.count || 0;
 			}
 		}
+
+		// Delete all tags in workspace (no foreign key cascade issues)
+		await platform!.env.DB.prepare('DELETE FROM tags WHERE workspace_id = ?').bind(id).run();
 
 		// Permanently delete workspace
 		await platform!.env.DB.prepare('DELETE FROM workspaces WHERE id = ?').bind(id).run();

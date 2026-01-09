@@ -99,8 +99,8 @@
 	};
 
 	export function getWorkspaceIconComponent(workspace: Workspace) {
-		const iconName = (workspace.icon as WorkspaceIcon) ?? 'briefcase';
-		return workspaceIconMap[iconName];
+		const iconName = (workspace?.icon as WorkspaceIcon) ?? 'briefcase';
+		return workspaceIconMap[iconName] || Briefcase;
 	}
 </script>
 
