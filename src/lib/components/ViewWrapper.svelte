@@ -310,18 +310,11 @@
 				try {
 					if (clipboardData.type === 'file') {
 						copyFilesToFolder(clipboardData.ids, $currentFolder?.id ?? null);
-						toast.success(
-							`Pasted ${clipboardData.ids.length} file${clipboardData.ids.length === 1 ? '' : 's'}`
-						);
 					} else if (clipboardData.type === 'folder') {
 						copyFoldersToFolder(clipboardData.ids, $currentFolder?.id ?? null);
-						toast.success(
-							`Pasted ${clipboardData.ids.length} folder${clipboardData.ids.length === 1 ? '' : 's'}`
-						);
 					}
 				} catch (e) {
 					console.error('Paste failed:', e);
-					toast.error('Paste failed');
 				}
 			}
 
@@ -378,18 +371,11 @@
 		try {
 			if (clipboardData.type === 'file') {
 				copyFilesToFolder(clipboardData.ids, targetFolderId);
-				toast.success(
-					`Pasted ${clipboardData.ids.length} file${clipboardData.ids.length === 1 ? '' : 's'}`
-				);
 			} else if (clipboardData.type === 'folder') {
 				copyFoldersToFolder(clipboardData.ids, targetFolderId);
-				toast.success(
-					`Pasted ${clipboardData.ids.length} folder${clipboardData.ids.length === 1 ? '' : 's'}`
-				);
 			}
 		} catch (e) {
 			console.error('Paste failed:', e);
-			toast.error('Paste failed');
 		}
 	}
 
@@ -414,7 +400,6 @@
 			showMoveModal = false;
 			showMoveConfirm = false;
 			pendingMoveIds = [];
-			toast.success(`Moved ${ids.length} file${ids.length === 1 ? '' : 's'}`);
 		} catch (e) {
 			moveError = (e as Error).message;
 		}
@@ -691,16 +676,7 @@
 	}
 
 	function handlePermanentDeleteFile(fileId: string) {
-		const remainingCopies = permanentlyDeleteFile(fileId);
-
-		// Show feedback based on copy count
-		if (remainingCopies > 0) {
-			toast.success(
-				`File permanently deleted (${remainingCopies} ${remainingCopies === 1 ? 'copy' : 'copies'} remain)`
-			);
-		} else {
-			toast.success('File permanently deleted');
-		}
+		permanentlyDeleteFile(fileId);
 	}
 
 	function handlePermanentDeleteFolder(folderId: string) {
@@ -708,23 +684,11 @@
 	}
 
 	function handleRestoreWorkspace(workspaceId: string) {
-		try {
-			restoreWorkspace(workspaceId);
-			toast.success('Workspace restored');
-		} catch (error) {
-			const message = error instanceof Error ? error.message : 'Unknown error';
-			toast.error(`Failed to restore workspace: ${message}`);
-		}
+		restoreWorkspace(workspaceId);
 	}
 
 	function handlePermanentDeleteWorkspace(workspaceId: string) {
-		try {
-			deleteWorkspace(workspaceId);
-			toast.success('Workspace deleted permanently');
-		} catch (error) {
-			const message = error instanceof Error ? error.message : 'Unknown error';
-			toast.error(`Failed to delete workspace: ${message}`);
-		}
+		deleteWorkspace(workspaceId);
 	}
 
 	async function handleEmptyTrash() {

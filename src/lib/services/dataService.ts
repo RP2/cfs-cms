@@ -229,20 +229,34 @@ export async function deleteWorkspace(
 	return result.trashedCount || 0;
 }
 
-export function restoreWorkspace(workspaceId: string): void {
-	const currentWorkspacesList = get(workspaces);
-	const updated = currentWorkspacesList.map((ws) =>
-		ws.id === workspaceId ? { ...ws, deletedAt: null } : ws
-	);
-	workspaces.set(updated);
+export async function restoreWorkspace(workspaceId: string): Promise<void> {
+	try {
+		// Call API first and wait for response
+		const response = await fetchWithRetry(`/api/workspaces/${workspaceId}/restore`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' }
+		});
 
-	// Phase 2: Fire API call in background
-	fetch(`/api/workspaces/${workspaceId}/restore`, {
-		method: 'POST'
-	}).catch((err) => {
-		console.error('Failed to restore workspace:', err);
-		// TODO: Implement rollback on error
-	});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to restore workspace');
+		}
+
+		// Only update store AFTER API succeeds
+		const currentWorkspacesList = get(workspaces);
+		const updated = currentWorkspacesList.map((ws) =>
+			ws.id === workspaceId ? { ...ws, deletedAt: null } : ws
+		);
+		workspaces.set(updated);
+
+		toast.success('Workspace restored');
+	} catch (err) {
+		console.error('Restore workspace error:', err);
+		toast.error(
+			`Failed to restore workspace: ${err instanceof Error ? err.message : 'Unknown error'}`
+		);
+		throw err;
+	}
 }
 
 export async function renameWorkspace(workspaceId: string, newName: string): Promise<void> {
@@ -519,26 +533,38 @@ export async function renameFile(fileId: string, newName: string): Promise<void>
 	}
 }
 
-export function setFileTags(fileId: string, tagIds: string[]): void {
-	const currentFilesList = get(currentFiles);
-	const file = currentFilesList.find((f) => f.id === fileId);
+export async function setFileTags(fileId: string, tagIds: string[]): Promise<void> {
+	try {
+		const uniqueTagIds = [...new Set(tagIds)];
 
-	if (!file) return;
+		// Call API first and wait for response
+		const response = await fetchWithRetry(`/api/files/${fileId}/tags`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ tagIds: uniqueTagIds })
+		});
 
-	// Optimistic update
-	file.tagIds = [...new Set(tagIds)];
-	file.updatedAt = utcNow();
-	currentFiles.set([...currentFilesList]);
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to update tags');
+		}
 
-	// Phase 2: Fire API call in background
-	fetch(`/api/files/${fileId}/tags`, {
-		method: 'PUT',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ tagIds })
-	}).catch((err) => {
-		console.error('Failed to update file tags:', err);
-		// TODO: Implement rollback on error
-	});
+		// Only update store AFTER API succeeds
+		const currentFilesList = get(currentFiles);
+		const file = currentFilesList.find((f) => f.id === fileId);
+
+		if (file) {
+			file.tagIds = uniqueTagIds;
+			file.updatedAt = utcNow();
+			currentFiles.set([...currentFilesList]);
+		}
+
+		toast.success('Tags updated');
+	} catch (err) {
+		console.error('Set file tags error:', err);
+		toast.error(`Failed to update tags: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		throw err;
+	}
 }
 
 export async function deleteFile(fileId: string): Promise<void> {
@@ -629,349 +655,409 @@ export async function uploadFiles(files: FileList): Promise<number> {
 		for (let i = 0; i < files.length; i++) {
 			const file = files[i];
 
-			// Convert file to base64 to avoid Cloudflare's multipart CSRF protection
-			const arrayBuffer = await file.arrayBuffer();
-			const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+			try {
+				// Convert file to base64 to avoid Cloudflare's multipart CSRF protection
+				const arrayBuffer = await file.arrayBuffer();
+				const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
 
-			const response = await fetch('/api/files', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					file: base64,
-					fileName: file.name,
-					fileType: file.type || 'application/octet-stream',
-					fileSize: file.size,
-					workspaceId: currentWs.id,
-					folderId: currentFolder_?.id || null,
-					name: file.name
-				})
-			});
-
-			console.log('Upload response:', { status: response.status, statusText: response.statusText });
-
-			if (!response.ok) {
-				let errorMessage = `${file.name}: ${response.statusText} (${response.status})`;
-				let fullErrorData = null;
-				try {
-					const errorData = await response.json();
-					fullErrorData = errorData;
-					if (errorData.message) {
-						errorMessage = `${file.name}: ${errorData.message} (${response.status})`;
-					}
-				} catch {
-					// Could not parse error response as JSON
-					try {
-						const text = await response.text();
-						fullErrorData = text;
-						if (text) {
-							errorMessage = `${file.name}: ${text} (${response.status})`;
-						}
-					} catch {
-						// ignore
-					}
-				}
-				errors.push(errorMessage);
-				console.error(`Upload error for ${file.name}:`, {
-					status: response.status,
-					statusText: response.statusText,
-					fullErrorData,
-					errorMessage
+				// Call API and wait for response (API-first pattern)
+				const response = await fetchWithRetry('/api/files', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						file: base64,
+						fileName: file.name,
+						fileType: file.type || 'application/octet-stream',
+						fileSize: file.size,
+						workspaceId: currentWs.id,
+						folderId: currentFolder_?.id || null,
+						name: file.name
+					})
 				});
+
+				if (!response.ok) {
+					const errorData = await response.json().catch(() => ({}));
+					throw new Error(errorData.error || `Upload failed: ${response.statusText}`);
+				}
+
+				// Only update store AFTER API succeeds
+				const uploadedFile = await response.json();
+
+				// Convert API response to File type
+				const fileObj: File = {
+					id: uploadedFile.id,
+					workspaceId: uploadedFile.workspaceId,
+					folderId: uploadedFile.folderId || null,
+					name: uploadedFile.name,
+					size: uploadedFile.size,
+					mimeType: uploadedFile.mimeType || 'application/octet-stream',
+					storagePath: uploadedFile.storagePath,
+					uploadedBy: uploadedFile.uploadedBy || 'user_1',
+					starred: uploadedFile.starred ? true : false,
+					tagIds: uploadedFile.tagIds || [],
+					createdAt: new Date(uploadedFile.createdAt),
+					updatedAt: new Date(uploadedFile.updatedAt),
+					deletedAt: uploadedFile.deletedAt ? new Date(uploadedFile.deletedAt) : null,
+					trashedUntil: uploadedFile.trashedUntil ? new Date(uploadedFile.trashedUntil) : null
+				};
+
+				newFiles.push(fileObj);
+				uploadedCount++;
+			} catch (fileErr) {
+				const errorMessage =
+					fileErr instanceof Error ? fileErr.message : `Failed to upload ${file.name}`;
+				errors.push(`${file.name}: ${errorMessage}`);
+				console.error(`Upload error for ${file.name}:`, fileErr);
+				// Continue with next file instead of stopping
 				continue;
 			}
-
-			// Parse response and add to store
-			const uploadedFile = await response.json();
-			console.log('Upload success:', uploadedFile);
-
-			// Convert API response to File type
-			const fileObj: File = {
-				id: uploadedFile.id,
-				workspaceId: uploadedFile.workspaceId,
-				folderId: uploadedFile.folderId || null,
-				name: uploadedFile.name,
-				size: uploadedFile.size,
-				mimeType: uploadedFile.mimeType || 'application/octet-stream',
-				storagePath: uploadedFile.storagePath,
-				uploadedBy: uploadedFile.uploadedBy || 'user_1',
-				starred: uploadedFile.starred ? true : false,
-				tagIds: uploadedFile.tagIds || [],
-				createdAt: new Date(uploadedFile.createdAt),
-				updatedAt: new Date(uploadedFile.updatedAt),
-				deletedAt: uploadedFile.deletedAt ? new Date(uploadedFile.deletedAt) : null,
-				trashedUntil: uploadedFile.trashedUntil ? new Date(uploadedFile.trashedUntil) : null
-			};
-
-			newFiles.push(fileObj);
-			uploadedCount++;
 		}
 
-		// Update store with all new files at once
+		// Only update store AFTER all successful uploads
 		if (newFiles.length > 0) {
 			currentFiles.set([...currentFilesList, ...newFiles]);
 		}
 
+		// Show feedback
+		if (uploadedCount > 0) {
+			toast.success(`${uploadedCount} file(s) uploaded successfully`);
+		}
+
 		if (errors.length > 0) {
-			throw new Error(`Failed to upload ${errors.length} file(s): ${errors.join('; ')}`);
+			const errorMsg = `Failed to upload ${errors.length} file(s): ${errors.join('; ')}`;
+			toast.error(errorMsg);
+			// Throw error with partial success info
+			const err = new Error(errorMsg);
+			(err as any).partialSuccess = uploadedCount > 0;
+			throw err;
 		}
 
 		return uploadedCount;
 	} catch (err) {
 		console.error('Upload files error:', err);
-		throw err;
+		// Only throw if all uploads failed
+		if (uploadedCount === 0) {
+			toast.error(`Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+			throw err;
+		}
+		// If some succeeded, don't re-throw (we already showed error toast)
 	}
+
+	return uploadedCount;
 }
 
 // ==================== MOVE OPERATIONS ====================
 
-export function moveFilesToFolder(
+export async function moveFilesToFolder(
 	fileIds: string[],
 	targetFolderId: string | null,
 	opts?: { targetWorkspaceId?: string }
-): void {
+): Promise<void> {
 	if (fileIds.length === 0) return;
 
-	const folders = get(workspaceFolders);
-	const targetFolder = targetFolderId
-		? folders.find((f) => f.id === targetFolderId && !f.deletedAt)
-		: null;
+	try {
+		const folders = get(workspaceFolders);
+		const targetFolder = targetFolderId
+			? folders.find((f) => f.id === targetFolderId && !f.deletedAt)
+			: null;
 
-	const targetWorkspaceId = targetFolder
-		? targetFolder.workspaceId
-		: (opts?.targetWorkspaceId ?? get(currentWorkspace)?.id);
+		const targetWorkspaceId = targetFolder
+			? targetFolder.workspaceId
+			: (opts?.targetWorkspaceId ?? get(currentWorkspace)?.id);
 
-	if (!targetWorkspaceId) {
-		throw new Error('A target workspace is required to move files.');
-	}
+		if (!targetWorkspaceId) {
+			throw new Error('A target workspace is required to move files.');
+		}
 
-	if (targetFolder && targetFolder.workspaceId !== targetWorkspaceId) {
-		throw new Error('Target folder is not in the specified workspace.');
-	}
+		if (targetFolder && targetFolder.workspaceId !== targetWorkspaceId) {
+			throw new Error('Target folder is not in the specified workspace.');
+		}
 
-	// Optimistic update
-	const files = get(currentFiles);
-	const now = new Date();
-	const idSet = new Set(fileIds);
+		// Call API first and wait for response
+		const response = await fetchWithRetry('/api/files/move', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				fileIds,
+				targetFolderId,
+				targetWorkspaceId
+			})
+		});
 
-	files.forEach((file) => {
-		if (!idSet.has(file.id)) return;
-		file.workspaceId = targetWorkspaceId;
-		file.folderId = targetFolderId;
-		file.updatedAt = now;
-	});
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to move files');
+		}
 
-	currentFiles.set([...files]);
+		// Only update store AFTER API succeeds
+		const files = get(currentFiles);
+		const now = new Date();
+		const idSet = new Set(fileIds);
 
-	// Fire API call in background
-	fetch('/api/files/move', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({
-			fileIds,
-			targetFolderId,
-			targetWorkspaceId
-		})
-	}).catch((err) => {
+		files.forEach((file) => {
+			if (!idSet.has(file.id)) return;
+			file.workspaceId = targetWorkspaceId;
+			file.folderId = targetFolderId;
+			file.updatedAt = now;
+		});
+
+		currentFiles.set([...files]);
+		toast.success(`${fileIds.length} file(s) moved`);
+	} catch (err) {
 		console.error('Move files error:', err);
-	});
+		toast.error(`Failed to move files: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		throw err;
+	}
 }
 
-export function moveFilesToWorkspace(
+export async function moveFilesToWorkspace(
 	fileIds: string[],
 	targetWorkspaceId: string,
 	targetFolderId: string | null = null
-): void {
-	const targetWorkspace = get(workspaces).find((w) => w.id === targetWorkspaceId && !w.deletedAt);
-	if (!targetWorkspace) {
-		throw new Error('Target workspace not found.');
-	}
+): Promise<void> {
+	if (fileIds.length === 0) return;
 
-	if (targetFolderId) {
-		const folders = get(workspaceFolders);
-		const targetFolder = folders.find(
-			(f) => f.id === targetFolderId && f.workspaceId === targetWorkspaceId && !f.deletedAt
-		);
-		if (!targetFolder) {
-			throw new Error('Target folder is not available in the destination workspace.');
+	try {
+		const targetWorkspace = get(workspaces).find((w) => w.id === targetWorkspaceId && !w.deletedAt);
+		if (!targetWorkspace) {
+			throw new Error('Target workspace not found.');
 		}
-	}
 
-	// Optimistic update
-	const files = get(currentFiles);
-	const now = new Date();
-	const idSet = new Set(fileIds);
+		if (targetFolderId) {
+			const folders = get(workspaceFolders);
+			const targetFolder = folders.find(
+				(f) => f.id === targetFolderId && f.workspaceId === targetWorkspaceId && !f.deletedAt
+			);
+			if (!targetFolder) {
+				throw new Error('Target folder is not available in the destination workspace.');
+			}
+		}
 
-	files.forEach((file) => {
-		if (!idSet.has(file.id)) return;
-		file.workspaceId = targetWorkspaceId;
-		file.folderId = targetFolderId;
-		file.updatedAt = now;
-	});
+		// Call API first and wait for response
+		const response = await fetchWithRetry('/api/files/move', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				fileIds,
+				targetFolderId,
+				targetWorkspaceId
+			})
+		});
 
-	currentFiles.set([...files]);
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to move files');
+		}
 
-	// Fire API call in background
-	fetch('/api/files/move', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({
-			fileIds,
-			targetFolderId,
-			targetWorkspaceId
-		})
-	}).catch((err) => {
+		// Only update store AFTER API succeeds
+		const files = get(currentFiles);
+		const now = new Date();
+		const idSet = new Set(fileIds);
+
+		files.forEach((file) => {
+			if (!idSet.has(file.id)) return;
+			file.workspaceId = targetWorkspaceId;
+			file.folderId = targetFolderId;
+			file.updatedAt = now;
+		});
+
+		currentFiles.set([...files]);
+		toast.success(`${fileIds.length} file(s) moved to workspace`);
+	} catch (err) {
 		console.error('Move files to workspace error:', err);
-	});
+		toast.error(`Failed to move files: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		throw err;
+	}
 }
 
-export function moveFolder(folderId: string, targetParentId: string | null): void {
-	const folders = get(workspaceFolders);
-	const folder = folders.find((f) => f.id === folderId && !f.deletedAt);
-	if (!folder) return;
+export async function moveFolder(folderId: string, targetParentId: string | null): Promise<void> {
+	try {
+		const folders = get(workspaceFolders);
+		const folder = folders.find((f) => f.id === folderId && !f.deletedAt);
+		if (!folder) return;
 
-	const targetParent = targetParentId
-		? folders.find((f) => f.id === targetParentId && !f.deletedAt)
-		: null;
+		const targetParent = targetParentId
+			? folders.find((f) => f.id === targetParentId && !f.deletedAt)
+			: null;
 
-	if (targetParent && targetParent.workspaceId !== folder.workspaceId) {
-		throw new Error('Cannot move folder into a different workspace without confirmation.');
-	}
+		if (targetParent && targetParent.workspaceId !== folder.workspaceId) {
+			throw new Error('Cannot move folder into a different workspace without confirmation.');
+		}
 
-	const descendants = getDescendantFolderIds(folders, folderId);
-	if (targetParentId && descendants.has(targetParentId)) {
-		throw new Error('Cannot move a folder into its own descendant.');
-	}
+		const descendants = getDescendantFolderIds(folders, folderId);
+		if (targetParentId && descendants.has(targetParentId)) {
+			throw new Error('Cannot move a folder into its own descendant.');
+		}
 
-	// Optimistic update
-	folder.parentId = targetParentId;
-	folder.updatedAt = new Date();
-	workspaceFolders.set([...folders]);
+		// Call API first and wait for response
+		const response = await fetchWithRetry('/api/folders/move', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				folderId,
+				targetParentId,
+				targetWorkspaceId: folder.workspaceId
+			})
+		});
 
-	// Fire API call in background
-	fetch('/api/folders/move', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({
-			folderId,
-			targetParentId,
-			targetWorkspaceId: folder.workspaceId
-		})
-	}).catch((err) => {
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to move folder');
+		}
+
+		// Only update store AFTER API succeeds
+		folder.parentId = targetParentId;
+		folder.updatedAt = new Date();
+		workspaceFolders.set([...folders]);
+
+		toast.success('Folder moved');
+	} catch (err) {
 		console.error('Move folder error:', err);
-	});
+		toast.error(`Failed to move folder: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		throw err;
+	}
 }
 
-export function moveFolderToWorkspace(
+export async function moveFolderToWorkspace(
 	folderId: string,
 	targetWorkspaceId: string,
 	targetParentId: string | null = null
-): void {
-	const folders = get(workspaceFolders);
-	const files = get(currentFiles);
-	const folder = folders.find((f) => f.id === folderId && !f.deletedAt);
-	if (!folder) return;
+): Promise<void> {
+	try {
+		const folders = get(workspaceFolders);
+		const files = get(currentFiles);
+		const folder = folders.find((f) => f.id === folderId && !f.deletedAt);
+		if (!folder) return;
 
-	const targetWorkspace = get(workspaces).find((w) => w.id === targetWorkspaceId && !w.deletedAt);
-	if (!targetWorkspace) {
-		throw new Error('Target workspace not found.');
-	}
-
-	const targetParent = targetParentId
-		? folders.find(
-				(f) => f.id === targetParentId && f.workspaceId === targetWorkspaceId && !f.deletedAt
-			)
-		: null;
-
-	const descendants = getDescendantFolderIds(folders, folderId);
-	if (targetParentId && descendants.has(targetParentId)) {
-		throw new Error('Cannot move a folder into its own descendant.');
-	}
-
-	// Optimistic update
-	const allAffectedFolderIds = new Set([folderId, ...Array.from(descendants)]);
-	const now = new Date();
-
-	folders.forEach((f) => {
-		if (!allAffectedFolderIds.has(f.id)) return;
-		f.workspaceId = targetWorkspaceId;
-		if (f.id === folderId) {
-			f.parentId = targetParentId;
+		const targetWorkspace = get(workspaces).find((w) => w.id === targetWorkspaceId && !w.deletedAt);
+		if (!targetWorkspace) {
+			throw new Error('Target workspace not found.');
 		}
-		f.updatedAt = now;
-	});
 
-	files.forEach((file) => {
-		const folderId = file.folderId;
-		if (!folderId || !allAffectedFolderIds.has(folderId)) return;
-		file.workspaceId = targetWorkspaceId;
-		file.updatedAt = now;
-	});
+		const targetParent = targetParentId
+			? folders.find(
+					(f) => f.id === targetParentId && f.workspaceId === targetWorkspaceId && !f.deletedAt
+				)
+			: null;
 
-	workspaceFolders.set([...folders]);
-	currentFiles.set([...files]);
+		const descendants = getDescendantFolderIds(folders, folderId);
+		if (targetParentId && descendants.has(targetParentId)) {
+			throw new Error('Cannot move a folder into its own descendant.');
+		}
 
-	// Fire API call in background
-	fetch('/api/folders/move', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({
-			folderId,
-			targetParentId,
-			targetWorkspaceId
-		})
-	}).catch((err) => {
+		// Call API first and wait for response
+		const response = await fetchWithRetry('/api/folders/move', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				folderId,
+				targetParentId,
+				targetWorkspaceId
+			})
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to move folder');
+		}
+
+		// Only update store AFTER API succeeds
+		const allAffectedFolderIds = new Set([folderId, ...Array.from(descendants)]);
+		const now = new Date();
+
+		folders.forEach((f) => {
+			if (!allAffectedFolderIds.has(f.id)) return;
+			f.workspaceId = targetWorkspaceId;
+			if (f.id === folderId) {
+				f.parentId = targetParentId;
+			}
+			f.updatedAt = now;
+		});
+
+		files.forEach((file) => {
+			const fileFolderId = file.folderId;
+			if (!fileFolderId || !allAffectedFolderIds.has(fileFolderId)) return;
+			file.workspaceId = targetWorkspaceId;
+			file.updatedAt = now;
+		});
+
+		workspaceFolders.set([...folders]);
+		currentFiles.set([...files]);
+
+		toast.success('Folder moved to workspace');
+	} catch (err) {
 		console.error('Move folder to workspace error:', err);
-	});
+		toast.error(`Failed to move folder: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		throw err;
+	}
 }
 
 // ==================== STAR/UNSTAR OPERATIONS ====================
 
 // ==================== STAR/UNSTAR OPERATIONS ====================
 
-export function toggleFileStar(fileId: string): void {
-	const currentFilesList = get(currentFiles);
-	const file = currentFilesList.find((f) => f.id === fileId);
+export async function toggleFileStar(fileId: string): Promise<void> {
+	try {
+		const currentFilesList = get(currentFiles);
+		const file = currentFilesList.find((f) => f.id === fileId);
 
-	if (!file) return;
+		if (!file) return;
 
-	// Optimistic update
-	const newStarred = !file.starred;
-	file.starred = newStarred;
-	file.updatedAt = new Date();
-	currentFiles.set([...currentFilesList]);
+		const newStarred = !file.starred;
 
-	// Fire API call in background
-	fetch(`/api/files/${fileId}`, {
-		method: 'PATCH',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ starred: newStarred })
-	}).catch((err) => {
-		console.error('Failed to toggle file star:', err);
-	});
+		// Call API first and wait for response
+		const response = await fetchWithRetry(`/api/files/${fileId}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ starred: newStarred })
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to update star status');
+		}
+
+		// Only update store AFTER API succeeds
+		file.starred = newStarred;
+		file.updatedAt = new Date();
+		currentFiles.set([...currentFilesList]);
+	} catch (err) {
+		console.error('Toggle file star error:', err);
+		toast.error(`Failed to update star: ${err instanceof Error ? err.message : 'Unknown error'}`);
+	}
 }
 
-export function toggleFolderStar(folderId: string): void {
-	const currentFoldersList = get(workspaceFolders);
-	const folder = currentFoldersList.find((f) => f.id === folderId);
+export async function toggleFolderStar(folderId: string): Promise<void> {
+	try {
+		const currentFoldersList = get(workspaceFolders);
+		const folder = currentFoldersList.find((f) => f.id === folderId);
 
-	if (!folder) return;
+		if (!folder) return;
 
-	// Optimistic update
-	const newStarred = !folder.starred;
-	folder.starred = newStarred;
-	folder.updatedAt = new Date();
-	workspaceFolders.set([...currentFoldersList]);
+		const newStarred = !folder.starred;
 
-	// Fire API call in background
-	fetch(`/api/folders/${folderId}`, {
-		method: 'PATCH',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ starred: newStarred })
-	}).catch((err) => {
-		console.error('Failed to toggle folder star:', err);
-	});
+		// Call API first and wait for response
+		const response = await fetchWithRetry(`/api/folders/${folderId}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ starred: newStarred })
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to update star status');
+		}
+
+		// Only update store AFTER API succeeds
+		folder.starred = newStarred;
+		folder.updatedAt = new Date();
+		workspaceFolders.set([...currentFoldersList]);
+	} catch (err) {
+		console.error('Toggle folder star error:', err);
+		toast.error(`Failed to update star: ${err instanceof Error ? err.message : 'Unknown error'}`);
+	}
 }
 
 // ==================== TRASH OPERATIONS ====================

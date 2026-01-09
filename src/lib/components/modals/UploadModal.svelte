@@ -42,7 +42,6 @@
 			console.log('Upload: calling uploadFiles');
 			const uploaded = await uploadFiles(files);
 			console.log('Upload: success', { uploaded });
-			toast.success(`${uploaded} file(s) uploaded`);
 			// Small delay to show success state before closing
 			await new Promise((resolve) => setTimeout(resolve, 500));
 			handleClose();
@@ -50,7 +49,6 @@
 			console.log('Upload: caught error', err);
 			const message = err instanceof Error ? err.message : 'Upload failed';
 			error = message;
-			toast.error(message);
 			uploading = false;
 		}
 	}
