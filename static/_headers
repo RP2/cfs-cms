@@ -1,0 +1,22 @@
+# Security Headers for CFS CMS
+# These headers will be applied to all routes
+
+/*
+  # Security Headers
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
+  
+  # Content Security Policy (adjust as needed)
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://*.cloudflare.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  
+  # HSTS (enable HTTPS-only after testing)
+  # Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+
+# API routes - allow CORS for your domain only
+/api/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With
+  Access-Control-Max-Age: 86400
