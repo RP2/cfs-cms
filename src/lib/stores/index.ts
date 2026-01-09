@@ -3,17 +3,11 @@ import type { Workspace, Folder, File, Tag, ViewMode, ViewScope } from '$lib/typ
 import { mockWorkspaces, mockFolders, mockFiles, mockTags } from '$lib/data/mock';
 
 /**
- * Check if we should use mock data or real backend
- * Defaults to false (use backend/D1) if PUBLIC_USE_MOCK_DATA is not set
- * This is evaluated at module load time, so no repeated checks
- *
- * In production (Cloudflare Pages), this will be false (uses D1)
- * In local dev, set: PUBLIC_USE_MOCK_DATA=true npm run dev
+ * Mock data mode - use environment variable to control
+ * Local dev: set VITE_USE_MOCK_DATA=true in .env.development
+ * Production: undefined (defaults to false, uses D1 backend)
  */
-// @ts-expect-error - PUBLIC_USE_MOCK_DATA may not be defined in production
-// If the env var is not defined, it will be undefined and evaluate to false
-const USE_MOCK_DATA =
-	typeof PUBLIC_USE_MOCK_DATA !== 'undefined' && PUBLIC_USE_MOCK_DATA === 'true';
+const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 // All workspaces - empty if backend mode, seeded with mock if mock mode
 export const workspaces = writable<Workspace[]>(
