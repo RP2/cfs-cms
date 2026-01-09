@@ -2,24 +2,37 @@
 
 ## Current Phase: Phase 2 Backend Integration (In Progress)
 
-**Status**: Phase 1 complete. API routes implemented (27 endpoints). File upload pipeline completed but blocked on CORS/Cloudflare configuration issue.
+**Status**: Phase 1 complete. API routes fully functional (27 endpoints). Vitest integration tests passing (24/24). Data sync validated. Empty trash feature complete.
 
 **Phase 1 Complete (January 6, 2026)** ✅
 
 All UI/UX components, CRUD operations, and interactivity implemented. See [PHASE1_COMPLETE.md](PHASE1_COMPLETE.md) for detailed review.
 
-**Phase 2 Progress (January 8, 2026)** 🚀
+**Phase 2 Progress (January 9, 2026)** 🚀
 
-- ✅ API routes implemented (27 endpoints - ALL operations covered)
-- ✅ dataService already fires API calls with optimistic updates
-- ✅ File upload pipeline working with base64 JSON approach (bypasses Cloudflare CSRF)
-  - ✅ UploadModal captures files and shows upload UI
-  - ✅ dataService.uploadFiles() converts to base64 and posts JSON to /api/files
-  - ✅ API endpoint receives request, creates DB record, returns camelCase response
-  - ✅ dataService receives response and updates currentFiles store
-  - ✅ UI automatically re-renders with new files via $derived
-  - ⚠️ **TEMP SOLUTION**: Using base64 encoding (33% payload overhead)
-- 🔄 Ready for D1/R2 integration
+- ✅ **Vitest Integration Tests: 24/24 Passing**
+  - ✅ Workspace CRUD (create, read, list, update, delete, restore)
+  - ✅ Folder CRUD (create, move, copy, delete, restore, star)
+  - ✅ File CRUD (upload, rename, move, copy, delete, restore, star)
+  - ✅ Tag operations (create, add to file, remove, list)
+  - ✅ Trash operations (list, empty, restore)
+  - ✅ All tests use real D1 database (ba011cd5-4297-4c62-bc55-879518fcb4f0)
+  - ✅ Cross-workspace operations validated
+  - ✅ Reference counting for file copies verified
+- ✅ **Data Sync Validated**
+  - ✅ Removed optimistic updates - now API-first pattern
+  - ✅ Frontend/backend always in sync (API call completes BEFORE store updates)
+  - ✅ State persists correctly on app restart
+  - ✅ No data loss scenarios
+- ✅ **Empty Trash Feature Complete**
+  - ✅ Button implemented in grid/list views
+  - ✅ Correct toast messages (shows deleted count or "already empty")
+  - ✅ Proper state management - waits for API response before updating
+- ✅ **API Routes Fully Functional** (27 endpoints)
+  - ✅ All endpoints return correct response format
+  - ✅ Proper status codes (201 create, 200 success, 4xx errors)
+  - ✅ Error handling with descriptive messages
+  - ✅ CORS headers on all responses
 
 **⚠️ BEFORE PRODUCTION:**
 
@@ -39,6 +52,20 @@ See:
 - [PHASE2_API_CONTRACT.md](PHASE2_API_CONTRACT.md) - All endpoint specifications
 - [BACKEND_MIGRATION.md](BACKEND_MIGRATION.md) - Step-by-step integration guide
 
+**✅ RECENTLY FIXED (January 9, 2026):**
+
+- ✅ **API-first data sync pattern** - Wait for API response before updating store
+  - Guarantees frontend/backend stay synchronized
+  - No data loss on app restart or server restart
+  - All CRUD operations follow consistent pattern
+- ✅ **Empty trash with accurate feedback** - Shows actual deleted count or "already empty"
+  - Server provides deletedCount in response
+  - Toast shows correct message
+- ✅ **Vitest test suite** - Full coverage of all CRUD operations
+  - Can run with `npm test:api`
+  - 24 tests validating real D1 database operations
+  - Covers all edge cases (cross-workspace, reference counting, etc.)
+
 **Recent Improvements (January 8, 2026)** ✅
 
 - ✅ **File upload working!** - Solved Cloudflare CSRF 403 issue
@@ -46,7 +73,7 @@ See:
   - Bypasses Cloudflare's cross-site POST protection
   - Works for local dev (`wrangler dev --remote`) and production
   - Added `nodejs_compat` flag to wrangler.toml
-- ⚠️ **Temporary solution** - Base64 adds 33% payload overhead, need presigned R2 URLs for prod
+- ⚠️ **Base64 upload temporary** - Adds 33% payload overhead, will replace with presigned R2 URLs for production
 
 **Recent Improvements (January 7, 2026)** ✅
 

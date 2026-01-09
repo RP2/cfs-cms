@@ -8,6 +8,7 @@ import {
 } from '$lib/stores';
 import type { Workspace, Folder, File, Tag } from '$lib/types';
 import { get } from 'svelte/store';
+import { toast } from 'svelte-sonner';
 
 const TRASH_RETENTION_DAYS = 30;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -178,8 +179,12 @@ export async function createWorkspace(name: string, description: string): Promis
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ name, description })
 		});
+		toast.success(`Workspace "${name}" created`);
 	} catch (err) {
 		console.error('Create workspace error:', err);
+		toast.error(
+			`Failed to create workspace: ${err instanceof Error ? err.message : 'Unknown error'}`
+		);
 		throw err;
 	}
 
@@ -190,13 +195,18 @@ export async function deleteWorkspace(
 	workspaceId: string,
 	emptyTrash: boolean = false
 ): Promise<number> {
+	const currentWs = get(workspaces).find((w) => w.id === workspaceId);
+	const wsName = currentWs?.name || 'Workspace';
+
 	const response = await fetch(`/api/workspaces/${workspaceId}?emptyTrash=${emptyTrash}`, {
 		method: 'DELETE'
 	});
 
 	if (!response.ok) {
 		const error = await response.json();
-		throw new Error(error.error || error.message || 'Failed to delete workspace');
+		const errorMsg = error.error || error.message || 'Failed to delete workspace';
+		toast.error(`Failed to delete workspace: ${errorMsg}`);
+		throw new Error(errorMsg);
 	}
 
 	const result = await response.json();
@@ -206,12 +216,14 @@ export async function deleteWorkspace(
 	const updatedWorkspaces = currentWorkspacesList.filter((w) => w.id !== workspaceId);
 	workspaces.set(updatedWorkspaces);
 
-	const currentWs = get(currentWorkspace);
-	if (currentWs?.id === workspaceId) {
+	const currentWsActive = get(currentWorkspace);
+	if (currentWsActive?.id === workspaceId) {
 		const nextWorkspace = updatedWorkspaces[0] || null;
 		currentWorkspace.set(nextWorkspace);
 		currentFolder.set(null);
 	}
+
+	toast.success(`Workspace "${wsName}" deleted`);
 
 	// Return number of trashed items that were deleted
 	return result.trashedCount || 0;
@@ -249,16 +261,25 @@ export async function renameWorkspace(workspaceId: string, newName: string): Pro
 		currentWorkspace.set({ ...currentWs, name: newName.trim(), updatedAt: now });
 	}
 
-	// Await API call to ensure persistence
-	const response = await fetchWithRetry(`/api/workspaces/${workspaceId}`, {
-		method: 'PATCH',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ name: newName })
-	});
+	try {
+		// Await API call to ensure persistence
+		const response = await fetchWithRetry(`/api/workspaces/${workspaceId}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ name: newName })
+		});
 
-	if (!response.ok) {
-		const error = await response.json();
-		throw new Error(error.error || 'Failed to rename workspace');
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to rename workspace');
+		}
+
+		toast.success(`Workspace renamed to "${newName}"`);
+	} catch (err) {
+		toast.error(
+			`Failed to rename workspace: ${err instanceof Error ? err.message : 'Unknown error'}`
+		);
+		throw err;
 	}
 }
 
@@ -357,8 +378,12 @@ export async function createFolder(parentId: string | null, name: string): Promi
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ workspaceId: currentWs.id, parentId, name })
 			});
+			toast.success(`Folder "${name}" created`);
 		} catch (err) {
 			console.error('Create folder error:', err);
+			toast.error(
+				`Failed to create folder: ${err instanceof Error ? err.message : 'Unknown error'}`
+			);
 			// Keep optimistic update even if API fails (offline support)
 		}
 	})();
@@ -382,19 +407,30 @@ export async function renameFolder(folderId: string, newName: string): Promise<v
 	if (!folder) return;
 	if (newName === folder.name) return;
 
+	const oldName = folder.name;
+
 	// Optimistic update
 	folder.name = newName.trim();
 	folder.updatedAt = new Date();
 	workspaceFolders.set([...currentFoldersList]);
 
-	// Fire API call in background
-	fetch(`/api/folders/${folderId}`, {
-		method: 'PATCH',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ name: newName })
-	}).catch((err) => {
+	try {
+		// Fire API call in background
+		const response = await fetch(`/api/folders/${folderId}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ name: newName })
+		});
+
+		if (!response.ok) {
+			throw new Error('Failed to rename folder');
+		}
+
+		toast.success(`Folder renamed to "${newName}"`);
+	} catch (err) {
 		console.error('Rename folder error:', err);
-	});
+		toast.error(`Failed to rename folder: ${err instanceof Error ? err.message : 'Unknown error'}`);
+	}
 }
 
 export async function deleteFolder(folderId: string): Promise<void> {
@@ -403,6 +439,7 @@ export async function deleteFolder(folderId: string): Promise<void> {
 
 	if (!folder) return;
 
+	const folderName = folder.name;
 	const deletedAt = new Date();
 
 	// Optimistic update - create new objects to ensure reactivity
@@ -433,13 +470,17 @@ export async function deleteFolder(folderId: string): Promise<void> {
 	workspaceFolders.set(updatedFolders);
 	currentFiles.set(updatedFiles);
 
-	// Await API call to ensure soft delete is persisted
 	try {
+		// Await API call to ensure soft delete is persisted
 		await fetchWithRetry(`/api/folders/${folderId}`, {
 			method: 'DELETE'
 		});
+		toast.success(`Folder "${folderName}" moved to trash`);
 	} catch (err) {
 		console.error('Delete folder error:', err);
+		toast.error(
+			`Failed to move folder to trash: ${err instanceof Error ? err.message : 'Unknown error'}`
+		);
 		// Keep optimistic update even if API fails
 	}
 }
@@ -459,14 +500,23 @@ export async function renameFile(fileId: string, newName: string): Promise<void>
 	file.updatedAt = new Date();
 	currentFiles.set([...currentFilesList]);
 
-	// Fire API call in background
-	fetch(`/api/files/${fileId}`, {
-		method: 'PATCH',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ name: newName })
-	}).catch((err) => {
+	try {
+		// Fire API call in background
+		const response = await fetch(`/api/files/${fileId}`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ name: newName })
+		});
+
+		if (!response.ok) {
+			throw new Error('Failed to rename file');
+		}
+
+		toast.success(`File renamed to "${newName}"`);
+	} catch (err) {
 		console.error('Rename file error:', err);
-	});
+		toast.error(`Failed to rename file: ${err instanceof Error ? err.message : 'Unknown error'}`);
+	}
 }
 
 export function setFileTags(fileId: string, tagIds: string[]): void {
@@ -497,19 +547,25 @@ export async function deleteFile(fileId: string): Promise<void> {
 
 	if (!file) return;
 
+	const fileName = file.name;
+
 	// Optimistic update: Soft delete immediately
 	file.deletedAt = utcNow();
 	file.trashedUntil = computeTrashedUntil(file.deletedAt);
 	file.updatedAt = file.deletedAt;
 	currentFiles.set([...currentFilesList]);
 
-	// Await API call to ensure soft delete is persisted
 	try {
+		// Await API call to ensure soft delete is persisted
 		await fetchWithRetry(`/api/files/${fileId}`, {
 			method: 'DELETE'
 		});
+		toast.success(`File "${fileName}" moved to trash`);
 	} catch (err) {
 		console.error('Failed to delete file:', err);
+		toast.error(
+			`Failed to move file to trash: ${err instanceof Error ? err.message : 'Unknown error'}`
+		);
 		// Keep optimistic update even if API fails
 	}
 }
@@ -517,33 +573,42 @@ export async function deleteFile(fileId: string): Promise<void> {
 export async function deleteFiles(fileIds: string[]): Promise<void> {
 	if (fileIds.length === 0) return;
 
-	const response = await fetchWithRetry('/api/files/bulk-delete', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify({ fileIds })
-	});
+	try {
+		const response = await fetchWithRetry('/api/files/bulk-delete', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ fileIds })
+		});
 
-	if (!response.ok) {
-		const error = await response.json();
-		throw new Error(error.error || 'Failed to delete files');
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to delete files');
+		}
+
+		const result = await response.json();
+
+		// Update store
+		const currentFilesList = get(currentFiles);
+		const idSet = new Set(fileIds);
+		const trashedUntil = new Date(result.trashedUntil);
+		const deletedAt = new Date();
+
+		currentFilesList.forEach((file) => {
+			if (!idSet.has(file.id)) return;
+			file.deletedAt = deletedAt;
+			file.trashedUntil = trashedUntil;
+			file.updatedAt = deletedAt;
+		});
+
+		currentFiles.set([...currentFilesList]);
+
+		toast.success(`${fileIds.length} file(s) moved to trash`);
+	} catch (err) {
+		toast.error(
+			`Failed to move files to trash: ${err instanceof Error ? err.message : 'Unknown error'}`
+		);
+		throw err;
 	}
-
-	const result = await response.json();
-
-	// Update store
-	const currentFilesList = get(currentFiles);
-	const idSet = new Set(fileIds);
-	const trashedUntil = new Date(result.trashedUntil);
-	const deletedAt = new Date();
-
-	currentFilesList.forEach((file) => {
-		if (!idSet.has(file.id)) return;
-		file.deletedAt = deletedAt;
-		file.trashedUntil = trashedUntil;
-		file.updatedAt = deletedAt;
-	});
-
-	currentFiles.set([...currentFilesList]);
 }
 
 export async function uploadFiles(files: FileList): Promise<number> {
@@ -917,6 +982,8 @@ export async function restoreFile(fileId: string): Promise<void> {
 
 	if (!file) return;
 
+	const fileName = file.name;
+
 	try {
 		// Await API call to ensure it persists before proceeding
 		await fetchWithRetry(`/api/files/${fileId}/restore`, {
@@ -928,8 +995,13 @@ export async function restoreFile(fileId: string): Promise<void> {
 		file.trashedUntil = null;
 		file.updatedAt = new Date();
 		currentFiles.set([...currentFilesList]);
+
+		toast.success(`File "${fileName}" restored`);
 	} catch (error) {
 		console.error('Failed to restore file:', error);
+		toast.error(
+			`Failed to restore file: ${error instanceof Error ? error.message : 'Unknown error'}`
+		);
 		throw error;
 	}
 }
@@ -994,6 +1066,8 @@ export function removeTagFromWorkspace(tagId: string): void {
 	const tag = tags.find((t) => t.id === tagId);
 	if (!tag) return;
 
+	const tagName = tag.name;
+
 	// Optimistic update
 	const updatedTags = tags.map((t) => (t.id === tagId ? { ...t, deletedAt: new Date() } : t));
 	workspaceTags.set(updatedTags);
@@ -1008,9 +1082,14 @@ export function removeTagFromWorkspace(tagId: string): void {
 	fetch(`/api/tags/${tagId}`, {
 		method: 'DELETE',
 		headers: { 'Content-Type': 'application/json' }
-	}).catch((err) => {
-		console.error('Remove tag error:', err);
-	});
+	})
+		.then(() => {
+			toast.success(`Tag "${tagName}" removed`);
+		})
+		.catch((err) => {
+			console.error('Remove tag error:', err);
+			toast.error(`Failed to remove tag: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		});
 }
 
 export function addTagsToFile(
@@ -1052,9 +1131,15 @@ export function addTagsToFile(
 			workspaceId,
 			tagNames: names.map((n) => n.trim())
 		})
-	}).catch((err) => {
-		console.error('Add tags to file error:', err);
-	});
+	})
+		.then(() => {
+			const tagStr = names.length === 1 ? `"${names[0]}"` : `${names.length} tags`;
+			toast.success(`Added ${tagStr}`);
+		})
+		.catch((err) => {
+			console.error('Add tags to file error:', err);
+			toast.error(`Failed to add tags: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		});
 
 	return { tags: createdOrFoundTags, file: files[targetIndex] };
 }
@@ -1175,6 +1260,8 @@ export async function restoreFolder(folderId: string): Promise<void> {
 
 	if (!folder) return;
 
+	const folderName = folder.name;
+
 	try {
 		// Await API call to ensure it persists before proceeding
 		await fetchWithRetry(`/api/folders/${folderId}/restore`, {
@@ -1197,9 +1284,63 @@ export async function restoreFolder(folderId: string): Promise<void> {
 
 		currentFiles.set([...currentFilesList]);
 		workspaceFolders.set([...currentFoldersList]);
+
+		toast.success(`Folder "${folderName}" restored`);
 	} catch (error) {
 		console.error('Restore folder error:', error);
+		toast.error(
+			`Failed to restore folder: ${error instanceof Error ? error.message : 'Unknown error'}`
+		);
 		throw error;
+	}
+}
+
+export async function emptyTrash(): Promise<number> {
+	const currentWs = get(currentWorkspace);
+	if (!currentWs) {
+		throw new Error('No workspace selected');
+	}
+
+	try {
+		// Call API first and wait for response
+		const response = await fetchWithRetry(`/api/trash/empty?workspaceId=${currentWs.id}`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' }
+		});
+
+		if (!response.ok) {
+			const error = await response.json();
+			throw new Error(error.error || 'Failed to empty trash');
+		}
+
+		const result = await response.json();
+		const deletedCount = result.deletedCount || 0;
+
+		// Only update store AFTER API succeeds
+		const currentFilesList = get(currentFiles);
+		const currentFoldersList = get(workspaceFolders);
+
+		const updatedFiles = currentFilesList.filter(
+			(f) => f.workspaceId !== currentWs.id || !f.deletedAt
+		);
+		const updatedFolders = currentFoldersList.filter(
+			(f) => f.workspaceId !== currentWs.id || !f.deletedAt
+		);
+
+		currentFiles.set(updatedFiles);
+		workspaceFolders.set(updatedFolders);
+
+		if (deletedCount > 0) {
+			toast.success(`Trash emptied: ${deletedCount} item(s) permanently deleted`);
+		} else {
+			toast.success('Trash is already empty');
+		}
+
+		return deletedCount;
+	} catch (err) {
+		console.error('Empty trash error:', err);
+		toast.error(`Failed to empty trash: ${err instanceof Error ? err.message : 'Unknown error'}`);
+		throw err;
 	}
 }
 
@@ -1228,8 +1369,12 @@ export function permanentlyDeleteFile(fileId: string): number {
 	const currentFilesList = get(currentFiles);
 	const file = currentFilesList.find((f) => f.id === fileId);
 
+	if (!file) return 0;
+
+	const fileName = file.name;
+
 	// Calculate remaining copies before deletion
-	const totalCopies = file ? getFileCopyCount(fileId) : 0;
+	const totalCopies = getFileCopyCount(fileId);
 	const remainingCopies = totalCopies - 1;
 
 	// Optimistic update
@@ -1239,9 +1384,16 @@ export function permanentlyDeleteFile(fileId: string): number {
 	// Fire API call in background
 	fetch(`/api/files/${fileId}?permanent=true`, {
 		method: 'DELETE'
-	}).catch((err) => {
-		console.error('Failed to permanently delete file:', err);
-	});
+	})
+		.then(() => {
+			toast.success(`File "${fileName}" permanently deleted`);
+		})
+		.catch((err) => {
+			console.error('Failed to permanently delete file:', err);
+			toast.error(
+				`Failed to permanently delete file: ${err instanceof Error ? err.message : 'Unknown error'}`
+			);
+		});
 
 	return remainingCopies;
 }
@@ -1249,6 +1401,9 @@ export function permanentlyDeleteFile(fileId: string): number {
 export function permanentlyDeleteFolder(folderId: string): void {
 	const currentFoldersList = get(workspaceFolders);
 	const currentFilesList = get(currentFiles);
+
+	const folder = currentFoldersList.find((f) => f.id === folderId);
+	const folderName = folder?.name || 'Folder';
 
 	// Find all descendant folder IDs (including the folder itself)
 	const toDelete = new Set<string>([folderId]);
@@ -1273,9 +1428,16 @@ export function permanentlyDeleteFolder(folderId: string): void {
 	// Fire API call in background
 	fetch(`/api/folders/${folderId}?permanent=true`, {
 		method: 'DELETE'
-	}).catch((err) => {
-		console.error('Permanently delete folder error:', err);
-	});
+	})
+		.then(() => {
+			toast.success(`Folder "${folderName}" permanently deleted`);
+		})
+		.catch((err) => {
+			console.error('Permanently delete folder error:', err);
+			toast.error(
+				`Failed to permanently delete folder: ${err instanceof Error ? err.message : 'Unknown error'}`
+			);
+		});
 }
 
 // ==================== COPY/PASTE OPERATIONS ====================

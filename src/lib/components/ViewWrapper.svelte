@@ -51,7 +51,8 @@
 		addTagsToFiles,
 		copyFilesToFolder,
 		copyFoldersToFolder,
-		getDescendantFolderIds
+		getDescendantFolderIds,
+		emptyTrash
 	} from '$lib/services/dataService';
 	import {
 		buildDragPayload,
@@ -726,6 +727,14 @@
 		}
 	}
 
+	async function handleEmptyTrash() {
+		try {
+			await emptyTrash();
+		} catch (error) {
+			console.error('Failed to empty trash:', error);
+		}
+	}
+
 	function selectAll() {
 		const allIds = new Set(files.map((f) => f.id));
 		selectedFileIds.set(allIds);
@@ -1121,6 +1130,7 @@
 		onHandlePermanentDeleteFolder={handlePermanentDeleteFolder}
 		onHandleRestoreWorkspace={handleRestoreWorkspace}
 		onHandlePermanentDeleteWorkspace={handlePermanentDeleteWorkspace}
+		onEmptyTrash={handleEmptyTrash}
 		onFilePointerDown={handleFilePointerDown}
 		onFilePointerMove={handleFilePointerMove}
 		onFilePointerEnd={handleFilePointerEnd}
@@ -1174,6 +1184,7 @@
 		onHandlePermanentDeleteFolder={handlePermanentDeleteFolder}
 		onHandleRestoreWorkspace={handleRestoreWorkspace}
 		onHandlePermanentDeleteWorkspace={handlePermanentDeleteWorkspace}
+		onEmptyTrash={handleEmptyTrash}
 		onFilePointerDown={handleFilePointerDown}
 		onFilePointerMove={handleFilePointerMove}
 		onFilePointerEnd={handleFilePointerEnd}

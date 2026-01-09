@@ -62,6 +62,7 @@
 		onHandlePermanentDeleteFolder: (id: string) => void;
 		onHandleRestoreWorkspace: (id: string) => void;
 		onHandlePermanentDeleteWorkspace: (id: string) => void;
+		onEmptyTrash: () => void | Promise<void>;
 		onFilePointerDown: (event: PointerEvent, fileId: string) => void;
 		onFilePointerMove: (event: PointerEvent) => void;
 		onFilePointerEnd: (fileId: string) => void;
@@ -112,6 +113,7 @@
 		onHandlePermanentDeleteFolder,
 		onHandleRestoreWorkspace,
 		onHandlePermanentDeleteWorkspace,
+		onEmptyTrash,
 		clipboard,
 		dragArmingId,
 		folderDragArmingId,
@@ -186,13 +188,23 @@
 		<div class="flex min-h-[calc(100vh-4rem)] flex-1 flex-col overflow-auto p-4 md:p-8">
 			{#if isTrashView}
 				<div
-					class="mb-4 flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-muted-foreground"
+					class="mb-4 flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-muted-foreground"
 				>
-					<Trash class="mt-0.5 h-4 w-4 text-destructive" />
-					<div class="space-y-1">
-						<p class="font-medium text-foreground">Trash</p>
-						<p>Items here are permanently deleted after {trashRetentionDays} days.</p>
+					<div class="flex items-start gap-3">
+						<Trash class="mt-0.5 h-4 w-4 text-destructive" />
+						<div class="space-y-1">
+							<p class="font-medium text-foreground">Trash</p>
+							<p>Items here are permanently deleted after {trashRetentionDays} days.</p>
+						</div>
 					</div>
+					<Button
+						size="sm"
+						variant="outline"
+						class="whitespace-nowrap text-destructive hover:bg-destructive/10 hover:text-destructive"
+						onclick={onEmptyTrash}
+					>
+						Empty Trash
+					</Button>
 				</div>
 			{/if}
 			{#if isLoading}
