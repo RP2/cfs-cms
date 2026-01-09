@@ -16,7 +16,6 @@ export async function compressImage(file: File): Promise<File> {
 
 	try {
 		// Dynamically import to reduce initial bundle size and avoid server-side issues
-		// @ts-expect-error - browser-image-compression is dynamically loaded in browser
 		const imageCompression = await import('browser-image-compression');
 
 		const compressed = await imageCompression.default(file, {
