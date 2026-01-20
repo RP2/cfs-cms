@@ -1,0 +1,43 @@
+{
+	"$schema": "https://btca.dev/btca.schema.json",
+	"resources": [
+		{
+			"name": "svelte",
+			"type": "git",
+			"url": "https://github.com/sveltejs/svelte.dev",
+			"branch": "main",
+			"searchPath": "apps/svelte.dev",
+			"specialNotes": "Svelte docs website. Focus on content directory for markdown docs."
+		},
+		{
+			"name": "tailwind",
+			"type": "git",
+			"url": "https://github.com/tailwindlabs/tailwindcss.com",
+			"branch": "main",
+			"searchPath": "src/docs"
+		},
+		{
+			"name": "cloudflareWorkers",
+			"type": "git",
+			"url": "https://github.com/cloudflare/cloudflare-docs",
+			"branch": "production"
+		},
+		{
+			"name": "vite",
+			"type": "git",
+			"url": "https://github.com/vitejs/vite",
+			"branch": "main",
+			"searchPath": "docs"
+		},
+		{
+			"name": "typescript",
+			"type": "git",
+			"url": "https://github.com/microsoft/TypeScript-Website",
+			"branch": "v2",
+			"searchPath": "docs"
+		}
+	],
+	"model": "claude-haiku-4-5",
+	"provider": "opencode",
+	"providerTimeoutMs": 300000
+}
