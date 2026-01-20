@@ -18,23 +18,15 @@ npm run dev
 
 ## 📚 Documentation
 
-Start here: **[docs/INDEX.md](./docs/INDEX.md)** ⭐ - Quick navigation guide
+**Start here**: **[docs/INDEX.md](./docs/INDEX.md)** ⭐ - Complete navigation guide with reading paths
 
-### Essential Documentation
+**For AI Assistants**: **[AI-CONTEXT.md](./AI-CONTEXT.md)** - Primary development guide for agentic coding
 
-- **[docs/PHASE1_COMPLETE.md](./docs/PHASE1_COMPLETE.md)** - Phase 1 implementation review
+**Key Documents**:
 - **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - Technical architecture & patterns
-- **[docs/TODO.md](./docs/TODO.md)** - Tasks, progress, and how to start Phase 2
-- **[docs/PHASE2_API_CONTRACT.md](./docs/PHASE2_API_CONTRACT.md)** - API specifications (for Phase 2)
-- **[docs/BACKEND_MIGRATION.md](./docs/BACKEND_MIGRATION.md)** - Backend integration guide (for Phase 2)
-
-### Reference
-
-- **[docs/DATABASE.md](./docs/DATABASE.md)** - D1 schema design (11 tables)
-- **[docs/PROJECT_CONTEXT.md](./docs/PROJECT_CONTEXT.md)** - Architecture, decisions, tech stack
-- **[docs/ROADMAP.md](./docs/ROADMAP.md)** - 8-phase development plan
-- **[docs/DEVELOPMENT.md](./docs/DEVELOPMENT.md)** - Local dev setup & commands
-- **[docs/COMPONENTS.md](./docs/COMPONENTS.md)** - UI component inventory
+- **[docs/TODO.md](./docs/TODO.md)** - Current tasks and next steps
+- **[docs/PHASE2_API_CONTRACT.md](./docs/PHASE2_API_CONTRACT.md)** - API specifications
+- **[docs/BACKEND_MIGRATION.md](./docs/BACKEND_MIGRATION.md)** - Backend integration guide
 
 ## 🎯 What This Project Is
 
@@ -76,7 +68,7 @@ npm run lint
 
 ### For AI Assistants (Claude, Copilot, etc.)
 
-1. Read [.github/copilot-instructions.md](./.github/copilot-instructions.md) - Context & patterns
+1. Read [AI-CONTEXT.md](./AI-CONTEXT.md) - Complete development guide
 2. Study [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) - Technical details
 3. Review [docs/PHASE2_API_CONTRACT.md](./docs/PHASE2_API_CONTRACT.md) - Requirements
 4. Reference [docs/BACKEND_MIGRATION.md](./docs/BACKEND_MIGRATION.md) - Code examples
@@ -171,15 +163,16 @@ See [docs/TODO.md](./docs/TODO.md) for detailed task list.
 
 ## 🤖 For AI Assistance
 
-Use these files as context when working with Claude, Copilot, or Cursor:
+**Primary Context**: [AI-CONTEXT.md](./AI-CONTEXT.md) - Complete development guide for agentic coding
 
-- [.github/copilot-instructions.md](./.github/copilot-instructions.md) - Full AI instructions
+**IDE Integration**: 
+- `.cursorrules` auto-loads in Cursor IDE
+- `.github/copilot-instructions.md` for GitHub Copilot
+
+**Reference**:
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) - Technical patterns & examples
-- [docs/PHASE2_API_CONTRACT.md](./docs/PHASE2_API_CONTRACT.md) - API spec for reference
-- [docs/BACKEND_MIGRATION.md](./docs/BACKEND_MIGRATION.md) - Code migration examples
+- [docs/PHASE2_API_CONTRACT.md](./docs/PHASE2_API_CONTRACT.md) - API specifications
 - [docs/TODO.md](./docs/TODO.md) - Current tasks
-
-The `.cursorrules` file auto-loads in Cursor IDE for automatic context.
 
 ## Tech Stack
 

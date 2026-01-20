@@ -108,7 +108,7 @@
 
 ### Getting Started as AI Model
 
-1. Read `.github/copilot-instructions.md`
+1. Read `AI-CONTEXT.md` (primary context)
 2. Study ARCHITECTURE.md
 3. Review PHASE2_API_CONTRACT.md
 4. Reference BACKEND_MIGRATION.md examples
