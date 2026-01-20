@@ -23,6 +23,7 @@ npm run dev
 **For AI Assistants**: **[AI-CONTEXT.md](./AI-CONTEXT.md)** - Primary development guide for agentic coding
 
 **Key Documents**:
+
 - **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - Technical architecture & patterns
 - **[docs/TODO.md](./docs/TODO.md)** - Current tasks and next steps
 - **[docs/PHASE2_API_CONTRACT.md](./docs/PHASE2_API_CONTRACT.md)** - API specifications
@@ -165,11 +166,13 @@ See [docs/TODO.md](./docs/TODO.md) for detailed task list.
 
 **Primary Context**: [AI-CONTEXT.md](./AI-CONTEXT.md) - Complete development guide for agentic coding
 
-**IDE Integration**: 
+**IDE Integration**:
+
 - `.cursorrules` auto-loads in Cursor IDE
 - `.github/copilot-instructions.md` for GitHub Copilot
 
 **Reference**:
+
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) - Technical patterns & examples
 - [docs/PHASE2_API_CONTRACT.md](./docs/PHASE2_API_CONTRACT.md) - API specifications
 - [docs/TODO.md](./docs/TODO.md) - Current tasks

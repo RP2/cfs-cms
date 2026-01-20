@@ -43,16 +43,16 @@ All UI/UX components, CRUD operations, and interactivity implemented. See [PHASE
   - Fallback option: Encode chunks as base64 in JSON (adds 33% overhead per chunk)
   - Testing blocked locally until resolved
 
-**⚠️ BEFORE PRODUCTION (Optional Optimizations):**
+**⚠️ BEFORE PRODUCTION (Required Optimizations):**
 
-- [ ] **Add presigned R2 URL upload** (alternative to chunked server-mediated)
-  - Bypasses Worker memory limits completely
-  - More complex CORS setup
-  - Less secure for open-source (client has direct R2 access)
-  - Decision: Keep server-mediated for simplicity unless performance issues arise
+- [ ] **Implement R2 multipart uploads** (replace chunked server-mediated)
+  - Cloudflare's official recommended approach for file uploads
+  - Direct to R2 storage with parallel part uploads
+  - Better performance, scalability, and reliability than chunked approach
+  - See `docs/UPLOAD_IMPLEMENTATION.md` for complete implementation guide
 - [ ] **Add client-side image optimization UI** - Already installed `browser-image-compression`
   - Add toggle in UploadModal: "Optimize images for web"
-  - Call `compressImage()` before `uploadFileInChunks()`
+  - Call `compressImage()` before upload (works with both chunked and multipart)
   - Show file size before/after in UI
   - Reduce storage costs 60-80%
 

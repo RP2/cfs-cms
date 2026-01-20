@@ -5,8 +5,9 @@
 ## Quick Start for AI Agents
 
 **Essential Reading Path** (15 minutes):
+
 1. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) - Technical patterns (15 min)
-2. [docs/PHASE2_API_CONTRACT.md](docs/PHASE2_API_CONTRACT.md) - API specs (30 min) 
+2. [docs/PHASE2_API_CONTRACT.md](docs/PHASE2_API_CONTRACT.md) - API specs (30 min)
 3. [docs/TODO.md](docs/TODO.md) - Current tasks (5 min)
 
 **Current Phase**: Phase 1 ✅ Complete → Phase 2 🚀 Backend Integration In Progress
@@ -16,7 +17,7 @@
 **Framework**: SvelteKit (v2+) with Svelte 5 runes (`$state`, `$derived`, `$props`, `$effect`)  
 **UI**: shadcn-svelte + Tailwind CSS 4.1.17 (theme colors ONLY)  
 **Icons**: lucide-svelte (NEVER emojis)  
-**Backend**: Cloudflare Workers + D1 (SQLite) + R2 storage  
+**Backend**: Cloudflare Workers + D1 (SQLite) + R2 storage
 
 ### Three-Layer Architecture (Critical)
 
@@ -25,6 +26,7 @@ UI Components → dataService → Svelte Stores → Mock Data (Phase 1) / API (P
 ```
 
 **Key Rules**:
+
 1. **Components**: Import stores, derive reactive data with `$derived`, call dataService functions
 2. **dataService.ts**: All CRUD operations - ONLY file that changes in Phase 2
 3. **Stores**: Hold ALL workspace data (components filter by workspace)
@@ -100,9 +102,9 @@ npm run cf:deploy        # Deploy to Cloudflare Workers
 </script>
 
 {#if $viewType === 'grid'}
-  <GridView {folders} {formatFileSize} onHandleCreate={handleCreate} />
+	<GridView {folders} {formatFileSize} onHandleCreate={handleCreate} />
 {:else}
-  <ListView {folders} {formatFileSize} onHandleCreate={handleCreate} />
+	<ListView {folders} {formatFileSize} onHandleCreate={handleCreate} />
 {/if}
 ```
 
@@ -114,24 +116,26 @@ import { workspaceFolders } from '$lib/stores';
 import { get } from 'svelte/store';
 
 export function createFolder(parentId: string | null, name: string): Folder {
-  const folders = get(workspaceFolders);
-  const newFolder = { /* ... */ };
-  workspaceFolders.set([...folders, newFolder]);
-  return newFolder;
+	const folders = get(workspaceFolders);
+	const newFolder = {
+		/* ... */
+	};
+	workspaceFolders.set([...folders, newFolder]);
+	return newFolder;
 }
 
 // Phase 2: Replace with API call
 export async function createFolder(parentId: string | null, name: string): Promise<Folder> {
-  const response = await fetch('/api/folders', {
-    method: 'POST',
-    body: JSON.stringify({ parentId, name })
-  });
-  const newFolder = await response.json();
+	const response = await fetch('/api/folders', {
+		method: 'POST',
+		body: JSON.stringify({ parentId, name })
+	});
+	const newFolder = await response.json();
 
-  // Update local store for immediate UI feedback
-  const folders = get(workspaceFolders);
-  workspaceFolders.set([...folders, newFolder]);
-  return newFolder;
+	// Update local store for immediate UI feedback
+	const folders = get(workspaceFolders);
+	workspaceFolders.set([...folders, newFolder]);
+	return newFolder;
 }
 ```
 
@@ -161,8 +165,7 @@ export async function createFolder(parentId: string | null, name: string): Promi
 	import { Folder } from 'lucide-svelte';
 </script>
 
-<!-- ❌ WRONG -->
-<div>📁 Folder</div>
+<!-- ❌ WRONG --><div>📁 Folder</div>
 ```
 
 ## Key File Locations
@@ -178,17 +181,22 @@ export async function createFolder(parentId: string | null, name: string): Promi
 ## Project-Specific Workflows
 
 ### Deletion Behavior
+
 - **Files/Folders**: Soft delete with `deletedAt` (30-day trash, workspace-scoped)
 - **Workspaces**: Permanent delete (requires empty workspace, throws error if not)
 
 ### Copy/Paste Architecture
+
 Copied files are **independent database records** sharing the same R2 storage:
+
 - Each copy has unique `id`, `workspaceId`, `folderId`, `name`, `starred`, `tagIds`
 - All copies share `storagePath` (content-addressed by checksum)
 - R2 file only deleted when ALL copies removed (reference counting)
 
 ### Drag-Drop System
+
 Centralized in `src/lib/utils/drag.ts`:
+
 - `DRAG_ARM_DELAY_MS = 30` - Delay before drag activates
 - `DRAG_MOVE_THRESHOLD_PX = 8` - Movement threshold to start drag
 - ViewWrapper owns drag controller, GridView/ListView use hooks
@@ -247,6 +255,7 @@ See [docs/BACKEND_MIGRATION.md](docs/BACKEND_MIGRATION.md) for step-by-step guid
 ## Handoff Information
 
 When passing to another AI:
+
 - Reference this file first for complete context
 - Check `docs/TODO.md` for current tasks
 - Review `docs/ARCHITECTURE.md` for technical patterns

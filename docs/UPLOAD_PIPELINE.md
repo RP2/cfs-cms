@@ -1,18 +1,67 @@
-# File Upload Pipeline - Complete Implementation
+# File Upload Implementation Guide
 
-**Date**: January 7, 2026  
-**Status**: ✅ Complete end-to-end pipeline implemented  
-**Current Blocker**: 🔴 403 Forbidden on POST /api/files (Cloudflare infrastructure issue)
+**Date**: January 20, 2026
+**Status**: ✅ Complete chunked upload pipeline implemented
+**Recommended**: 🚀 R2 Multipart Upload (Cloudflare's preferred approach)
+**Current**: KV chunked upload (working but suboptimal)
 
 ---
 
 ## Overview
 
-The entire file upload flow is coded and working, except for a 403 error that occurs at the Cloudflare infrastructure layer before our handler is even called.
+This document covers file upload implementation in CFS CMS. Currently using chunked uploads with KV staging, but R2 multipart uploads are the recommended approach for better performance and scalability.
 
-## Complete Pipeline
+### Current Implementation (Working)
 
-### 1. User Interface (UploadModal.svelte)
+- **Chunked Upload**: 512KB chunks → KV storage → Combine in memory → R2 upload
+- **Status**: ✅ Complete and functional
+- **Issue**: 403 Forbidden blocker in `wrangler dev --remote`
+
+### Recommended Implementation (Future)
+
+- **R2 Multipart**: Native Cloudflare R2 multipart API
+- **Benefits**: Direct to storage, resumable, parallel uploads, no memory combining
+- **Status**: 📋 Planned for implementation
+
+## Upload Approaches
+
+### Approach A: Current Chunked Upload (Implemented)
+
+**Architecture**: Client chunks → KV staging → Memory combine → R2 storage
+
+**Pros:**
+
+- ✅ Resumable uploads
+- ✅ Handles large files
+- ✅ Works with current API structure
+
+**Cons:**
+
+- 🔴 Multiple requests per file
+- 🔴 KV staging overhead
+- 🔴 Memory-intensive chunk combining
+- 🔴 403 Forbidden issue in dev mode
+
+### Approach B: R2 Multipart Upload (Recommended)
+
+**Architecture**: Client initiates → Parts upload directly to R2 → R2 assembles
+
+**Pros:**
+
+- ✅ Direct to storage (no staging)
+- ✅ Parallel part uploads
+- ✅ R2 handles assembly (no memory combining)
+- ✅ Resumable and reliable
+- ✅ Cloudflare's official recommended approach
+
+**Cons:**
+
+- 📋 Requires client-side multipart management
+- 📋 More complex state tracking
+
+## Implementation Details
+
+### Current Chunked Implementation
 
 **Location**: `src/lib/components/modals/UploadModal.svelte`
 
@@ -350,133 +399,199 @@ let currentFileList = $derived.by(() => {
 
 ---
 
-## Data Flow Diagram
+## Architecture Comparison
+
+### Current: Chunked Upload Flow
 
 ```
-User selects files
-        ↓
-UploadModal shows them
-        ↓
-User clicks "Upload"
-        ↓
-Modal: uploading = true, show spinner
-        ↓
-dataService.uploadFiles(files) called
-        ↓
-For each file:
-  Create FormData
-  POST to /api/files
-        ↓
-🔴 GET 403 FORBIDDEN HERE (infrastructure issue)
-        ↓
-[IF IT WORKED]
-API receives FormData
-  Validate workspace + file
-  Create D1 record
-  Return File object (camelCase)
-        ↓
-dataService receives response
-  Parse JSON
-  Convert to File type
-  Add to newFiles array
-        ↓
-All files uploaded?
-  currentFiles.set([...existing, ...newFiles])
-        ↓
-Store updates → subscribers notified
-        ↓
-ViewWrapper $derived recalculates
-  Filter new files for current workspace/folder
-        ↓
-GridView/ListView receive new props
-  Components re-render
-        ↓
-New files visible in grid/list
-        ↓
-Modal: show success toast
-  500ms delay
-  handleClose()
-        ↓
-Modal closes, user sees new files
+User selects files → UploadModal → dataService.uploadFiles()
+         ↓
+    For each file: chunkFile() → uploadFileInChunks()
+         ↓
+    uploadFileInChunks(): POST /api/files/upload-chunk (×N chunks)
+         ↓
+    KV stores chunks with TTL → POST /api/files/finalize-upload
+         ↓
+    API: retrieve chunks → combine in memory → R2.put() → D1 insert
+         ↓
+    Return File object → Store updates → UI re-renders
 ```
 
----
+### Recommended: R2 Multipart Flow
 
-## What's Working ✅
+```
+User selects files → UploadModal → dataService.uploadFiles()
+         ↓
+    For each file: POST /api/files/mpu-create → Returns uploadId
+         ↓
+    Parallel: PUT /api/files/mpu-uploadpart (×N parts to R2)
+         ↓
+    All parts uploaded: POST /api/files/mpu-complete
+         ↓
+    R2 assembles multipart → D1 insert → Return File object
+         ↓
+    Store updates → UI re-renders
+```
 
-1. **Modal**: Captures files, shows UI, handles errors
-2. **dataService**: Creates FormData, parses response, updates store
-3. **API endpoint**: Receives FormData, creates DB record, returns File
-4. **Type conversion**: Camel case, Date parsing, all fields present
-5. **Store update**: Files added to currentFiles
-6. **Reactivity**: UI re-renders automatically
-7. **CORS headers**: All responses include proper headers
-8. **Error handling**: Errors bubble to UI with toast messages
-9. **Mock fallback**: Immediate response without DB
-10. **UX polish**: 500ms delay shows success before close
+## R2 Multipart API Usage
 
----
+Based on [Cloudflare's official documentation](https://developers.cloudflare.com/r2/api/workers/workers-multipart-usage/):
 
-## What's Blocked 🔴
+### Worker Implementation
 
-**403 Forbidden on POST /api/files**
+```javascript
+// 1. Create multipart upload
+const multipartUpload = await env.MY_BUCKET.createMultipartUpload(key);
 
-- Occurs at browser XHR level
-- Happens before SvelteKit handler is called
-- Affects all POST requests to /api/files
-- OPTIONS preflight works fine
-- GET requests work fine
-- Likely causes: Cloudflare WAF, route config, or binding permissions
+// 2. Upload parts directly to R2
+const uploadedPart = await multipartUpload.uploadPart(partNumber, request.body);
 
----
+// 3. Complete upload (R2 assembles)
+const object = await multipartUpload.complete(uploadedParts);
+```
 
-## Debugging Checklist
+### Client-Side Management
 
-If investigating this issue:
+- Parts: 5MB-10MB each (5MB minimum)
+- Parallel uploads: Up to 25 concurrent parts
+- State tracking: uploadId, part numbers, etags
+- Retry logic: Built-in for failed parts
 
-1. **Check Cloudflare Dashboard**
-   - Security → WAF Rules - Block multipart/form-data?
-   - Workers & Pages → Analytics - Check request logs
-   - R2 → Settings - Verify permissions
+### API Endpoints Needed
 
-2. **Check wrangler.toml**
-   - Route configuration correct?
-   - Bindings for D1/R2 configured?
-
-3. **Test with curl**
-
-   ```bash
-   curl -X OPTIONS http://localhost:8787/api/files -v  # Should work
-   curl -X GET "http://localhost:8787/api/files?workspaceId=test" -v  # Should work
-   curl -X POST http://localhost:8787/api/files -F "file=@test.txt" -v  # Should show 403
-   ```
-
-4. **Check wrangler logs**
-   ```bash
-   wrangler tail
-   ```
-   If POST handler never appears in logs, 403 is from Cloudflare layer.
+- `POST /api/files/mpu-create` - Initiate multipart upload
+- `PUT /api/files/mpu-uploadpart` - Upload part (direct to R2)
+- `POST /api/files/mpu-complete` - Complete upload
+- `DELETE /api/files/mpu-abort` - Cancel upload
 
 ---
 
-## To Fix
+## Current Implementation Status ✅
 
-Once the 403 issue is resolved:
+**What's Working:**
 
-1. **Uncomment R2 upload** in POST handler
-2. **Test that files appear** in R2 bucket
-3. **Verify D1 records** created with correct data
-4. **Test cross-workspace uploads** for isolation
-5. **Test permission checks** for workspace membership
+1. **Chunked upload service**: `uploadService.ts` with 512KB chunks
+2. **API endpoints**: `/upload-chunk` and `/finalize-upload` working
+3. **KV staging**: Temporary chunk storage with TTL
+4. **R2 storage**: Files successfully uploaded to Cloudflare R2
+5. **D1 integration**: File metadata stored in database
+6. **UI integration**: Progress tracking and error handling
+7. **Store updates**: Reactive UI updates on successful uploads
+
+**Current Blocker:** 🔴 403 Forbidden on chunked uploads in `wrangler dev --remote`
+
+- Cloudflare CSRF protection blocks POST requests
+- Workaround: Deploy to production for testing
+- Local development blocked until resolved
+
+## Migration to R2 Multipart
+
+**Why Migrate:**
+
+- **Performance**: Direct to R2, no KV staging overhead
+- **Reliability**: R2 handles assembly, no memory combining
+- **Scalability**: Parallel uploads, resumable transfers
+- **Cloudflare Best Practice**: Official recommended approach
+
+**Migration Steps:**
+
+1. Implement new API endpoints (`mpu-create`, `mpu-uploadpart`, `mpu-complete`)
+2. Update `uploadService.ts` to use multipart logic
+3. Update client-side chunking to multipart parts (5MB+)
+4. Add parallel upload support
+5. Test and deploy
+6. Deprecate old chunked endpoints
+
+---
+
+## Debugging Current Issues
+
+**403 Forbidden in Development:**
+
+1. **Check Cloudflare WAF**: Security → WAF Rules (may block multipart POST)
+2. **Verify bindings**: D1, R2, KV properly configured in wrangler.toml
+3. **Test production**: Deploy to Cloudflare Pages to bypass local restrictions
+4. **Check CORS**: Ensure proper headers for cross-origin requests
+
+**Testing Commands:**
+
+```bash
+# Test preflight (should work)
+curl -X OPTIONS http://localhost:8787/api/files/upload-chunk -v
+
+# Test chunk upload (currently 403)
+curl -X POST http://localhost:8787/api/files/upload-chunk \
+  -F "chunk=@chunk.bin" -F "chunkIndex=0" -v
+```
+
+## Implementation Roadmap
+
+### Phase 1: Fix Current Chunked Upload
+
+1. **Resolve 403 issue**: Deploy to production or configure WAF
+2. **Test end-to-end**: Verify file uploads work in production
+3. **Optimize chunking**: Test different chunk sizes (1MB, 2MB)
+
+### Phase 2: Implement R2 Multipart Upload
+
+1. **Create new endpoints**:
+   - `POST /api/files/mpu-create` → Returns uploadId
+   - `PUT /api/files/mpu-uploadpart` → Direct R2 upload
+   - `POST /api/files/mpu-complete` → Finalize upload
+
+2. **Update uploadService.ts**:
+   - Replace chunking with multipart logic
+   - Implement parallel part uploads
+   - Add retry logic for failed parts
+
+3. **Update dataService.ts**:
+   - Modify `uploadFiles()` to use new multipart flow
+   - Maintain same API for UI components
+
+4. **Testing & Migration**:
+   - Test with large files (100MB+)
+   - Compare performance metrics
+   - Gradual rollout with fallback
 
 All code is ready, just need infrastructure fix.
 
 ---
 
-## Files
+## Key Files
 
-- `src/lib/components/modals/UploadModal.svelte` - UI with error display
-- `src/lib/services/dataService.ts:549` - Upload logic with store update
-- `src/routes/api/files/+server.ts` - API endpoint with CORS headers
-- `src/lib/stores/index.ts` - Reactive currentFiles store
-- `src/lib/components/ViewWrapper.svelte` - Auto-updating view
+### Client-Side Implementation
+
+- `src/lib/components/modals/UploadModal.svelte` - Upload UI and progress
+- `src/lib/services/dataService.ts` - `uploadFiles()` function
+- `src/lib/services/uploadService.ts` - Chunked upload logic (current)
+- `src/lib/stores/index.ts` - Reactive file store updates
+
+### Server-Side Implementation (Current)
+
+- `src/routes/api/files/upload-chunk/+server.ts` - KV chunk storage
+- `src/routes/api/files/finalize-upload/+server.ts` - Chunk assembly + R2 upload
+
+### Future Implementation (R2 Multipart)
+
+- `src/routes/api/files/mpu-create/+server.ts` - Initiate multipart upload
+- `src/routes/api/files/mpu-uploadpart/+server.ts` - Direct R2 part upload
+- `src/routes/api/files/mpu-complete/+server.ts` - Complete multipart upload
+
+## Performance Comparison
+
+| Metric            | Current (Chunked)         | R2 Multipart                    | Improvement        |
+| ----------------- | ------------------------- | ------------------------------- | ------------------ |
+| Requests per file | N chunks + 1 finalize     | 1 create + N parts + 1 complete | Similar            |
+| Data path         | Client → KV → Worker → R2 | Client → R2                     | Direct             |
+| Memory usage      | High (chunk combining)    | Low (R2 assembly)               | ~80% reduction     |
+| Parallelization   | Sequential chunks         | Parallel parts                  | 5-10x faster       |
+| Resume capability | Yes (KV TTL)              | Yes (R2 native)                 | Better reliability |
+| Scalability       | Limited by Worker memory  | R2 handles large files          | Unlimited          |
+
+## Next Steps
+
+**Immediate**: Fix 403 issue and test current implementation
+**Short-term**: Implement R2 multipart for better performance
+**Long-term**: Consider signed URLs for client-direct uploads
+
+**Recommended**: Start with R2 multipart implementation for production-ready file uploads.

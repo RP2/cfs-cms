@@ -5,16 +5,19 @@
 ## Critical Patterns
 
 ### Three-Layer Architecture
+
 ```
 UI Components → dataService → Svelte Stores → Mock Data (Phase 1) / API (Phase 2+)
 ```
 
 **Key Rules**:
+
 - Components: Import stores, use `$derived`, call dataService functions
 - dataService.ts: ALL CRUD operations - only file that changes in Phase 2
 - Mock data: ONLY imported by `src/lib/stores/index.ts`
 
 ### ✅ Use $derived for Reactive Lists
+
 ```svelte
 <script lang="ts">
 	import { workspaceFolders, currentWorkspace } from '$lib/stores';
@@ -28,6 +31,7 @@ UI Components → dataService → Svelte Stores → Mock Data (Phase 1) / API (P
 ```
 
 ### ✅ Theme Colors Only
+
 ```svelte
 <!-- ❌ WRONG: Raw Tailwind -->
 <div class="bg-blue-500 text-gray-600">
@@ -37,17 +41,18 @@ UI Components → dataService → Svelte Stores → Mock Data (Phase 1) / API (P
 ```
 
 ### ✅ lucide-svelte Icons Only
+
 ```svelte
 <!-- ✅ CORRECT -->
 <script>
 	import { Folder } from 'lucide-svelte';
 </script>
 
-<!-- ❌ WRONG: Emojis -->
-<div>📁 Folder</div>
+<!-- ❌ WRONG: Emojis --><div>📁 Folder</div>
 ```
 
 ## Essential Commands
+
 ```bash
 npm run dev          # Dev server
 npm run check        # TypeScript checking
@@ -55,12 +60,14 @@ npm run lint         # ESLint + Prettier
 ```
 
 ## Key Files
+
 - **Business Logic**: `src/lib/services/dataService.ts`
 - **State**: `src/lib/stores/index.ts`
 - **Types**: `src/lib/types/index.ts`
 - **Architecture**: [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md)
 
 ## Common Pitfalls
+
 ❌ Don't import mock data in components  
 ❌ Don't use functions for reactive lists  
 ❌ Don't use raw Tailwind classes  

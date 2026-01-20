@@ -8,17 +8,17 @@
 
 ## Essential Documents (Start Here)
 
-### 0. UPLOAD_PIPELINE.md (NEW)
+### 0. UPLOAD_IMPLEMENTATION.md (NEW)
 
-**Complete file upload implementation walkthrough**
+**Complete file upload guide covering all approaches**
 
-- End-to-end pipeline from UI to API
-- All code snippets included
-- Current 403 blocker explained
-- Debugging checklist
+- Current chunked implementation (working)
+- Recommended R2 multipart uploads
+- Migration strategy and performance comparison
+- API reference and troubleshooting
 
-**Read time**: 15 minutes  
-**For**: Understanding current work
+**Read time**: 25 minutes
+**For**: Understanding upload architecture and future improvements
 
 ### 1. PHASE1_COMPLETE.md
 
@@ -86,27 +86,34 @@
 
 ## Reference Documents
 
+- **SETUP_COMPLETE.md** - System overview and getting started guide
 - **PHASE2_STATUS.md** - Current Phase 2 progress and blockers
 - **DATABASE.md** - D1 schema and relationships
 - **PROJECT_CONTEXT.md** - Tech stack decisions
 - **ROADMAP.md** - 8-phase development plan
 - **COMPONENTS.md** - UI component inventory
 - **DEVELOPMENT.md** - Local development guide
+- **CLOUDFLARE_SETUP.md** - Infrastructure setup
 - **README.md** - Project overview
 
 ---
 
 ## Quick Reference
 
-### Getting Started as Phase 2 Developer
+### Getting Started as Developer
 
-1. Read PHASE1_COMPLETE.md → ARCHITECTURE.md (35 min)
-2. Review PHASE2_API_CONTRACT.md (30 min)
-3. Follow BACKEND_MIGRATION.md step-by-step (20-30 hrs)
-4. Modify only `src/lib/services/dataService.ts`
-5. All components remain unchanged
+1. Read SETUP_COMPLETE.md → PROJECT_CONTEXT.md (40 min)
+2. Check TODO.md for current tasks
+3. Follow DEVELOPMENT.md for setup (15 min)
+4. Start with high-priority tasks
 
-### Getting Started as AI Model
+### For Upload Implementation
+
+1. Read UPLOAD_IMPLEMENTATION.md for complete guide
+2. Current: Chunked uploads (working but limited)
+3. Recommended: R2 multipart uploads (better performance)
+
+### Getting Started as AI Assistant
 
 1. Read `AI-CONTEXT.md` (primary context)
 2. Study ARCHITECTURE.md
@@ -123,7 +130,10 @@
 - **Svelte Stores**: 17
 - **Type Definitions**: 6
 - **Modals**: 9
+- **API Endpoints**: 27 (Phase 2)
+- **Upload Methods**: Chunked (current) + R2 Multipart (recommended)
 - **Features**: Grid/list view, drag-drop, tags, trash, copy/paste, search
+- **Documentation Files**: 18+ comprehensive guides
 
 ---
 
@@ -137,5 +147,6 @@
 
 ---
 
-**Start with**: [PHASE1_COMPLETE.md](PHASE1_COMPLETE.md)  
-**Then follow**: [BACKEND_MIGRATION.md](BACKEND_MIGRATION.md)
+**Start with**: [SETUP_COMPLETE.md](SETUP_COMPLETE.md)
+**Then follow**: [UPLOAD_IMPLEMENTATION.md](UPLOAD_IMPLEMENTATION.md) (for uploads)
+**Or**: [BACKEND_MIGRATION.md](BACKEND_MIGRATION.md) (for backend integration)
