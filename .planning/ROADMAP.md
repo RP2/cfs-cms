@@ -36,16 +36,15 @@ CFS CMS is a Google Drive-like content management system built with SvelteKit an
 **Wave 1 (Parallel execution):**
 
 - [ ] 02-01-PLAN.md — Cloudflare infrastructure setup (wrangler.toml, R2 CORS, deployment)
-- [ ] 02-02-PLAN.md — Lucia auth foundation (installation, database schema, middleware)
+- [ ] 02-02-PLAN.md — Lucia auth foundation (installation, configuration, database schema)
 
-**Wave 2 (Sequential after Wave 1):**
+**Wave 2 (Parallel execution after Wave 1):**
 
-- [ ] 02-03-PLAN.md — Authentication UI (login/register pages, form validation)
-- [ ] 02-04-PLAN.md — API protection (auth guards for all endpoints)
-
-**Wave 3 (Final integration):**
-
-- [ ] 02-05-PLAN.md — Data service integration (replace 'user_1' with auth context)
+- [ ] 02-03-PLAN.md — Authentication UI (login/register pages, layout auth handling)
+- [ ] 02-04-PLAN.md — API protection (auth guards for workspaces/files endpoints)
+- [ ] 02-05-PLAN.md — Data service auth integration (user context in dataService/stores)
+- [ ] 02-06-PLAN.md — Auth middleware deployment (SvelteKit hooks, infrastructure deployment)
+- [ ] 02-07-PLAN.md — API protection remaining (auth guards for folders/tags/trash/search)
 
 **See:** `.planning/phases/02-backend-integration/` for detailed plans
 
